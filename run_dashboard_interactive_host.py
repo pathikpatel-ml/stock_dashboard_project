@@ -355,18 +355,116 @@ def main_wsgi_server_initialization():
     initialize_app_data_and_layout()
     print(f"--- App Data and Layout Initialized for WSGI Server. {len(all_available_symbols_for_dashboard)} symbols in dropdown. ---")
 
+# ... (all your imports and function definitions) ...
+# ... (IS_ON_RENDER, RENDER_DISK_MOUNT_BASE, FIXED_BASE_PATH, ACTIVE_GROWTH_DF_PATH, etc. defined at the top) ...
+# ... (Global DataFrames initialized as empty) ...
+
+# Initialize Dash App Globally
+app = dash.Dash(__name__, external_stylesheets=['https://codepen.io/chriddyp/pen/bWLwgP.css'])
+app.title = "Stock Signal Dashboard"
+server = app.server # Expose Flask server for WSGI
+
+# --- Application Initialization Logic ---
+def initialize_app_for_server():
+    """Main initialization sequence for data and layout."""
+    global ACTIVE_GROWTH_DF_PATH # Ensure this is correctly set if modified by local input
+
+    print(f"SERVER INIT: Starting data initialization. IS_ON_RENDER: {IS_ON_RENDER}")
+    print(f"SERVER INIT: Using growth file: {ACTIVE_GROWTH_DF_PATH}")
+    print(f"SERVER INIT: Data disk path: {FIXED_BASE_PATH}")
+
+    if not ensure_candle_analysis_updated():
+        print("SERVER INIT WARNING: Could not ensure candle analysis data is up-to-date.")
+    
+    load_data_for_dashboard()
+    
+    app.layout = create_app_layout() # Assign layout to the global app instance
+    print(f"SERVER INIT: App layout assigned. {len(all_available_symbols_for_dashboard)} symbols in dropdown.")
+
+# --- Entry Point Logic ---
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run Stock Dashboard or update candle data.")
     parser.add_argument('--update-only', action='store_true', help='Only run candle analysis update and exit.')
     args = parser.parse_args()
 
     if args.update_only:
-        main_scheduled_task_run()
-    elif not IS_ON_RENDER: # If not update-only and not on Render, it's a local interactive run
-        main_local_interactive_run()
-    # If IS_ON_RENDER and not --update-only, this script is being imported by the WSGI server.
-    # The WSGI server will then use the 'server' object (app.server).
-    # The initialization for Render should happen *before* the WSGI server tries to use 'app.layout'.
-    # So, if it's on Render and not an update task, we initialize here too.
-    elif IS_ON_RENDER:
-        main_wsgi_server_initialization()
+        # This is for the Render Cron Job or local --update-only
+        # Ensure ACTIVE_GROWTH_DF_PATH is set correctly for this mode
+        if IS_ON_RENDER and (not ACTIVE_GROWTH_DF_PATH or ACTIVE_GROWTH_DF_PATH == os.path.join(os.path.dirname(__file__), SERVER_GROWTH_FILE_NAME)):
+            # Already set correctly at the top for Render
+            pass
+        elif not IS_ON_RENDER and not ACTIVE_GROWTH_DF_PATH: # Local --update-only and path not set by input
+            print("Local --update-only: ACTIVE_GROWTH_DF_PATH not set. Using default or exiting.")
+            default_local_growth_file = "Master_company_market_trend_analysis_20250525.csv" # Example
+            ACTIVE_GROWTH_DF_PATH = os.path.join(FIXED_BASE_PATH, default_local_growth_file) # Uses local FIXED_BASE_PATH
+            if not os.path.exists(ACTIVE_GROWTH_DF_PATH):
+                print(f"ERROR: Default local growth file for --update-only not found: {ACTIVE_GROWTH_DF_PATH}")
+                sys.exit(1)
+            print(f"Using default local growth file for update: {ACTIVE_GROWTH_DF_PATH}")
+        main_scheduled_task_run() # This function now just calls ensure_candle_analysis_updated
+    
+    else: # Not --update-only, so it's either local interactive or being imported by WSGI for Render web service
+        if not IS_ON_RENDER: # Local interactive run
+            main_local_interactive_run() # This will prompt for file, then call initialize_app_for_server, then app.run()
+        else:
+            # IS_ON_RENDER and not --update-only: This means Gunicorn is importing the module.
+            # The initialization should happen here, directly.
+            print("RENDER WSGI IMPORT: Initializing application...")
+            initialize_app_for_server()
+            print("RENDER WSGI IMPORT: Application initialized.")
+            # Gunicorn will use the 'server' object which now has a configured 'app' with a layout.
+
+elif IS_ON_RENDER:
+    # This block will execute when Gunicorn imports the module on Render
+    # and __name__ != '__main__' (because it's an import, not direct execution)
+    # This ensures that for the web service, initialization happens.
+    print("RENDER WSGI MODULE LOAD: Initializing application...")
+    initialize_app_for_server()
+    print("RENDER WSGI MODULE LOAD: Application initialized.")
+
+
+# Helper functions for main entry points
+def main_local_interactive_run():
+    global ACTIVE_GROWTH_DF_PATH
+    print("--- Stock Signal Dashboard Launcher (Local Interactive Mode) ---")
+    # ... (your input logic to set ACTIVE_GROWTH_DF_PATH) ...
+    while True:
+        growth_file_name_input = input(f"Enter NAME of symbol list CSV (e.g., my_stocks.csv) in '{FIXED_BASE_PATH}': ")
+        if not growth_file_name_input.lower().endswith('.csv'): growth_file_name_input += ".csv"
+        temp_path = os.path.join(FIXED_BASE_PATH, growth_file_name_input)
+        if os.path.exists(temp_path):
+            ACTIVE_GROWTH_DF_PATH = temp_path
+            print(f"Found symbol list file: {ACTIVE_GROWTH_DF_PATH}")
+            break
+        else: print(f"ERROR: File '{growth_file_name_input}' NOT FOUND. Try again or type 'exit'."); 
+        if input("Try again? (yes/exit): ").lower() == 'exit': sys.exit()
+
+    initialize_app_for_server() # Call the unified initialization
+    print("\n--- Starting Dash Web Server Locally ---")
+    app.run(debug=True)
+    print("Application has finished or was closed by the user.")
+    input("Press Enter to exit local mode...")
+
+def main_scheduled_task_run():
+    global ACTIVE_GROWTH_DF_PATH
+    print("--- Running in --update-only mode (Scheduled Task) ---")
+    # ACTIVE_GROWTH_DF_PATH logic for scheduled task should ensure it uses the repo file on Render
+    if IS_ON_RENDER:
+        ACTIVE_GROWTH_DF_PATH = os.path.join(os.path.dirname(__file__), SERVER_GROWTH_FILE_NAME)
+    elif not ACTIVE_GROWTH_DF_PATH: # Local test of --update-only
+        # Fallback or error if ACTIVE_GROWTH_DF_PATH wasn't set (e.g. by an assumed prior interactive run)
+        print("Local --update-only: ACTIVE_GROWTH_DF_PATH not set. Using default or exiting.")
+        default_local_growth_file = "Master_company_market_trend_analysis_20250525.csv" # Example
+        ACTIVE_GROWTH_DF_PATH = os.path.join(FIXED_BASE_PATH, default_local_growth_file)
+        if not os.path.exists(ACTIVE_GROWTH_DF_PATH):
+             print(f"ERROR: Default local growth file for --update-only not found: {ACTIVE_GROWTH_DF_PATH}")
+             sys.exit(1)
+        print(f"Using default local growth file for update: {ACTIVE_GROWTH_DF_PATH}")
+
+
+    if not ACTIVE_GROWTH_DF_PATH or not os.path.exists(ACTIVE_GROWTH_DF_PATH):
+        print(f"CRITICAL ERROR for Scheduled Task: Growth file path '{ACTIVE_GROWTH_DF_PATH}' invalid or missing.")
+        sys.exit(1)
+    if ensure_candle_analysis_updated(): print("Scheduled task: Candle analysis update successful.")
+    else: print("Scheduled task: Candle analysis update FAILED.")
+    sys.exit() # Exit after the task
