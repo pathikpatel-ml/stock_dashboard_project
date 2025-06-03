@@ -1,0 +1,48 @@
+name: Generate Daily Stock Signals
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Runs at 2 AM UTC daily (adjust as needed, e.g., after market close in your timezone)
+  workflow_dispatch: # Allows manual triggering from the Actions tab in GitHub
+
+jobs:
+  build-and-commit-signals:
+    runs-on: ubuntu-latest
+    # Grant write permissions to the GITHUB_TOKEN for this job
+    permissions:
+      contents: write # Allows actions/checkout to write to the repository (commit/push)
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # No explicit token needed here if using GITHUB_TOKEN with write permissions
+        fetch-depth: 0 # Fetches all history for git commands to work smoothly
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Or your preferred Python version
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas yfinance
+        # Add any other dependencies required by generate_daily_signals.py
+
+    - name: Configure Git User
+      # GITHUB_ACTOR is the user that triggered the workflow (often 'github-actions[bot]')
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+    - name: Run script to generate signals and commit
+      run: python generate_daily_signals.py
+      # env: # If your script needs environment variables, define them here
+        # SOME_API_KEY: ${{ secrets.YOUR_API_KEY_SECRET }}
+
+    # The python script generate_daily_signals.py now handles the git push.
+    # If it didn't, you'd add a step like this:
+    # - name: Push changes
+    #   run: git push origin HEAD:${{ github.ref_name }} # Pushes to the current branch
+    #   # Ensure you have authentication setup if the script doesn't handle it.
