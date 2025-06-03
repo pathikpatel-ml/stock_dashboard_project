@@ -45,4 +45,3 @@ jobs:
     # If it didn't, you'd add a step like this:
     # - name: Push changes
     #   run: git push origin HEAD:${{ github.ref_name }} # Pushes to the current branch
-    #   # Ensure you have authentication setup if the script doesn't handle it.
