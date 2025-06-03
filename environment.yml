@@ -1,0 +1,13 @@
+name: stock-dashboard-env # You can name your environment
+channels:
+  - defaults
+  - conda-forge # Good channel for many packages
+dependencies:
+  - python=3.13    # Specify your Python version
+  - pip            # To install packages via pip if needed
+  - pandas
+  - yfinance
+  # Add any other Conda packages your generate_daily_signals.py needs
+  # For packages not on Conda, you can list them under a pip section:
+  # - pip:
+  #   - some-pip-package
