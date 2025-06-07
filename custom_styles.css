@@ -1,0 +1,157 @@
+  ```css
+  /* assets/custom_styles.css */
+
+  body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f7f6; /* Light grey-green background */
+      color: #333;
+      margin: 0;
+      padding: 20px;
+  }
+
+  /* Main Dashboard Title */
+  h1 {
+      color: #1a5276; /* Darker blue */
+      text-align: center;
+      margin-bottom: 10px !important; /* Override default Dash H1 margin */
+      font-weight: 600;
+      letter-spacing: 1px;
+  }
+
+  /* Sub-title for data sources status */
+  #app-subtitle p { /* Assuming you wrap the subtitle in a div with id="app-subtitle" */
+      text-align: center;
+      font-size: 0.85em;
+      color: #555;
+      margin-bottom: 30px;
+      font-style: italic;
+  }
+
+
+  /* Section Styling */
+  .section-container {
+      background-color: #ffffff; /* White background for sections */
+      padding: 25px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Softer shadow */
+      border: 1px solid #e0e0e0;
+  }
+
+  /* Section Headers */
+  .section-container h3 {
+      color: #2c3e50; /* Dark grey-blue */
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 25px;
+      font-weight: 500;
+      border-bottom: 2px solid #3498db; /* Blue accent line */
+      padding-bottom: 10px;
+  }
+  .section-container h4 { /* For sub-headers within sections */
+      color: #34495e;
+      text-align: center;
+      margin-top: 25px;
+      margin-bottom: 15px;
+      font-weight: normal;
+  }
+
+
+  /* Input Controls Styling */
+  .control-bar { /* A div to wrap controls for consistent spacing */
+      text-align: center;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px; /* Space between items */
+  }
+
+  .control-bar label {
+      font-weight: 500;
+      color: #555;
+  }
+
+  .control-bar .Input, .control-bar .Select-control, .control-bar .DateInput_input { /* Targeting Dash core components */
+      border-radius: 5px !important;
+      border: 1px solid #ccc !important;
+      padding: 6px 10px !important;
+      font-size: 0.9em !important;
+  }
+  .control-bar .DateInput_input { width: 100px; } /* Adjust date input width */
+
+
+  /* Button Styling */
+  .control-bar button, .custom-button {
+      background-color: #3498db; /* Primary blue */
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 0.9em;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      font-weight: 500;
+  }
+
+  .control-bar button:hover, .custom-button:hover {
+      background-color: #2980b9; /* Darker blue on hover */
+  }
+
+  #refresh-nearest-button { /* Specific button styling if needed */
+      background-color: #2ecc71; /* Green */
+  }
+  #refresh-nearest-button:hover {
+      background-color: #27ae60;
+  }
+
+
+  /* DataTable Styling */
+  .dash-spreadsheet-container .dash-spreadsheet-inner table { /* More specific selector */
+      border-collapse: separate !important; /* Allows for rounded corners if border-spacing is used */
+      border-spacing: 0;
+      width: 100%;
+  }
+
+  .dash-spreadsheet-container .dash-spreadsheet-inner th {
+      background-color: #eaf2f8 !important; /* Light blue header */
+      color: #333 !important;
+      font-weight: 600 !important;
+      text-align: left !important;
+      padding: 10px 8px !important;
+      border-bottom: 2px solid #3498db !important; /* Blue accent */
+  }
+
+  .dash-spreadsheet-container .dash-spreadsheet-inner td {
+      padding: 8px !important;
+      border-bottom: 1px solid #ecf0f1 !important; /* Light grey lines between rows */
+      font-size: 0.9em !important;
+      white-space: normal !important; /* Ensure text wraps */
+      word-break: break-word; /* Help with long unbroken strings */
+  }
+  
+  .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) td {
+      /* background-color: #fdfefe; */ /* Very subtle alternating row color */
+  }
+
+  .dash-spreadsheet-container .dash-spreadsheet-inner tr:hover td {
+      background-color: #f4f6f6 !important; /* Lighter hover for rows */
+  }
+
+  /* Dropdown Styling */
+  .Select-control {
+      border-radius: 5px !important;
+      border: 1px solid #ccc !important;
+  }
+  .VirtualizedSelectFocusedOption { /* Focused option in dropdown */
+      background-color: #eaf2f8 !important;
+  }
+
+  /* Loading Spinner */
+  .rc-loading_container { /* Class for dcc.Loading */
+      min-height: 50px; /* Ensure space for spinner even when content is empty */
+  }
+  ```
