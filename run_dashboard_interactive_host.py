@@ -63,8 +63,9 @@ def load_data_for_dashboard_from_repo():
     if os.path.exists(signals_file_path_in_repo):
         try:
             signals_df_for_dashboard = pd.read_csv(signals_file_path_in_repo)
-            signals_df_for_dashboard['Buy_Date'] = pd.to_datetime(signals_df_for_dashboard['Buy_Date'])
-            signals_df_for_dashboard['Sell_Date'] = pd.to_datetime(signals_df_for_dashboard['Sell_Date'])
+            # Ensure datetime conversion, handling potential errors by making them NaT
+            signals_df_for_dashboard['Buy_Date'] = pd.to_datetime(signals_df_for_dashboard['Buy_Date'], errors='coerce')
+            signals_df_for_dashboard['Sell_Date'] = pd.to_datetime(signals_df_for_dashboard['Sell_Date'], errors='coerce')
             if 'Symbol' in signals_df_for_dashboard.columns:
                 available_symbols_from_signals = sorted(signals_df_for_dashboard['Symbol'].astype(str).str.strip().dropna().unique())
             print(f"DASH APP: Loaded {len(signals_df_for_dashboard)} signals from '{expected_signals_filename}'. Unique symbols: {len(available_symbols_from_signals)}")
@@ -91,7 +92,7 @@ def fetch_historical_data_for_graph(symbol_nse_with_suffix):
         if hist_data.empty: return pd.DataFrame()
         hist_data = hist_data.reset_index()
         if 'Date' not in hist_data.columns: return pd.DataFrame()
-        hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.tz_localize(None)
+        hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.tz_localize(None) # Ensure timezone naive
         required_ohlc = ['Open', 'High', 'Low', 'Close']
         if not all(col in hist_data.columns for col in required_ohlc): return pd.DataFrame()
         for col in required_ohlc: hist_data[col] = pd.to_numeric(hist_data[col], errors='coerce')
@@ -112,7 +113,6 @@ def get_nearest_to_buy_data_live(signals_df_input):
 
     if yf_symbols_to_fetch:
         try:
-            # Fetching just the last few days' data for current prices
             data = yf.download(tickers=yf_symbols_to_fetch, period="5d", progress=False, auto_adjust=False, group_by='ticker', timeout=30)
             if not data.empty:
                 for symbol_ns_key in yf_symbols_to_fetch:
@@ -122,11 +122,10 @@ def get_nearest_to_buy_data_live(signals_df_input):
                             if (symbol_ns_key, 'Close') in data.columns:
                                 s_close = data[(symbol_ns_key, 'Close')].dropna()
                                 if not s_close.empty: latest_prices_map[base_symbol] = s_close.iloc[-1]
-                        elif 'Close' in data.columns and len(yf_symbols_to_fetch) == 1 : # Single symbol (data is not multi-indexed by ticker)
+                        elif 'Close' in data.columns and len(yf_symbols_to_fetch) == 1 : # Single symbol
                              s_close = data['Close'].dropna()
                              if not s_close.empty: latest_prices_map[base_symbol] = s_close.iloc[-1]
                     except KeyError:
-                        # print(f"DASH APP: No 'Close' data for {symbol_ns_key} in yf.download result for nearest-to-buy")
                         pass
         except Exception as e:
             print(f"DASH APP WARNING: yf.download for nearest-to-buy prices failed: {e}. Table might be incomplete.")
@@ -138,11 +137,11 @@ def get_nearest_to_buy_data_live(signals_df_input):
 
         if pd.isna(symbol) or pd.isna(buy_target) or buy_target == 0: continue
 
-        latest_close = latest_prices_map.get(str(symbol).strip(), np.nan) # Ensure symbol key matches
+        latest_close = latest_prices_map.get(str(symbol).strip(), np.nan)
         if pd.isna(latest_close): continue
 
         prox_pct = ((latest_close - buy_target) / buy_target) * 100
-        buy_date_dt = signal_row.get('Buy_Date') # Already datetime object from loading
+        buy_date_dt = signal_row.get('Buy_Date')
         buy_date_str = buy_date_dt.strftime('%Y-%m-%d') if pd.notna(buy_date_dt) else 'N/A'
 
         results.append({
@@ -151,7 +150,7 @@ def get_nearest_to_buy_data_live(signals_df_input):
             'Target Buy Price (Low)': round(buy_target, 2),
             'Latest Close Price': round(latest_close, 2),
             'Proximity to Buy (%)': round(prox_pct, 2),
-            'Closeness (%)': round(abs(prox_pct), 2), # For sorting
+            'Closeness (%)': round(abs(prox_pct), 2),
             'Potential Gain (%)': round(signal_row.get('Sequence_Gain_Percent', np.nan), 2)
         })
 
@@ -166,9 +165,9 @@ def create_app_layout():
     growth_file_display_name = os.path.basename(ACTIVE_GROWTH_DF_PATH) if ACTIVE_GROWTH_DF_PATH and os.path.exists(ACTIVE_GROWTH_DF_PATH) else f"{GROWTH_FILE_NAME} (Not Found in Repo)"
 
     return html.Div([
-        html.H1("Stock Signal Dashboard", style={'textAlign': 'center', 'color': '#333'}),
-        html.Div(f"Input Symbol List: {growth_file_display_name}", style={'textAlign': 'center', 'fontSize': 'small'}),
-        html.Div(f"Candle Signals Source: {LOADED_SIGNALS_FILE_DISPLAY_NAME}", style={'textAlign': 'center', 'marginBottom': '20px', 'fontSize': 'small'}),
+        html.H1("Stock Signal Dashboard", style={'textAlign': 'center', 'color': '#333', 'marginBottom': '10px'}),
+        html.P(f"Source for Company List: {growth_file_display_name}", style={'textAlign': 'center', 'fontSize': 'small', 'color': '#555'}),
+        html.P(f"Source for Trading Signals: {LOADED_SIGNALS_FILE_DISPLAY_NAME}", style={'textAlign': 'center', 'marginBottom': '25px', 'fontSize': 'small', 'color': '#555'}),
 
         html.Div([ # Nearest to Buy Section
             html.H3("Stocks Nearest to Buy Signal", style={'textAlign': 'center'}),
@@ -183,14 +182,14 @@ def create_app_layout():
         ], style={'marginBottom': '30px', 'padding': '20px', 'border': '1px solid #ddd', 'borderRadius': '8px', 'backgroundColor': '#f9f9f9'}),
 
         html.Div([ # Individual Stock Analysis Section
-            html.H3("Individual Stock Analysis", style={'textAlign': 'center', 'marginTop': '30px'}),
+            html.H3("Individual Stock Analysis", style={'textAlign': 'center'}), # Removed marginTop, handled by div
             html.Div([
                 dcc.Dropdown(
                     id='company-dropdown',
                     options=[{'label': sym, 'value': sym} for sym in all_available_symbols_for_dashboard],
                     value=all_available_symbols_for_dashboard[0] if all_available_symbols_for_dashboard else None,
                     placeholder="Select Company",
-                    style={'width': '300px', 'display': 'inline-block', 'marginRight': '20px'}
+                    style={'width': '300px', 'display': 'inline-block', 'marginRight': '20px', 'verticalAlign': 'middle'}
                 ),
                 dcc.DatePickerRange(
                     id='date-picker-range',
@@ -199,7 +198,8 @@ def create_app_layout():
                     initial_visible_month=datetime.now(),
                     start_date=(datetime.now()-timedelta(days=365*2)).strftime('%Y-%m-%d'), # Default 2 years
                     end_date=datetime.now().strftime('%Y-%m-%d'),
-                    style={'display': 'inline-block'}
+                    display_format='YYYY-MM-DD',
+                    style={'display': 'inline-block', 'verticalAlign': 'middle'}
                 )
             ], style={'marginBottom': '20px', 'textAlign': 'center'}),
             dcc.Loading(id="loading-chart", type="circle", children=dcc.Graph(id='price-chart')),
@@ -207,7 +207,7 @@ def create_app_layout():
             dcc.Loading(id="loading-signals-table", type="circle", children=[
                  html.Div(id='signals-table-container', style={'margin': 'auto', 'width': '95%'})
             ])
-        ])
+        ], style={'marginTop': '30px', 'padding': '20px', 'border': '1px solid #ddd', 'borderRadius': '8px', 'backgroundColor': '#f9f9f9'}) # Added styling
     ])
 
 # --- Callbacks ---
@@ -215,35 +215,32 @@ def create_app_layout():
     Output('nearest-to-buy-table-container', 'children'),
     [Input('refresh-nearest-button', 'n_clicks')],
     [State('proximity-threshold-input', 'value')],
-    prevent_initial_call=False # Load table on app start
+    prevent_initial_call=False
 )
 def update_nearest_to_buy_table(_n_clicks, proximity_threshold):
-    global signals_df_for_dashboard # Use the globally loaded signals dataframe
+    global signals_df_for_dashboard
     if signals_df_for_dashboard.empty:
-        return html.P(f"No signal data available. Today's signal file '{LOADED_SIGNALS_FILE_DISPLAY_NAME}' might be missing from the repository or could not be parsed.", style={'textAlign': 'center', 'color':'red', 'fontWeight':'bold'})
+        return html.P(f"No signal data available. Today's signal file '{LOADED_SIGNALS_FILE_DISPLAY_NAME}' might be missing or could not be parsed.", style={'textAlign': 'center', 'color':'red', 'fontWeight':'bold'})
 
-    nearest_df = get_nearest_to_buy_data_live(signals_df_for_dashboard) # Fetches live-ish prices
+    nearest_df = get_nearest_to_buy_data_live(signals_df_for_dashboard)
 
     if nearest_df.empty:
         return html.P("No stocks currently meet criteria, or current price data could not be fetched for signal stocks.", style={'textAlign': 'center'})
 
-    # Apply proximity threshold filter
     if proximity_threshold is not None and isinstance(proximity_threshold, (int, float)):
         nearest_df = nearest_df[nearest_df['Closeness (%)'] <= proximity_threshold]
     else:
         print(f"DASH APP Warning: Invalid proximity_threshold value: {proximity_threshold}")
 
-
     if nearest_df.empty:
         return html.P(f"No stocks within +/- {proximity_threshold}% of their buy signal price.", style={'textAlign': 'center'})
-
 
     return dash_table.DataTable(
         data=nearest_df.to_dict('records'),
         columns=[{'name': i, 'id': i} for i in nearest_df.columns],
         page_size=15,
         sort_action="native",
-        filter_action="native", # Enables basic client-side filtering
+        filter_action="native",
         style_table={'overflowX': 'auto', 'width': '100%'},
         style_cell={'textAlign': 'left', 'minWidth': '100px', 'width': '150px', 'maxWidth': '200px', 'whiteSpace': 'normal', 'padding': '5px', 'fontSize':'0.9em'},
         style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold', 'border': '1px solid grey'},
@@ -261,8 +258,9 @@ def update_graph(selected_company, start_date_str, end_date_str):
         return go.Figure().update_layout(title="Please select a company", template="plotly_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
 
     try:
-        start_date = pd.to_datetime(start_date_str)
-        end_date = pd.to_datetime(end_date_str)
+        # Convert to datetime objects (timezone-naive, date part only for filtering)
+        start_date = pd.to_datetime(start_date_str).normalize()
+        end_date = pd.to_datetime(end_date_str).normalize()
     except Exception as e:
         print(f"DASH APP Error parsing dates: {e}")
         return go.Figure().update_layout(title="Invalid date format", template="plotly_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -271,7 +269,8 @@ def update_graph(selected_company, start_date_str, end_date_str):
     if hist_df.empty:
         return go.Figure().update_layout(title=f"No historical data found for {selected_company}", template="plotly_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
 
-    # Filter by date range AFTER fetching, so we don't re-fetch on every date change unless necessary
+    # Filter by date range AFTER fetching
+    # Ensure hist_df['Date'] is also normalized if it has time components, already done in fetch_historical_data_for_graph
     hist_df_filtered = hist_df[(hist_df['Date'] >= start_date) & (hist_df['Date'] <= end_date)]
     if hist_df_filtered.empty:
         return go.Figure().update_layout(title=f"No data for {selected_company} in selected date range", template="plotly_white", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
@@ -283,57 +282,127 @@ def update_graph(selected_company, start_date_str, end_date_str):
                                        close=hist_df_filtered['Close'],
                                        name='Candlestick')])
 
-    # Add signals from the loaded signals_df_for_dashboard
     if not signals_df_for_dashboard.empty:
         company_signals = signals_df_for_dashboard[signals_df_for_dashboard['Symbol'] == selected_company].copy()
         if not company_signals.empty:
-            # Buy_Date and Sell_Date are already datetime objects from loading
+            # Buy_Date and Sell_Date are already datetime objects, potentially NaT
             for _, row in company_signals.iterrows():
-                # Check if signal dates are within the plotted graph's date range
-                if (start_date <= row['Buy_Date'] <= end_date) or \
-                   (start_date <= row['Sell_Date'] <= end_date) or \
-                   (row['Buy_Date'] < start_date and row['Sell_Date'] > end_date) : # Signal spans across the range
-                    fig.add_trace(go.Scatter(
-                        x=[row['Buy_Date'], row['Sell_Date']],
-                        y=[row['Buy_Price_Low'], row['Sell_Price_High']],
-                        mode='lines+markers', name=f"Signal Gain: {row.get('Sequence_Gain_Percent', 0):.1f}%", # Add gain to legend
-                        line=dict(color='rgba(128,0,128,0.7)', width=2, dash='dot'), # Purple, slightly transparent
-                        marker=dict(symbol='circle', size=8, color='purple', line=dict(width=1, color='DarkSlateGrey'))
-                    ))
-                    # Annotations
-                    fig.add_annotation(x=row['Buy_Date'], y=row['Buy_Price_Low'], text="B", showarrow=True, arrowhead=2, arrowcolor="green", bgcolor="rgba(200,255,200,0.7)", ax=0, ay=-25, font=dict(size=9))
-                    fig.add_annotation(x=row['Sell_Date'], y=row['Sell_Price_High'], text="S", showarrow=True, arrowhead=2, arrowcolor="red", bgcolor="rgba(255,200,200,0.7)", ax=0, ay=25, font=dict(size=9))
+                buy_dt = row['Buy_Date']
+                sell_dt = row['Sell_Date']
 
+                # Check if dates are valid before comparison
+                if pd.isna(buy_dt): continue # Cannot plot signal without buy date
+
+                # Determine if signal is within plot range (start_date, end_date from DatePicker)
+                # Signal is relevant if its period [buy_dt, sell_dt_or_infinity] overlaps with [start_date, end_date]
+                
+                # Case 1: Closed signal (sell_dt is not NaT)
+                show_signal = False
+                if pd.notna(sell_dt):
+                    if (buy_dt <= end_date) and (sell_dt >= start_date):
+                        show_signal = True
+                # Case 2: Open signal (sell_dt is NaT) - show if it started before or during the range
+                else: # sell_dt is NaT
+                    if buy_dt <= end_date:
+                         show_signal = True
+                
+                if show_signal:
+                    # For plotting, if sell_dt is NaT, we might plot it up to end_date of graph or last known point
+                    # Here, we plot line segment if both points are valid
+                    plot_x_coords = [buy_dt]
+                    plot_y_coords = [row['Buy_Price_Low']]
+                    
+                    if pd.notna(sell_dt):
+                        plot_x_coords.append(sell_dt)
+                        plot_y_coords.append(row['Sell_Price_High'])
+                    
+                    # Only add trace if we have at least a buy point, and if sell point exists, then two points
+                    if len(plot_x_coords) > 0:
+                        fig.add_trace(go.Scatter(
+                            x=plot_x_coords,
+                            y=plot_y_coords,
+                            mode='lines+markers' if len(plot_x_coords) > 1 else 'markers',
+                            name=f"Signal Gain: {row.get('Sequence_Gain_Percent', 0):.1f}%" if pd.notna(sell_dt) else "Open Signal",
+                            line=dict(color='rgba(128,0,128,0.7)', width=2, dash='dot'),
+                            marker=dict(symbol='circle', size=8, color='purple', line=dict(width=1, color='DarkSlateGrey'))
+                        ))
+                        fig.add_annotation(x=buy_dt, y=row['Buy_Price_Low'], text="B", showarrow=True, arrowhead=2, arrowcolor="green", bgcolor="rgba(200,255,200,0.7)", ax=0, ay=-25, font=dict(size=9))
+                        if pd.notna(sell_dt): # Only add sell annotation if sell_dt is valid
+                             fig.add_annotation(x=sell_dt, y=row['Sell_Price_High'], text="S", showarrow=True, arrowhead=2, arrowcolor="red", bgcolor="rgba(255,200,200,0.7)", ax=0, ay=25, font=dict(size=9))
 
     fig.update_layout(title=f'{selected_company} Price Chart', xaxis_rangeslider_visible=False,
                       xaxis_title='Date', yaxis_title='Price (INR)', template="plotly_white",
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)') # Transparent background
+                      paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     return fig
 
 @app.callback(
     Output('signals-table-container', 'children'),
-    [Input('company-dropdown', 'value')]
+    [Input('company-dropdown', 'value'),
+     Input('date-picker-range', 'start_date'), # Added input
+     Input('date-picker-range', 'end_date')]  # Added input
 )
-def update_signals_table(selected_company):
+def update_signals_table(selected_company, start_date_str, end_date_str): # Added arguments
     if not selected_company:
         return html.P("Select a company to see its signals.", style={'textAlign': 'center'})
+
+    if not start_date_str or not end_date_str:
+        return html.P("Please select a valid date range.", style={'textAlign': 'center', 'color': 'red'})
+
+    try:
+        # Convert to datetime objects (timezone-naive, date part only for filtering)
+        filter_start_date = pd.to_datetime(start_date_str).normalize()
+        filter_end_date = pd.to_datetime(end_date_str).normalize()
+    except Exception as e:
+        return html.P(f"Invalid date format in date picker: {e}", style={'textAlign': 'center', 'color': 'red'})
 
     if signals_df_for_dashboard.empty:
         return html.P(f"No signal data loaded. Today's signal file '{LOADED_SIGNALS_FILE_DISPLAY_NAME}' may be missing or invalid.", style={'textAlign': 'center', 'color':'orange', 'fontWeight':'bold'})
 
-    company_signals_df = signals_df_for_dashboard[signals_df_for_dashboard['Symbol'] == selected_company].copy() # Make a copy
+    company_signals_df = signals_df_for_dashboard[signals_df_for_dashboard['Symbol'] == selected_company].copy()
+    
     if company_signals_df.empty:
         return html.P(f"No signals found for {selected_company} in the loaded data.", style={'textAlign': 'center'})
 
-    # Convert datetime columns to string for display in DataTable
+    # Ensure Buy_Date and Sell_Date are datetime objects (already done at load, but errors='coerce' means some could be NaT)
+    # Filter based on the selected date range
+    # A signal (row_buy_date, row_sell_date) overlaps with (filter_start_date, filter_end_date) if:
+    # row_buy_date <= filter_end_date AND (row_sell_date >= filter_start_date OR row_sell_date is NaT)
+
+    # Create boolean masks for filtering
+    # Ensure Buy_Date is not NaT for any valid signal to filter
+    valid_buy_date = company_signals_df['Buy_Date'].notna()
+
+    # Condition for closed signals (Sell_Date is not NaT)
+    closed_signals_filter = valid_buy_date & \
+                            company_signals_df['Sell_Date'].notna() & \
+                            (company_signals_df['Buy_Date'] <= filter_end_date) & \
+                            (company_signals_df['Sell_Date'] >= filter_start_date)
+
+    # Condition for open signals (Sell_Date is NaT)
+    # Show if Buy_Date is before or at filter_end_date (meaning it started and is ongoing)
+    open_signals_filter = valid_buy_date & \
+                          company_signals_df['Sell_Date'].isna() & \
+                          (company_signals_df['Buy_Date'] <= filter_end_date)
+    
+    company_signals_df_filtered = company_signals_df[closed_signals_filter | open_signals_filter]
+
+    if company_signals_df_filtered.empty:
+        return html.P(f"No signals found for {selected_company} within the selected date range.", style={'textAlign': 'center'})
+
+    # Convert datetime columns to string for display AFTER filtering
+    df_to_display = company_signals_df_filtered.copy() # Work on a copy for display formatting
     for col in ['Buy_Date', 'Sell_Date']:
-        if col in company_signals_df.columns and pd.api.types.is_datetime64_any_dtype(company_signals_df[col]):
-            company_signals_df[col] = company_signals_df[col].dt.strftime('%Y-%m-%d')
+        if col in df_to_display.columns and pd.api.types.is_datetime64_any_dtype(df_to_display[col]):
+            df_to_display[col] = df_to_display[col].dt.strftime('%Y-%m-%d')
+    
+    # Replace any remaining NaT (e.g. in Sell_Date for open signals) with 'N/A' for display
+    df_to_display.fillna('N/A', inplace=True)
+
 
     return dash_table.DataTable(
-        data=company_signals_df.to_dict('records'),
-        columns=[{'name': i, 'id': i} for i in company_signals_df.columns],
+        data=df_to_display.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in df_to_display.columns if i != 'Symbol' or selected_company], # Simple way to keep all columns
         page_size=10,
         sort_action="native",
         style_table={'overflowX': 'auto', 'width': '100%'},
@@ -342,17 +411,14 @@ def update_signals_table(selected_company):
         style_data={'border': '1px solid grey'}
     )
 
-# --- Application Initialization Sequence (runs when Gunicorn imports this module) ---
+# --- Application Initialization Sequence ---
 print("DASH APP: Initializing application for web server...")
-load_data_for_dashboard_from_repo() # Load data from files in repo at startup
-app.layout = create_app_layout # Assign the layout function (Dash calls this)
+load_data_for_dashboard_from_repo()
+app.layout = create_app_layout
 print(f"DASH APP: App layout assigned. {len(all_available_symbols_for_dashboard)} symbols in dropdown.")
 print("DASH APP: Application initialized successfully. Ready for requests.")
 
 # --- Main execution block for local development server ---
 if __name__ == '__main__':
     print("DASH APP: Starting Dash development server (for local testing)...")
-    # Data loading and layout assignment already happened above when the script is imported.
-    # For local dev, you would manually run `python generate_daily_signals.py` first
-    # if you want to test with fresh data committed to your local repo.
     app.run_server(debug=True, host='0.0.0.0', port=8050)
