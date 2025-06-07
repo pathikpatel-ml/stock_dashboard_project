@@ -362,45 +362,61 @@ def update_signals_table(selected_company, start_date_str, end_date_str):
 @app.callback(Output('ath-triggers-table-container-multi', 'children'),
               [Input('refresh-ath-triggers-button', 'n_clicks')],
               [State('ath-proximity-filter-input', 'value')],
-              prevent_initial_call=True) # Similar to signals table
+              prevent_initial_call=True)
 def update_ath_triggers_multi_table(_n_clicks, proximity_value):
     global ath_triggers_df_for_dashboard
+
+    # Add a print to see if the callback is firing
+    print(f"ATH Triggers Callback Fired: n_clicks={_n_clicks}, proximity_value={proximity_value}")
+
     if ath_triggers_df_for_dashboard.empty:
-        return html.Div(f"ATH Triggers data unavailable. Status: {get_status_span(LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME).children}", className="status-message error")
+        # Assuming get_status_span is defined globally or accessible
+        # If get_status_span is part of create_app_layout, it needs to be accessible here or reimplemented
+        status_msg_ath = f"ATH Triggers data unavailable. Last loaded: {LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME}" # Simpler message
+        print(f"ATH Triggers: Global DataFrame is empty. {status_msg_ath}") # DEBUG
+        return html.Div(status_msg_ath, className="status-message error")
     
-    try: proximity_threshold = float(proximity_value if proximity_value is not None else 10)
-    except: proximity_threshold = 10.0
-    if not (0 <= proximity_threshold <= 100): proximity_threshold = 10.0
+    try:
+        proximity_threshold = float(proximity_value if proximity_value is not None else 10)
+    except (ValueError, TypeError): # Catch both None and non-float strings
+        proximity_threshold = 10.0
+    
+    if not (0 <= proximity_threshold <= 100): # Ensure it's within a sensible range
+        proximity_threshold = 10.0
+    
+    print(f"ATH Triggers: Using proximity_threshold = {proximity_threshold}") # DEBUG
 
     if 'ClosenessAbs (%)' not in ath_triggers_df_for_dashboard.columns:
+        print("ATH Triggers Error: 'ClosenessAbs (%)' column missing from global DataFrame.") # DEBUG
         return html.Div("Required 'ClosenessAbs (%)' column missing in ATH data.", className="status-message error")
         
     data_to_filter = ath_triggers_df_for_dashboard.copy()
-    filtered_df = data_to_filter[data_to_filter['ClosenessAbs (%)'] <= proximity_threshold]
     
-    # Exclude 'ClosenessAbs (%)' from display
-    display_columns_ath = [col for col in filtered_df.columns if col != 'ClosenessAbs (%)']
-    if filtered_df.empty: # Check after filtering
+    print(f"ATH Triggers: About to filter {len(data_to_filter)} records.") # DEBUG
+    # Ensure 'ClosenessAbs (%)' is numeric before comparison
+    data_to_filter['ClosenessAbs (%)'] = pd.to_numeric(data_to_filter['ClosenessAbs (%)'], errors='coerce')
+    data_to_filter.dropna(subset=['ClosenessAbs (%)'], inplace=True) # Remove rows where conversion failed
+
+    filtered_df = data_to_filter[data_to_filter['ClosenessAbs (%)'] <= proximity_threshold]
+    print(f"ATH Triggers: Filtered down to {len(filtered_df)} records.") # DEBUG
+    
+    if filtered_df.empty:
         return html.Div(f"No companies found within {proximity_threshold}% of ATH Buy Trigger.", className="status-message info")
-    # Inside update_ath_triggers_multi_table callback
+    
+    # Define columns for the DataTable, excluding 'ClosenessAbs (%)'
+    display_columns = [{'name': col, 'id': col} for col in filtered_df.columns if col != 'ClosenessAbs (%)']
+
     return dash_table.DataTable(
-        data=filtered_df_display.to_dict('records'),
-        columns=[{'name': i, 'id': i} for i in display_columns_ath],
+        data=filtered_df.to_dict('records'),
+        columns=display_columns,
         page_size=20,
         sort_action="native",
         filter_action="native",
         style_table={
-            'overflowX': 'auto', # Crucial for horizontal scrolling
+            'overflowX': 'auto',
             'minWidth': '100%'
         }
     )
-    # return dash_table.DataTable(
-    #     data=filtered_df.to_dict('records'),
-    #     columns=[{'name': i, 'id': i} for i in display_columns_ath],
-    #     page_size=20,
-    #     sort_action="native",
-    #     filter_action="native",
-    # )
 
 # --- Application Initialization & Run ---
 if __name__ == '__main__':
