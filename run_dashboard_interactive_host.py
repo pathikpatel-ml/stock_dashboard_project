@@ -195,7 +195,7 @@ def create_app_layout():
         ]),
 
         html.Div(className='section-container', children=[
-            html.H3("Stocks Nearest to Buy Signal"),
+            html.H3("Stocks V20 Strategy Buy Signal"),
             html.Div(className='control-bar', children=[
                 html.Label("Max Proximity (%):"),
                 dcc.Input(id='proximity-threshold-input', type='number', value=20, min=0, max=100, step=1),
@@ -205,7 +205,7 @@ def create_app_layout():
         ]),
 
         html.Div(className='section-container', children=[
-            html.H3("Individual Stock Analysis"),
+            html.H3("Individual Stock Analysis For V20 Strategy"),
             html.Div(className='control-bar', children=[
                 dcc.Dropdown(id='company-dropdown',
                              options=[{'label': sym, 'value': sym} for sym in all_available_symbols_for_dashboard],
@@ -225,7 +225,7 @@ def create_app_layout():
         ]),
 
         html.Div(className='section-container', children=[
-            html.H3("Strategic ATH Triggers"),
+            html.H3("Stocks ATH Strategy Buy Signal"),
             html.Div(className='control-bar', children=[
                 html.Label("Max Proximity to ATH Buy Trigger (%):"),
                 dcc.Input(id='ath-proximity-filter-input', type='number', value=10, min=0, max=100, step=1),
@@ -273,14 +273,28 @@ def update_nearest_to_buy_table(_n_clicks, proximity_value):
     
     # Exclude 'Closeness (%)' from display columns as it's a helper for sorting/filtering
     display_columns = [col for col in filtered_df.columns if col != 'Closeness (%)']
+    # Inside update_nearest_to_buy_table callback
     return dash_table.DataTable(
         data=filtered_df.to_dict('records'),
         columns=[{'name': i, 'id': i} for i in display_columns],
         page_size=15,
         sort_action="native",
         filter_action="native",
-        # style_* props will be picked from CSS, but can be added for specifics
+        style_table={
+            'overflowX': 'auto', # Crucial for horizontal scrolling
+            'minWidth': '100%'   # Ensures table tries to use available width before scrolling
+        }
+        # other style_cell, style_header props will be picked from CSS
     )
+    # return dash_table.DataTable(
+    #     data=filtered_df.to_dict('records'),
+    #     columns=[{'name': i, 'id': i} for i in display_columns],
+    #     page_size=15,
+    #     sort_action="native",
+    #     filter_action="native",
+    #     # style_* props will be picked from CSS, but can be added for specifics
+    # )
+    
 
 
 # Section 2: Individual Stock Chart & Signals Table (Callbacks remain largely the same)
@@ -329,7 +343,19 @@ def update_signals_table(selected_company, start_date_str, end_date_str):
         if col in df_disp.columns and pd.api.types.is_datetime64_any_dtype(df_disp[col]):
             df_disp[col] = df_disp[col].dt.strftime('%Y-%m-%d')
     df_disp.fillna('N/A', inplace=True)
-    return dash_table.DataTable(data=df_disp.to_dict('records'), columns=[{'name': i, 'id': i} for i in df_disp.columns], page_size=10, sort_action="native")
+    # Inside update_signals_table callback
+    return dash_table.DataTable(
+        data=df_disp.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in df_disp.columns],
+        page_size=10,
+        sort_action="native",
+        style_table={
+            'overflowX': 'auto', # Crucial for horizontal scrolling
+            'minWidth': '100%'
+        }
+    )
+    
+    # return dash_table.DataTable(data=df_disp.to_dict('records'), columns=[{'name': i, 'id': i} for i in df_disp.columns], page_size=10, sort_action="native")
 
 
 # Section 3: Strategic ATH Triggers
@@ -356,14 +382,25 @@ def update_ath_triggers_multi_table(_n_clicks, proximity_value):
     display_columns_ath = [col for col in filtered_df.columns if col != 'ClosenessAbs (%)']
     if filtered_df.empty: # Check after filtering
         return html.Div(f"No companies found within {proximity_threshold}% of ATH Buy Trigger.", className="status-message info")
-
+    # Inside update_ath_triggers_multi_table callback
     return dash_table.DataTable(
-        data=filtered_df.to_dict('records'),
+        data=filtered_df_display.to_dict('records'),
         columns=[{'name': i, 'id': i} for i in display_columns_ath],
         page_size=20,
         sort_action="native",
         filter_action="native",
+        style_table={
+            'overflowX': 'auto', # Crucial for horizontal scrolling
+            'minWidth': '100%'
+        }
     )
+    # return dash_table.DataTable(
+    #     data=filtered_df.to_dict('records'),
+    #     columns=[{'name': i, 'id': i} for i in display_columns_ath],
+    #     page_size=20,
+    #     sort_action="native",
+    #     filter_action="native",
+    # )
 
 # --- Application Initialization & Run ---
 if __name__ == '__main__':
