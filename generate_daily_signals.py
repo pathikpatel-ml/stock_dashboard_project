@@ -149,11 +149,14 @@ def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_f
         print(f"ATH ERROR: reading profit company list file '{profit_companies_file_path}': {e}")
         return False, 0
 
-    required_cols = ['Symbol', 'Company Name', 'PSU'] # Ensure your CSV has these
+    required_cols = ['Symbol', 'Company Name', 'PSU', 'MarketCap'] # Ensure your CSV has these
     for col in required_cols:
         if col not in profit_df.columns:
             print(f"ATH ERROR: Column '{col}' missing in '{profit_companies_file_path}'. Cannot proceed.")
-            return False, 0
+            if col == 'MarketCap':
+                profit_df['MarketCap'] = np.nan # Add an empty MarketCap column if missing
+            else:
+                return False, 0
             
     if profit_df.empty:
         print("ATH: Profit company list file is empty.")
@@ -254,14 +257,13 @@ def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_f
                         'Symbol': symbol_short,
                         'Company Name': company_name,
                         'Type': company_type,
+                        'MarketCap': original_row_data.get('MarketCap', np.nan), # Get MarketCap
                         'All-Time High (ATH)': round(ath, 2),
                         'Current Market Price (CMP)': round(cmp, 2),
                         'Buy Trigger Price': round(buy_trigger_price, 2),
                         'Sell Trigger Price': round(sell_trigger_price, 2),
-                        'CMP Proximity to Buy (%)': round(cmp_vs_buy_trigger_pct, 2) if pd.notna(cmp_vs_buy_trigger_pct) else "N/A"
-                        # 'ClosenessAbs (%)' can be added here or in the Dash app when loading
-                        # For simplicity in generation, let's add it directly:
-                        ,'ClosenessAbs (%)': abs(round(cmp_vs_buy_trigger_pct, 2)) if pd.notna(cmp_vs_buy_trigger_pct) else np.inf
+                        'CMP Proximity to Buy (%)': round(cmp_vs_buy_trigger_pct, 2) if pd.notna(cmp_vs_buy_trigger_pct) else "N/A",
+                        'ClosenessAbs (%)': abs(round(cmp_vs_buy_trigger_pct, 2)) if pd.notna(cmp_vs_buy_trigger_pct) else np.inf
                     })
                 else:
                     # This case should ideally not happen if symbols_for_ath comes from profit_df['Symbol'].unique()
