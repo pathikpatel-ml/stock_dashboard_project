@@ -127,7 +127,7 @@ def generate_and_save_candle_analysis_file(current_growth_file_path, output_cand
         except Exception as e: print(f"Candle ERROR: saving empty signals file: {e}"); return False, 0
 
 
-# --- NEW: ATH Triggers Generation Functions ---
+# --- Helper function for PSU type (ensure this is defined or adapted in your script) ---
 def get_company_type(psu_value):
     """Helper to determine PSU type from CSV value."""
     is_psu = False
@@ -136,6 +136,7 @@ def get_company_type(psu_value):
     elif isinstance(psu_value, bool): is_psu = psu_value
     return "PSU" if is_psu else "Non-PSU"
 
+# --- REVISED: ATH Triggers Generation Function ---
 def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_file_path):
     print(f"\n--- GENERATION: Starting ATH Triggers Analysis ---")
     print(f"ATH: Using input profit company list from: {profit_companies_file_path}")
@@ -148,14 +149,33 @@ def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_f
         print(f"ATH ERROR: reading profit company list file '{profit_companies_file_path}': {e}")
         return False, 0
 
-    required_cols = ['Symbol', 'Company Name', 'PSU']
+    required_cols = ['Symbol', 'Company Name', 'PSU'] # Ensure your CSV has these
     for col in required_cols:
         if col not in profit_df.columns:
             print(f"ATH ERROR: Column '{col}' missing in '{profit_companies_file_path}'. Cannot proceed.")
             return False, 0
+            
     if profit_df.empty:
         print("ATH: Profit company list file is empty.")
-        # Save empty file logic similar to candle signals
+        empty_df_ath = pd.DataFrame(columns=['Symbol', 'Company Name', 'Type', 'All-Time High (ATH)', 
+                                             'Current Market Price (CMP)', 'Buy Trigger Price', 
+                                             'Sell Trigger Price', 'CMP Proximity to Buy (%)'])
+        try: 
+            empty_df_ath.to_csv(output_ath_file_path, index=False)
+            print(f"ATH: Saved empty ATH triggers file to '{output_ath_file_path}'.")
+            return True, 0
+        except Exception as e: 
+            print(f"ATH ERROR: saving empty ATH triggers file: {e}")
+            return False, 0
+
+    all_ath_triggers = []
+    profit_df['Symbol'] = profit_df['Symbol'].astype(str).str.strip().str.upper()
+    symbols_for_ath = profit_df["Symbol"].unique() # Get unique symbols to avoid redundant fetches if duplicated in input
+    total_symbols_ath = len(symbols_for_ath)
+    
+    if total_symbols_ath == 0:
+        print("ATH: No symbols found in the profit company list after cleaning.")
+        # Save empty file (similar to above)
         empty_df_ath = pd.DataFrame(columns=['Symbol', 'Company Name', 'Type', 'All-Time High (ATH)', 
                                              'Current Market Price (CMP)', 'Buy Trigger Price', 
                                              'Sell Trigger Price', 'CMP Proximity to Buy (%)'])
@@ -163,77 +183,108 @@ def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_f
         except Exception as e: print(f"ATH ERROR: saving empty ATH triggers file: {e}"); return False, 0
 
 
-    all_ath_triggers = []
-    # Ensure symbols are clean and unique for fetching
-    profit_df['Symbol'] = profit_df['Symbol'].astype(str).str.strip().str.upper()
-    symbols_for_ath = profit_df["Symbol"].unique()
-    total_symbols_ath = len(symbols_for_ath)
     print(f"ATH: Analyzing ATH triggers for {total_symbols_ath} unique profit companies. This may take some time...")
 
-    processed_ath_count = 0
-    chunk_size_ath = 20 # For yfinance calls
-    
-    # Create a map of symbol to its row data for quick lookup after fetching
-    symbol_data_map = {row['Symbol']: row for index, row in profit_df.iterrows()}
+    # Create a map of symbol to its original row data for quick lookup after fetching
+    # This ensures we use the 'Company Name' and 'PSU' status from the input file correctly
+    symbol_data_map = {row['Symbol']: row for _index, row in profit_df.drop_duplicates(subset=['Symbol']).iterrows()}
 
+
+    processed_ath_count = 0
+    chunk_size_ath = 20 
+    
     for i in range(0, total_symbols_ath, chunk_size_ath):
         chunk = symbols_for_ath[i:i + chunk_size_ath]
-        print(f"ATH: Processing chunk {i//chunk_size_ath + 1} of {total_symbols_ath//chunk_size_ath + 1}...")
+        # print(f"ATH: Processing chunk {i//chunk_size_ath + 1} of {total_symbols_ath//chunk_size_ath + 1}...") # Optional detailed chunk print
+
         for symbol_short in chunk:
             symbol_nse = f"{symbol_short}.NS"
-            ath, cmp = np.nan, np.nan # Default to NaN
-            try:
-                # Fetch ATH from max history
-                hist_max = yf.Ticker(symbol_nse).history(period="max", interval="1d", auto_adjust=False, actions=False, timeout=15)
-                if not hist_max.empty and 'Close' in hist_max.columns:
-                    ath = hist_max['Close'].max()
+            ath, cmp = np.nan, np.nan # Initialize to np.nan (scalar)
 
-                # Fetch recent data for CMP
-                cmp_data = yf.download(tickers=symbol_nse, period="5d", interval="1d", progress=False, auto_adjust=False, timeout=10)
-                if not cmp_data.empty and 'Close' in cmp_data.columns and not cmp_data['Close'].dropna().empty:
-                    cmp = cmp_data['Close'].dropna().iloc[-1]
+            try:
+                # 1. Fetch All-Time High (ATH)
+                stock_ticker_ath = yf.Ticker(symbol_nse)
+                hist_max = stock_ticker_ath.history(period="max", interval="1d", auto_adjust=False, actions=False, timeout=15)
                 
-                time.sleep(0.15) # Small delay per symbol
-            except Exception as e:
-                # print(f"ATH WARNING: Error fetching data for {symbol_nse}: {e}") # Can be verbose
-                pass # Keep ath, cmp as NaN if error
+                if not hist_max.empty and 'Close' in hist_max.columns:
+                    close_series_ath = hist_max['Close'].dropna() 
+                    if not close_series_ath.empty:
+                        ath = close_series_ath.max() # .max() on a Series returns a scalar
+                        if isinstance(ath, pd.Series): # Highly defensive, should not happen
+                            ath = ath.iloc[0] if not ath.empty else np.nan
+                
+                # 2. Fetch Current Market Price (CMP)
+                cmp_data = yf.download(tickers=symbol_nse, period="5d", interval="1d", progress=False, auto_adjust=False, timeout=10)
+                if not cmp_data.empty and 'Close' in cmp_data.columns:
+                    close_series_cmp = cmp_data['Close'].dropna() 
+                    if not close_series_cmp.empty:
+                        cmp = close_series_cmp.iloc[-1] # .iloc[-1] on a Series returns a scalar
+                        if isinstance(cmp, pd.Series): # Highly defensive
+                            cmp = cmp.iloc[0] if not cmp.empty else np.nan
+                
+                time.sleep(0.15) # Be respectful to the API
+            except Exception as e_fetch:
+                # print(f"\nATH WARNING: Error during yfinance fetch for {symbol_nse}: {e_fetch}") # Can be verbose
+                # ath and cmp remain np.nan if an error occurs
+                pass
 
             processed_ath_count += 1
-            sys.stdout.write(f"\rATH: [{processed_ath_count}/{total_symbols_ath}] {symbol_short} ")
+            ath_str = f"{ath:.2f}" if pd.notna(ath) else "N/A"
+            cmp_str = f"{cmp:.2f}" if pd.notna(cmp) else "N/A"
+            sys.stdout.write(f"\rATH: [{processed_ath_count}/{total_symbols_ath}] {symbol_short} (ATH: {ath_str}, CMP: {cmp_str})      ") # Added spaces to clear previous line
             sys.stdout.flush()
 
+            # 3. Check if ATH and CMP are valid scalars before proceeding
             if pd.notna(ath) and pd.notna(cmp):
-                original_row = symbol_data_map[symbol_short]
-                company_name = original_row.get('Company Name', "N/A")
-                psu_value = original_row.get('PSU', False)
-                company_type = get_company_type(psu_value)
+                # Retrieve original company details from the map
+                original_row_data = symbol_data_map.get(symbol_short)
+                if not original_row_data is None:
+                    company_name = original_row_data.get('Company Name', "N/A")
+                    psu_value = original_row_data.get('PSU', False) # Default to False if PSU column had NaN for this row
+                    company_type = get_company_type(psu_value)
 
-                ath_drop_percent = 30.0 if company_type == "PSU" else 20.0
-                sell_rise_percent = 20.0
+                    ath_drop_percent = 30.0 if company_type == "PSU" else 20.0
+                    sell_rise_percent = 20.0 # Fixed as per requirements
 
-                buy_trigger_price = ath * (1 - (ath_drop_percent / 100.0))
-                sell_trigger_price = buy_trigger_price * (1 + (sell_rise_percent / 100.0))
-                cmp_vs_buy_trigger_pct = ((cmp - buy_trigger_price) / buy_trigger_price) * 100.0 if buy_trigger_price != 0 else np.nan
+                    buy_trigger_price = ath * (1 - (ath_drop_percent / 100.0))
+                    sell_trigger_price = buy_trigger_price * (1 + (sell_rise_percent / 100.0))
+                    cmp_vs_buy_trigger_pct = ((cmp - buy_trigger_price) / buy_trigger_price) * 100.0 if buy_trigger_price != 0 else np.nan
 
-                all_ath_triggers.append({
-                    'Symbol': symbol_short,
-                    'Company Name': company_name,
-                    'Type': company_type,
-                    'All-Time High (ATH)': round(ath, 2),
-                    'Current Market Price (CMP)': round(cmp, 2),
-                    'Buy Trigger Price': round(buy_trigger_price, 2),
-                    'Sell Trigger Price': round(sell_trigger_price, 2),
-                    'CMP Proximity to Buy (%)': round(cmp_vs_buy_trigger_pct, 2) if pd.notna(cmp_vs_buy_trigger_pct) else "N/A"
-                })
-    sys.stdout.write("\nATH: Done processing profit company symbols.\n")
+                    all_ath_triggers.append({
+                        'Symbol': symbol_short,
+                        'Company Name': company_name,
+                        'Type': company_type,
+                        'All-Time High (ATH)': round(ath, 2),
+                        'Current Market Price (CMP)': round(cmp, 2),
+                        'Buy Trigger Price': round(buy_trigger_price, 2),
+                        'Sell Trigger Price': round(sell_trigger_price, 2),
+                        'CMP Proximity to Buy (%)': round(cmp_vs_buy_trigger_pct, 2) if pd.notna(cmp_vs_buy_trigger_pct) else "N/A"
+                        # 'ClosenessAbs (%)' can be added here or in the Dash app when loading
+                        # For simplicity in generation, let's add it directly:
+                        ,'ClosenessAbs (%)': abs(round(cmp_vs_buy_trigger_pct, 2)) if pd.notna(cmp_vs_buy_trigger_pct) else np.inf
+                    })
+                else:
+                    # This case should ideally not happen if symbols_for_ath comes from profit_df['Symbol'].unique()
+                    # print(f"\nATH WARNING: Could not find original data for {symbol_short} in symbol_data_map.")
+                    pass
+            # else: # Optional: print if a symbol is skipped due to missing ATH/CMP
+                # print(f"\nATH SKIPPING: {symbol_short} due to missing ATH ({ath_str}) or CMP ({cmp_str}).")
+
+
+    sys.stdout.write("\nATH: Done processing profit company symbols.\n") # Newline after progress bar
     sys.stdout.flush()
 
     num_ath_generated = 0
+    # Define columns explicitly for the output CSV to ensure order and completeness
     output_ath_columns = ['Symbol', 'Company Name', 'Type', 'All-Time High (ATH)', 
                           'Current Market Price (CMP)', 'Buy Trigger Price', 
-                          'Sell Trigger Price', 'CMP Proximity to Buy (%)']
+                          'Sell Trigger Price', 'CMP Proximity to Buy (%)', 'ClosenessAbs (%)'] # Added ClosenessAbs
+
     if all_ath_triggers:
-        ath_df_generated = pd.DataFrame(all_ath_triggers, columns=output_ath_columns).sort_values(by=['Symbol']).reset_index(drop=True)
+        ath_df_generated = pd.DataFrame(all_ath_triggers, columns=output_ath_columns)
+        # Sort by 'ClosenessAbs (%)' before saving, so the Dash app loads it pre-sorted if desired
+        ath_df_generated = ath_df_generated.sort_values(by=['ClosenessAbs (%)', 'Symbol']).reset_index(drop=True)
+        
         num_ath_generated = len(ath_df_generated)
         try:
             ath_df_generated.to_csv(output_ath_file_path, index=False)
@@ -243,11 +294,11 @@ def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_f
             print(f"ATH ERROR: saving ATH triggers to '{output_ath_file_path}': {e}")
             return False, 0
     else:
-        print("ATH: No ATH triggers generated (likely due to fetch errors or empty input).")
-        try: # Save empty file
+        print("ATH: No ATH triggers were successfully generated (e.g., all symbols had fetch errors or input was effectively empty).")
+        try: # Save an empty file with correct columns
             pd.DataFrame(columns=output_ath_columns).to_csv(output_ath_file_path, index=False)
             print(f"ATH: Saved empty ATH triggers file to '{output_ath_file_path}'.")
-            return True, 0
+            return True, 0 # Success in writing an empty file
         except Exception as e:
             print(f"ATH ERROR: saving empty ATH triggers file: {e}")
             return False, 0
