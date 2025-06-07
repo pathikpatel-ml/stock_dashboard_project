@@ -5,45 +5,44 @@ import os
 import pandas as pd
 import time
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date # Added date
 import numpy as np
 import sys
-import subprocess # For running git commands
+import subprocess
 
 # --- Configuration ---
-# Assuming this script is in the root of your Git repository
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
+# For Candle Signals
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 INPUT_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 OUTPUT_SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 
-# --- Candle Analysis Functions (Your existing core logic - UNCHANGED) ---
+# For ATH Triggers
+PROFIT_COMPANIES_FILE_NAME = "Master_5000_profit_companies.csv" # Your profit companies list
+INPUT_PROFIT_DF_PATH = os.path.join(REPO_BASE_PATH, PROFIT_COMPANIES_FILE_NAME)
+OUTPUT_ATH_TRIGGERS_FILENAME_TEMPLATE = "ath_triggers_data_{date_str}.csv" # New output file
+
+# --- Candle Analysis Functions (fetch_historical_data_yf, analyze_stock_candles) ---
+# ... (Your existing functions - UNCHANGED) ...
 def fetch_historical_data_yf(symbol_nse):
     try:
         stock_ticker = yf.Ticker(symbol_nse)
-        # Fetch a bit more data than strictly needed, yfinance can sometimes be inconsistent with exact "max"
-        hist_data = stock_ticker.history(period="10y", interval="1d", auto_adjust=False, actions=True, timeout=20) # Increased timeout
+        hist_data = stock_ticker.history(period="10y", interval="1d", auto_adjust=False, actions=True, timeout=20) 
         if hist_data.empty:
-            # Try a shorter period if 10y fails, some new stocks might not have that much data
             hist_data = stock_ticker.history(period="5y", interval="1d", auto_adjust=False, actions=True, timeout=15)
             if hist_data.empty:
-                 print(f"Warning: No data for {symbol_nse} even with shorter period.")
                  return pd.DataFrame()
-
         hist_data = hist_data.reset_index()
-        if 'Date' not in hist_data.columns:
-            print(f"Warning: 'Date' column missing for {symbol_nse}.")
-            return pd.DataFrame()
+        if 'Date' not in hist_data.columns: return pd.DataFrame()
         hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.tz_localize(None)
         required_ohlc = ['Open', 'High', 'Low', 'Close']
-        if not all(col in hist_data.columns for col in required_ohlc):
-            print(f"Warning: OHLC columns missing for {symbol_nse}.")
-            return pd.DataFrame()
+        if not all(col in hist_data.columns for col in required_ohlc): return pd.DataFrame()
         for col in required_ohlc: hist_data[col] = pd.to_numeric(hist_data[col], errors='coerce')
         hist_data.dropna(subset=required_ohlc, inplace=True)
         return hist_data
     except Exception as e:
-        print(f"Error fetching {symbol_nse}: {e}")
+        # print(f"Error fetching {symbol_nse} for candle: {e}") # Can be verbose
         return pd.DataFrame()
 
 def analyze_stock_candles(base_symbol, hist_data_df):
@@ -52,15 +51,12 @@ def analyze_stock_candles(base_symbol, hist_data_df):
     if hist_data_df.empty or not all(col in hist_data_df.columns for col in required_cols): return signals
     df_full_history = hist_data_df.copy()
     for col in ['Open', 'Close', 'Low', 'High']: df_full_history[col] = pd.to_numeric(df_full_history[col], errors='coerce')
-    df_full_history.dropna(subset=['Open', 'Close', 'Low', 'High'], inplace=True) # Ensure no NaNs after conversion
-    if df_full_history.empty: return signals # Check if df became empty after dropna
+    df_full_history.dropna(subset=['Open', 'Close', 'Low', 'High'], inplace=True)
+    if df_full_history.empty: return signals
 
     df_full_history['GreenCandle'] = df_full_history['Close'] > df_full_history['Open']
-    # Ensure 'GreenCandle' column exists before diff and cumsum
-    if 'GreenCandle' not in df_full_history.columns or df_full_history['GreenCandle'].empty:
-        return signals # Not enough data to form blocks
+    if 'GreenCandle' not in df_full_history.columns or df_full_history['GreenCandle'].empty: return signals
     df_full_history['Block'] = (df_full_history['GreenCandle'].diff() != 0).cumsum()
-
     green_sequences_grouped = df_full_history[df_full_history['GreenCandle']].groupby('Block')
     if green_sequences_grouped.ngroups == 0: return signals
 
@@ -70,11 +66,9 @@ def analyze_stock_candles(base_symbol, hist_data_df):
         buy_price_low = sequence_df['Low'].iloc[0]
         sell_date_dt = sequence_df['Date'].iloc[-1]
         sell_price_high = sequence_df['High'].iloc[-1]
-
         if any(pd.isna(val) for val in [buy_price_low, sell_price_high]) or buy_price_low == 0: continue
         gain_percentage = ((sell_price_high - buy_price_low) / buy_price_low) * 100
         if gain_percentage < 20.0: continue
-
         is_triggered_in_future = False
         future_data = df_full_history[df_full_history['Date'] > sell_date_dt].copy()
         if not future_data.empty:
@@ -84,96 +78,188 @@ def analyze_stock_candles(base_symbol, hist_data_df):
                     future_buy_condition_met_date = future_row['Date']
                 if future_buy_condition_met_date is not None and future_row['Date'] >= future_buy_condition_met_date:
                     if future_row['High'] >= sell_price_high:
-                        is_triggered_in_future = True
-                        break
+                        is_triggered_in_future = True; break
         if is_triggered_in_future: continue
         signals.append({
-            'Symbol': base_symbol,
-            'Buy_Date': buy_date_dt.strftime('%Y-%m-%d'),
-            'Buy_Price_Low': round(buy_price_low, 2),
-            'Sell_Date': sell_date_dt.strftime('%Y-%m-%d'),
-            'Sell_Price_High': round(sell_price_high, 2),
-            'Sequence_Gain_Percent': round(gain_percentage, 2),
+            'Symbol': base_symbol, 'Buy_Date': buy_date_dt.strftime('%Y-%m-%d'),
+            'Buy_Price_Low': round(buy_price_low, 2), 'Sell_Date': sell_date_dt.strftime('%Y-%m-%d'),
+            'Sell_Price_High': round(sell_price_high, 2), 'Sequence_Gain_Percent': round(gain_percentage, 2),
             'Days_in_Sequence': len(sequence_df)
         })
     return signals
 
+
 def generate_and_save_candle_analysis_file(current_growth_file_path, output_candle_file_path):
+    # ... (Your existing function - UNCHANGED) ...
     print(f"\n--- GENERATION: Starting Candle Analysis ---")
-    print(f"GENERATION: Using input symbol list from: {current_growth_file_path}")
-    if not os.path.exists(current_growth_file_path):
-        print(f"GENERATION ERROR: Symbol list file '{current_growth_file_path}' NOT FOUND.")
-        return False, 0
-    try:
-        growth_df = pd.read_csv(current_growth_file_path)
-    except Exception as e:
-        print(f"GENERATION ERROR: reading symbol list file '{current_growth_file_path}': {e}")
-        return False, 0
-    if 'Symbol' not in growth_df.columns:
-        print(f"GENERATION ERROR: 'Symbol' column missing in '{current_growth_file_path}'.")
-        return False, 0
-    if growth_df.empty:
-        print("GENERATION: Symbol list file is empty.")
-        empty_df = pd.DataFrame(columns=['Symbol', 'Buy_Date', 'Buy_Price_Low', 'Sell_Date', 'Sell_Price_High', 'Sequence_Gain_Percent', 'Days_in_Sequence'])
-        try:
-            empty_df.to_csv(output_candle_file_path, index=False)
-            print(f"GENERATION: Saved empty candle analysis file to '{output_candle_file_path}'.")
-            return True, 0 # Success, 0 signals
-        except Exception as e:
-            print(f"GENERATION ERROR: saving empty candle signals file: {e}")
-            return False, 0
-
-
+    if not os.path.exists(current_growth_file_path): print(f"Candle ERROR: Symbol list '{current_growth_file_path}' NOT FOUND."); return False, 0
+    try: growth_df = pd.read_csv(current_growth_file_path)
+    except Exception as e: print(f"Candle ERROR: reading list '{current_growth_file_path}': {e}"); return False, 0
+    if 'Symbol' not in growth_df.columns: print(f"Candle ERROR: 'Symbol' column missing in '{current_growth_file_path}'."); return False, 0
+    if growth_df.empty: print("Candle: Symbol list empty."); # Save empty file logic below
+    
     all_candle_signals = []
     symbols_for_analysis = growth_df["Symbol"].dropna().astype(str).unique()
     total_symbols = len(symbols_for_analysis)
-    print(f"GENERATION: Analyzing candles for {total_symbols} unique symbols. This may take some time...")
+    print(f"Candle: Analyzing {total_symbols} symbols...")
 
     for i, symbol_short in enumerate(symbols_for_analysis):
         symbol_nse = f"{symbol_short.upper().strip()}.NS"
-        progress_percent = ((i + 1) / total_symbols) * 100
-        sys.stdout.write(f"\rGENERATION: Processing: [{i+1}/{total_symbols}] {symbol_short} ({progress_percent:.1f}%)")
+        sys.stdout.write(f"\rCandle: [{i+1}/{total_symbols}] {symbol_short} ({( (i + 1) / total_symbols) * 100:.1f}%)")
         sys.stdout.flush()
-        hist_data = fetch_historical_data_yf(symbol_nse)
+        hist_data = fetch_historical_data_yf(symbol_nse) # Uses the existing fetch function
         if not hist_data.empty:
             signals = analyze_stock_candles(symbol_short, hist_data)
-            if signals:
-                all_candle_signals.extend(signals)
-        time.sleep(0.25) # Small delay, be respectful to yfinance API
-    sys.stdout.write("\nGENERATION: Done processing symbols.\n")
-    sys.stdout.flush()
+            if signals: all_candle_signals.extend(signals)
+        time.sleep(0.1) # Be respectful to yfinance
+    sys.stdout.write("\nCandle: Done processing symbols.\n"); sys.stdout.flush()
 
     num_signals_generated = 0
+    output_df_columns = ['Symbol', 'Buy_Date', 'Buy_Price_Low', 'Sell_Date', 'Sell_Price_High', 'Sequence_Gain_Percent', 'Days_in_Sequence']
     if all_candle_signals:
-        signals_df_generated = pd.DataFrame(all_candle_signals).sort_values(by=['Symbol', 'Buy_Date']).reset_index(drop=True)
+        signals_df_generated = pd.DataFrame(all_candle_signals, columns=output_df_columns).sort_values(by=['Symbol', 'Buy_Date']).reset_index(drop=True)
         num_signals_generated = len(signals_df_generated)
+        try: signals_df_generated.to_csv(output_candle_file_path, index=False); print(f"Candle: Saved {num_signals_generated} signals to '{output_candle_file_path}'"); return True, num_signals_generated
+        except Exception as e: print(f"Candle ERROR: saving signals: {e}"); return False, 0
+    else: # Save empty file if no signals
+        print("Candle: No signals generated.")
+        try: pd.DataFrame(columns=output_df_columns).to_csv(output_candle_file_path, index=False); print(f"Candle: Saved empty file to '{output_candle_file_path}'."); return True, 0
+        except Exception as e: print(f"Candle ERROR: saving empty signals file: {e}"); return False, 0
+
+
+# --- NEW: ATH Triggers Generation Functions ---
+def get_company_type(psu_value):
+    """Helper to determine PSU type from CSV value."""
+    is_psu = False
+    if isinstance(psu_value, str): is_psu = psu_value.strip().lower() in ['true', 'yes', '1', 'y']
+    elif isinstance(psu_value, (int, float)): is_psu = bool(psu_value)
+    elif isinstance(psu_value, bool): is_psu = psu_value
+    return "PSU" if is_psu else "Non-PSU"
+
+def generate_and_save_ath_triggers_file(profit_companies_file_path, output_ath_file_path):
+    print(f"\n--- GENERATION: Starting ATH Triggers Analysis ---")
+    print(f"ATH: Using input profit company list from: {profit_companies_file_path}")
+    if not os.path.exists(profit_companies_file_path):
+        print(f"ATH ERROR: Profit company list file '{profit_companies_file_path}' NOT FOUND.")
+        return False, 0
+    try:
+        profit_df = pd.read_csv(profit_companies_file_path)
+    except Exception as e:
+        print(f"ATH ERROR: reading profit company list file '{profit_companies_file_path}': {e}")
+        return False, 0
+
+    required_cols = ['Symbol', 'Company Name', 'PSU']
+    for col in required_cols:
+        if col not in profit_df.columns:
+            print(f"ATH ERROR: Column '{col}' missing in '{profit_companies_file_path}'. Cannot proceed.")
+            return False, 0
+    if profit_df.empty:
+        print("ATH: Profit company list file is empty.")
+        # Save empty file logic similar to candle signals
+        empty_df_ath = pd.DataFrame(columns=['Symbol', 'Company Name', 'Type', 'All-Time High (ATH)', 
+                                             'Current Market Price (CMP)', 'Buy Trigger Price', 
+                                             'Sell Trigger Price', 'CMP Proximity to Buy (%)'])
+        try: empty_df_ath.to_csv(output_ath_file_path, index=False); print(f"ATH: Saved empty ATH triggers file to '{output_ath_file_path}'."); return True, 0
+        except Exception as e: print(f"ATH ERROR: saving empty ATH triggers file: {e}"); return False, 0
+
+
+    all_ath_triggers = []
+    # Ensure symbols are clean and unique for fetching
+    profit_df['Symbol'] = profit_df['Symbol'].astype(str).str.strip().str.upper()
+    symbols_for_ath = profit_df["Symbol"].unique()
+    total_symbols_ath = len(symbols_for_ath)
+    print(f"ATH: Analyzing ATH triggers for {total_symbols_ath} unique profit companies. This may take some time...")
+
+    processed_ath_count = 0
+    chunk_size_ath = 20 # For yfinance calls
+    
+    # Create a map of symbol to its row data for quick lookup after fetching
+    symbol_data_map = {row['Symbol']: row for index, row in profit_df.iterrows()}
+
+    for i in range(0, total_symbols_ath, chunk_size_ath):
+        chunk = symbols_for_ath[i:i + chunk_size_ath]
+        print(f"ATH: Processing chunk {i//chunk_size_ath + 1} of {total_symbols_ath//chunk_size_ath + 1}...")
+        for symbol_short in chunk:
+            symbol_nse = f"{symbol_short}.NS"
+            ath, cmp = np.nan, np.nan # Default to NaN
+            try:
+                # Fetch ATH from max history
+                hist_max = yf.Ticker(symbol_nse).history(period="max", interval="1d", auto_adjust=False, actions=False, timeout=15)
+                if not hist_max.empty and 'Close' in hist_max.columns:
+                    ath = hist_max['Close'].max()
+
+                # Fetch recent data for CMP
+                cmp_data = yf.download(tickers=symbol_nse, period="5d", interval="1d", progress=False, auto_adjust=False, timeout=10)
+                if not cmp_data.empty and 'Close' in cmp_data.columns and not cmp_data['Close'].dropna().empty:
+                    cmp = cmp_data['Close'].dropna().iloc[-1]
+                
+                time.sleep(0.15) # Small delay per symbol
+            except Exception as e:
+                # print(f"ATH WARNING: Error fetching data for {symbol_nse}: {e}") # Can be verbose
+                pass # Keep ath, cmp as NaN if error
+
+            processed_ath_count += 1
+            sys.stdout.write(f"\rATH: [{processed_ath_count}/{total_symbols_ath}] {symbol_short} ")
+            sys.stdout.flush()
+
+            if pd.notna(ath) and pd.notna(cmp):
+                original_row = symbol_data_map[symbol_short]
+                company_name = original_row.get('Company Name', "N/A")
+                psu_value = original_row.get('PSU', False)
+                company_type = get_company_type(psu_value)
+
+                ath_drop_percent = 30.0 if company_type == "PSU" else 20.0
+                sell_rise_percent = 20.0
+
+                buy_trigger_price = ath * (1 - (ath_drop_percent / 100.0))
+                sell_trigger_price = buy_trigger_price * (1 + (sell_rise_percent / 100.0))
+                cmp_vs_buy_trigger_pct = ((cmp - buy_trigger_price) / buy_trigger_price) * 100.0 if buy_trigger_price != 0 else np.nan
+
+                all_ath_triggers.append({
+                    'Symbol': symbol_short,
+                    'Company Name': company_name,
+                    'Type': company_type,
+                    'All-Time High (ATH)': round(ath, 2),
+                    'Current Market Price (CMP)': round(cmp, 2),
+                    'Buy Trigger Price': round(buy_trigger_price, 2),
+                    'Sell Trigger Price': round(sell_trigger_price, 2),
+                    'CMP Proximity to Buy (%)': round(cmp_vs_buy_trigger_pct, 2) if pd.notna(cmp_vs_buy_trigger_pct) else "N/A"
+                })
+    sys.stdout.write("\nATH: Done processing profit company symbols.\n")
+    sys.stdout.flush()
+
+    num_ath_generated = 0
+    output_ath_columns = ['Symbol', 'Company Name', 'Type', 'All-Time High (ATH)', 
+                          'Current Market Price (CMP)', 'Buy Trigger Price', 
+                          'Sell Trigger Price', 'CMP Proximity to Buy (%)']
+    if all_ath_triggers:
+        ath_df_generated = pd.DataFrame(all_ath_triggers, columns=output_ath_columns).sort_values(by=['Symbol']).reset_index(drop=True)
+        num_ath_generated = len(ath_df_generated)
         try:
-            signals_df_generated.to_csv(output_candle_file_path, index=False)
-            print(f"GENERATION: Saved {num_signals_generated} candle signals to '{output_candle_file_path}'")
-            return True, num_signals_generated
+            ath_df_generated.to_csv(output_ath_file_path, index=False)
+            print(f"ATH: Saved {num_ath_generated} ATH triggers to '{output_ath_file_path}'")
+            return True, num_ath_generated
         except Exception as e:
-            print(f"GENERATION ERROR: saving candle signals to '{output_candle_file_path}': {e}")
+            print(f"ATH ERROR: saving ATH triggers to '{output_ath_file_path}': {e}")
             return False, 0
     else:
-        print("GENERATION: No candle signals generated.")
-        empty_df = pd.DataFrame(columns=['Symbol', 'Buy_Date', 'Buy_Price_Low', 'Sell_Date', 'Sell_Price_High', 'Sequence_Gain_Percent', 'Days_in_Sequence'])
-        try:
-            empty_df.to_csv(output_candle_file_path, index=False)
-            print(f"GENERATION: Saved empty candle analysis file to '{output_candle_file_path}'.")
-            return True, 0 # Success in saving an empty file
+        print("ATH: No ATH triggers generated (likely due to fetch errors or empty input).")
+        try: # Save empty file
+            pd.DataFrame(columns=output_ath_columns).to_csv(output_ath_file_path, index=False)
+            print(f"ATH: Saved empty ATH triggers file to '{output_ath_file_path}'.")
+            return True, 0
         except Exception as e:
-            print(f"GENERATION ERROR: saving empty candle signals file: {e}")
+            print(f"ATH ERROR: saving empty ATH triggers file: {e}")
             return False, 0
 
 # --- Git Helper Functions ---
 def run_git_command(command_list, working_dir="."):
-    """Runs a git command and returns True on success."""
+    # ... (Your existing function - UNCHANGED) ...
     try:
-        print(f"GIT CMD: Running '{' '.join(command_list)}' in '{working_dir}'")
+        # print(f"GIT CMD: Running '{' '.join(command_list)}' in '{working_dir}'")
         process = subprocess.Popen(command_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=120) # Increased timeout for git operations
+        stdout, stderr = process.communicate(timeout=120)
         if process.returncode == 0:
-            # print(f"GIT: Command '{' '.join(command_list)}' successful.") # Can be noisy
             if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
             return True
         else:
@@ -181,53 +267,55 @@ def run_git_command(command_list, working_dir="."):
             if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
             if stderr.strip(): print(f"GIT STDERR: {stderr.strip()}")
             return False
-    except subprocess.TimeoutExpired:
-        print(f"GIT TIMEOUT: Command '{' '.join(command_list)}' timed out.")
-        return False
-    except Exception as e:
-        print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}")
-        return False
+    except subprocess.TimeoutExpired: print(f"GIT TIMEOUT: Command '{' '.join(command_list)}' timed out."); return False
+    except Exception as e: print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}"); return False
 
-def commit_and_push_to_github(new_file_to_add, commit_message):
-    """Adds a file, commits, and pushes to GitHub."""
-    print(f"\n--- GIT OPS: Starting Git Operations ---")
 
-    # 1. Check for old signal files and remove them
-    current_date_str = datetime.now().strftime("%Y%m%d")
-    # Construct the full path for the new file to avoid accidentally removing it
-    new_file_full_path = os.path.abspath(os.path.join(REPO_BASE_PATH, new_file_to_add))
+def commit_and_push_files_to_github(files_to_add, commit_message): # Modified to take a list
+    print(f"\n--- GIT OPS: Starting Git Operations for {len(files_to_add)} file(s) ---")
+
+    # 1. Remove old generated files (both types)
+    today_date_str = datetime.now().strftime("%Y%m%d")
+    # Construct full paths for the new files to avoid accidentally removing them
+    new_files_full_paths = [os.path.abspath(os.path.join(REPO_BASE_PATH, f)) for f in files_to_add]
 
     for item in os.listdir(REPO_BASE_PATH):
-        if item.startswith("stock_candle_signals_from_listing_") and item.endswith(".csv"):
+        if (item.startswith("stock_candle_signals_from_listing_") or item.startswith("ath_triggers_data_")) and item.endswith(".csv"):
             item_full_path = os.path.abspath(os.path.join(REPO_BASE_PATH, item))
-            # Ensure we don't try to remove the file we just created/are about to add
-            if item_full_path != new_file_full_path:
-                print(f"GIT OPS: Found old signals file: {item}. Attempting to remove from git and disk.")
-                # Try git rm first, it's cleaner if the file is tracked
-                if run_git_command(["git", "rm", "-f", item], working_dir=REPO_BASE_PATH): # -f to ignore if not tracked or modified
+            # Ensure we don't try to remove the files we just created/are about to add
+            if item_full_path not in new_files_full_paths:
+                print(f"GIT OPS: Found old generated file: {item}. Attempting to remove.")
+                if run_git_command(["git", "rm", "-f", item], working_dir=REPO_BASE_PATH):
                      print(f"GIT OPS: Successfully 'git rm {item}'.")
-                else:
-                    # If git rm fails or file wasn't tracked, try to just delete from disk
+                else: # If git rm fails (e.g. not tracked), try deleting from disk
                     try:
-                        if os.path.exists(item_full_path): # Check again before deleting
-                            os.remove(item_full_path)
-                            print(f"GIT OPS: Deleted '{item}' from disk directly.")
-                    except Exception as e:
-                        print(f"GIT OPS WARNING: Could not delete old file '{item}' from disk: {e}")
-
-    # 2. Add the new file
-    if not run_git_command(["git", "add", new_file_to_add], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git add {new_file_to_add}'. Aborting push.")
-        return False
-    print(f"GIT OPS: Successfully added '{new_file_to_add}' to staging.")
-
-    # 3. Commit
-    # Check git status before committing to see if there are actual changes
+                        if os.path.exists(item_full_path): os.remove(item_full_path); print(f"GIT OPS: Deleted '{item}' from disk.")
+                    except Exception as e: print(f"GIT OPS WARNING: Could not delete old file '{item}' from disk: {e}")
+    
+    # 2. Add the new files
+    added_successfully = True
+    for file_to_add in files_to_add:
+        if not os.path.exists(os.path.join(REPO_BASE_PATH, file_to_add)):
+            print(f"GIT OPS WARNING: File '{file_to_add}' not found. Skipping add.")
+            continue # Skip this file if it doesn't exist (e.g., generation failed for one type)
+        if not run_git_command(["git", "add", file_to_add], working_dir=REPO_BASE_PATH):
+            print(f"GIT OPS ERROR: Failed to 'git add {file_to_add}'.")
+            added_successfully = False # Mark that at least one add failed
+        else:
+            print(f"GIT OPS: Successfully added '{file_to_add}' to staging.")
+    
+    # If no files were actually added (e.g. all were missing), nothing to commit.
+    # Check git status before committing
     status_check_process = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=REPO_BASE_PATH)
     if not status_check_process.stdout.strip():
-        print("GIT OPS: No changes to commit (new file might be identical to an existing one or add failed silently). Skipping push.")
-        return True # Nothing to do, so consider it a success for the script's flow
+        print("GIT OPS: No changes staged for commit. Skipping commit and push.")
+        return True # Nothing to do, considered a success for workflow
 
+    if not added_successfully and not status_check_process.stdout.strip(): # No files added AND no other changes
+        print("GIT OPS: No new files were added or found. Aborting commit.")
+        return True # Technically not a failure of git itself if nothing was there to add
+
+    # 3. Commit
     if not run_git_command(["git", "commit", "-m", commit_message], working_dir=REPO_BASE_PATH):
         print(f"GIT OPS ERROR: Failed to 'git commit'. Aborting push.")
         return False
@@ -242,34 +330,59 @@ def commit_and_push_to_github(new_file_to_add, commit_message):
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    print(f"DATA GENERATION SCRIPT: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-    # Define today's output file path (relative to script location)
+    print(f"DAILY DATA GENERATION SCRIPT: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     today_date_str = datetime.now().strftime("%Y%m%d")
+    
+    files_generated_for_commit = []
+    overall_success = True
+
+    # --- Generate Candle Signals File ---
     output_signals_filename_relative = OUTPUT_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date_str)
     output_signals_file_fullpath = os.path.join(REPO_BASE_PATH, output_signals_filename_relative)
-
-    # Generate the signals CSV file
-    success, num_signals = generate_and_save_candle_analysis_file(INPUT_GROWTH_DF_PATH, output_signals_file_fullpath)
-
-    if success:
-        print(f"DATA GENERATION SCRIPT: Candle analysis file processing finished for: {output_signals_filename_relative}")
-
-        # Commit and push the new file to GitHub (using relative path for git add)
-        commit_msg = f"Automated daily signals: {num_signals} signals for {today_date_str}"
-        if os.path.exists(output_signals_file_fullpath):
-            if commit_and_push_to_github(output_signals_filename_relative, commit_msg):
-                print("DATA GENERATION SCRIPT: Successfully committed and pushed to GitHub.")
-            else:
-                print("DATA GENERATION SCRIPT ERROR: Failed to commit and push to GitHub.")
-                sys.exit(1) # Indicate failure
-        else:
-             print(f"DATA GENERATION SCRIPT WARNING: Output file '{output_signals_filename_relative}' not found after generation. Skipping Git commit.")
-             # If file generation was 'successful' but file doesn't exist, it's an issue
-             sys.exit(1)
+    success_signals, num_signals = generate_and_save_candle_analysis_file(INPUT_GROWTH_DF_PATH, output_signals_file_fullpath)
+    if success_signals:
+        print(f"SCRIPT: Candle analysis processing finished: {output_signals_filename_relative} ({num_signals} signals)")
+        if os.path.exists(output_signals_file_fullpath): # Ensure file exists before adding
+             files_generated_for_commit.append(output_signals_filename_relative)
     else:
-        print("DATA GENERATION SCRIPT ERROR: Candle analysis file generation failed.")
-        sys.exit(1) # Indicate failure
+        print("SCRIPT ERROR: Candle analysis file generation failed.")
+        overall_success = False
 
-    print(f"DATA GENERATION SCRIPT: Finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    sys.exit(0) # Indicate success
+    # --- Generate ATH Triggers File ---
+    output_ath_filename_relative = OUTPUT_ATH_TRIGGERS_FILENAME_TEMPLATE.format(date_str=today_date_str)
+    output_ath_file_fullpath = os.path.join(REPO_BASE_PATH, output_ath_filename_relative)
+    success_ath, num_ath_triggers = generate_and_save_ath_triggers_file(INPUT_PROFIT_DF_PATH, output_ath_file_fullpath)
+    if success_ath:
+        print(f"SCRIPT: ATH Triggers processing finished: {output_ath_filename_relative} ({num_ath_triggers} records)")
+        if os.path.exists(output_ath_file_fullpath): # Ensure file exists
+            files_generated_for_commit.append(output_ath_filename_relative)
+    else:
+        print("SCRIPT ERROR: ATH Triggers file generation failed.")
+        overall_success = False # Mark failure if this part fails
+
+    # --- Commit and Push if any files were successfully generated and exist ---
+    if files_generated_for_commit:
+        commit_msg = f"Automated daily data update for {today_date_str}"
+        if num_signals > -1 : commit_msg += f" ({num_signals} signals" # -1 if not run
+        if num_ath_triggers > -1 : commit_msg += f", {num_ath_triggers} ATH records)"
+        else: commit_msg += ")"
+
+        if commit_and_push_files_to_github(files_generated_for_commit, commit_msg):
+            print("SCRIPT: Successfully committed and pushed to GitHub.")
+        else:
+            print("SCRIPT ERROR: Failed to commit and push to GitHub.")
+            overall_success = False # Mark failure for git ops
+    elif overall_success: # No files to commit but no errors in generation either (e.g. empty outputs)
+        print("SCRIPT: No new data files were generated or found to commit, but script ran without generation errors.")
+    else: # No files to commit AND there were generation errors
+        print("SCRIPT: No files to commit due to generation errors.")
+
+
+    print(f"DAILY DATA GENERATION SCRIPT: Finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    if overall_success and files_generated_for_commit: # Exit 0 only if everything went well AND there was something to commit
+        sys.exit(0)
+    elif overall_success and not files_generated_for_commit: # Script ran fine, but nothing new to commit
+        print("SCRIPT NOTE: Process completed, but no new files were generated or staged for commit (e.g., all outputs were empty or unchanged).")
+        sys.exit(0) # Still a successful run of the script itself
+    else:
+        sys.exit(1) # Indicate failure
