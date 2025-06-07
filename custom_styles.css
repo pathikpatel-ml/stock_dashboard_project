@@ -1,157 +1,250 @@
-  ```css
-  /* assets/custom_styles.css */
+/* assets/custom_styles.css */
 
-  body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f7f6; /* Light grey-green background */
-      color: #333;
-      margin: 0;
-      padding: 20px;
-  }
+/* --- Global Styles & Typography --- */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: #f8f9fa; /* Lighter, cleaner background */
+    color: #212529; /* Darker text for better readability */
+    margin: 0;
+    padding: 0; /* Remove body padding, manage with container */
+    line-height: 1.6;
+}
 
-  /* Main Dashboard Title */
-  h1 {
-      color: #1a5276; /* Darker blue */
-      text-align: center;
-      margin-bottom: 10px !important; /* Override default Dash H1 margin */
-      font-weight: 600;
-      letter-spacing: 1px;
-  }
-
-  /* Sub-title for data sources status */
-  #app-subtitle p { /* Assuming you wrap the subtitle in a div with id="app-subtitle" */
-      text-align: center;
-      font-size: 0.85em;
-      color: #555;
-      margin-bottom: 30px;
-      font-style: italic;
-  }
+.app-container { /* Add a main container div in your layout */
+    max-width: 1300px; /* Max width for content */
+    margin: 0 auto; /* Center the content */
+    padding: 20px 30px; /* Padding around the content */
+}
 
 
-  /* Section Styling */
-  .section-container {
-      background-color: #ffffff; /* White background for sections */
-      padding: 25px;
-      margin-bottom: 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Softer shadow */
-      border: 1px solid #e0e0e0;
-  }
+h1 {
+    font-size: 2.2em; /* Slightly smaller but impactful */
+    color: #343a40; /* Very dark grey, almost black */
+    text-align: center;
+    margin-bottom: 8px !important;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
 
-  /* Section Headers */
-  .section-container h3 {
-      color: #2c3e50; /* Dark grey-blue */
-      text-align: center;
-      margin-top: 0;
-      margin-bottom: 25px;
-      font-weight: 500;
-      border-bottom: 2px solid #3498db; /* Blue accent line */
-      padding-bottom: 10px;
-  }
-  .section-container h4 { /* For sub-headers within sections */
-      color: #34495e;
-      text-align: center;
-      margin-top: 25px;
-      margin-bottom: 15px;
-      font-weight: normal;
-  }
+/* --- App Subtitle (Data Status) --- */
+#app-subtitle { /* Target the div directly */
+    text-align: center;
+    font-size: 0.9em;
+    color: #6c757d; /* Muted grey */
+    margin-bottom: 30px;
+    font-style: normal; /* Less emphasis than italic */
+}
+#app-subtitle .status-loaded { color: #28a745; font-weight: 500;} /* Green for loaded */
+#app-subtitle .status-error { color: #dc3545; font-weight: 500;} /* Red for error/not found */
+#app-subtitle .status-unavailable { color: #ffc107; font-weight: 500;} /* Yellow/Orange for N/A */
 
 
-  /* Input Controls Styling */
-  .control-bar { /* A div to wrap controls for consistent spacing */
-      text-align: center;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 15px; /* Space between items */
-  }
+/* --- Section Styling --- */
+.section-container {
+    background-color: #ffffff;
+    padding: 20px 25px 25px 25px; /* Consistent padding */
+    margin-bottom: 30px;
+    border-radius: 6px; /* Softer radius */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); /* Subtle shadow */
+    border: 1px solid #dee2e6; /* Light border */
+}
 
-  .control-bar label {
-      font-weight: 500;
-      color: #555;
-  }
+.section-container h3 {
+    font-size: 1.6em;
+    color: #0056b3; /* A professional blue */
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 25px;
+    font-weight: 500;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e0e0e0; /* Lighter, cleaner separator */
+}
 
-  .control-bar .Input, .control-bar .Select-control, .control-bar .DateInput_input { /* Targeting Dash core components */
-      border-radius: 5px !important;
-      border: 1px solid #ccc !important;
-      padding: 6px 10px !important;
-      font-size: 0.9em !important;
-  }
-  .control-bar .DateInput_input { width: 100px; } /* Adjust date input width */
+.section-container h4 { /* Sub-headers within sections, like for the signals table */
+    font-size: 1.15em;
+    color: #495057;
+    text-align: center;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+/* --- Control Bar Styling (for inputs and buttons) --- */
+.control-bar {
+    display: flex; /* Use flexbox for alignment */
+    justify-content: center; /* Center items */
+    align-items: center; /* Vertically align items */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 12px 18px; /* Row and column gap */
+    margin-bottom: 25px;
+    padding: 10px 0; /* Some padding for the bar itself */
+}
+
+.control-bar label {
+    font-weight: 500;
+    color: #343a40;
+    margin-right: 5px; /* Space after label */
+}
+
+/* Targeting Dash Core Components Inputs */
+.control-bar .Input,                             /* dcc.Input */
+.control-bar .Select-control,                    /* dcc.Dropdown main control */
+.control-bar .DateInput_input_1,                  /* dcc.DatePickerRange inputs */
+.control-bar .SingleDatePickerInput_calendarIcon, /* dcc.DatePickerRange icon */
+.control-bar .DateInput_input__focused {
+    border-radius: 4px !important;
+    border: 1px solid #ced4da !important;
+    padding: 0.375rem 0.75rem !important; /* Bootstrap-like padding */
+    font-size: 0.95em !important;
+    color: #495057 !important;
+    background-color: #fff !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.control-bar .Input:focus,
+.control-bar .Select-control:focus-within, /* For dropdown focus */
+.control-bar .DateInput_input_1:focus {
+    border-color: #80bdff !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+}
+
+.control-bar .DateInput_input_1 { /* Specific for date inputs if they need width adjustment */
+    width: 100px !important; /* Example width */
+    text-align: center;
+}
+.control-bar .Select /* Wrapper for Dropdown */ {
+    min-width: 250px; /* Ensure dropdown has decent width */
+}
 
 
-  /* Button Styling */
-  .control-bar button, .custom-button {
-      background-color: #3498db; /* Primary blue */
-      color: white;
-      border: none;
-      padding: 8px 18px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 0.9em;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      font-weight: 500;
-  }
-
-  .control-bar button:hover, .custom-button:hover {
-      background-color: #2980b9; /* Darker blue on hover */
-  }
-
-  #refresh-nearest-button { /* Specific button styling if needed */
-      background-color: #2ecc71; /* Green */
-  }
-  #refresh-nearest-button:hover {
-      background-color: #27ae60;
-  }
+/* Button Styling */
+.control-bar button {
+    background-color: #007bff; /* Primary blue */
+    color: white;
+    border: none;
+    padding: 0.4rem 1rem; /* Consistent padding */
+    font-size: 0.95em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.control-bar button:hover {
+    background-color: #0056b3; /* Darker blue */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+.control-bar button:active {
+    background-color: #004085;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+/* Example for a different colored button if needed */
+#refresh-nearest-button { background-color: #28a745; } /* Green */
+#refresh-nearest-button:hover { background-color: #1e7e34; }
 
 
-  /* DataTable Styling */
-  .dash-spreadsheet-container .dash-spreadsheet-inner table { /* More specific selector */
-      border-collapse: separate !important; /* Allows for rounded corners if border-spacing is used */
-      border-spacing: 0;
-      width: 100%;
-  }
+/* --- DataTable Styling --- */
+/* Container for the table itself to manage overflow and potential border */
+.dash-table-container .dash-spreadsheet-container {
+    border: 1px solid #dee2e6; /* Border around the table */
+    border-radius: 4px;
+    overflow: hidden; /* To make border-radius work with table */
+}
 
-  .dash-spreadsheet-container .dash-spreadsheet-inner th {
-      background-color: #eaf2f8 !important; /* Light blue header */
-      color: #333 !important;
-      font-weight: 600 !important;
-      text-align: left !important;
-      padding: 10px 8px !important;
-      border-bottom: 2px solid #3498db !important; /* Blue accent */
-  }
+.dash-spreadsheet-container .dash-spreadsheet-inner table {
+    border-collapse: collapse !important; /* Remove default table lines, we'll add our own */
+    width: 100%;
+}
 
-  .dash-spreadsheet-container .dash-spreadsheet-inner td {
-      padding: 8px !important;
-      border-bottom: 1px solid #ecf0f1 !important; /* Light grey lines between rows */
-      font-size: 0.9em !important;
-      white-space: normal !important; /* Ensure text wraps */
-      word-break: break-word; /* Help with long unbroken strings */
-  }
-  
-  .dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) td {
-      /* background-color: #fdfefe; */ /* Very subtle alternating row color */
-  }
+.dash-spreadsheet-container .dash-spreadsheet-inner th,
+.dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter { /* Include filter row headers */
+    background-color: #e9ecef !important; /* Light grey header, less intense blue */
+    color: #212529 !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    padding: 0.75rem 0.6rem !important; /* More padding */
+    border-bottom: 2px solid #adb5bd !important; /* Stronger bottom border for header */
+    font-size: 0.9em;
+}
 
-  .dash-spreadsheet-container .dash-spreadsheet-inner tr:hover td {
-      background-color: #f4f6f6 !important; /* Lighter hover for rows */
-  }
+/* Style for the filter input cells */
+.dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter input {
+    padding: 0.25rem 0.4rem !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 3px !important;
+    width: 95% !important; /* Make filter inputs take more width */
+    font-size: 0.85em !important;
+}
 
-  /* Dropdown Styling */
-  .Select-control {
-      border-radius: 5px !important;
-      border: 1px solid #ccc !important;
-  }
-  .VirtualizedSelectFocusedOption { /* Focused option in dropdown */
-      background-color: #eaf2f8 !important;
-  }
 
-  /* Loading Spinner */
-  .rc-loading_container { /* Class for dcc.Loading */
-      min-height: 50px; /* Ensure space for spinner even when content is empty */
-  }
-  ```
+.dash-spreadsheet-container .dash-spreadsheet-inner td {
+    padding: 0.6rem !important; /* Consistent padding */
+    border-bottom: 1px solid #e9ecef !important; /* Lighter lines between rows */
+    font-size: 0.9em !important;
+    color: #343a40;
+    vertical-align: middle; /* Align text vertically in cells */
+    white-space: normal !important;
+    word-break: break-word;
+}
+/* Remove bottom border from last row's cells */
+.dash-spreadsheet-container .dash-spreadsheet-inner tr:last-child td {
+    border-bottom: none !important;
+}
+
+.dash-spreadsheet-container .dash-spreadsheet-inner tr:nth-child(even) td {
+    /* background-color: #f8f9fa; */ /* Optional: very subtle striping */
+}
+.dash-spreadsheet-container .dash-spreadsheet-inner tr:hover td {
+    background-color: #e9f5ff !important; /* Light blue hover for rows */
+}
+
+/* --- Chart Styling --- */
+/* Ensure graph component has some breathing room if not handled by its container */
+.js-plotly-plot .plotly, .plotly { /* Target plotly graph */
+    /* No specific global style needed if layout is transparent and section has padding */
+}
+
+
+/* --- Dropdown Specifics (if .Select-control isn't enough) --- */
+.VirtualizedSelectOption { /* Options in dropdown */
+    padding: 8px 12px !important;
+}
+.VirtualizedSelectFocusedOption {
+    background-color: #e0efff !important; /* Light blue for focused option */
+    color: #0056b3;
+}
+
+
+/* --- Loading Spinner --- */
+.rc-loading_container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px; /* Give it some space so layout doesn't jump */
+    width: 100%;
+}
+
+/* --- Status Messages (for empty tables or errors) --- */
+.status-message {
+    text-align: center;
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+.status-message.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.status-message.warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.status-message.info, .status-message /* Default for plain no data */ {
+    background-color: #e2e3e5; color: #383d41; border: 1px solid #d6d8db;
+}
+
+
+/* --- Footer Styling --- */
+footer {
+    text-align: center;
+    margin-top: 50px;
+    padding: 20px;
+    font-size: 0.85em;
+    color: #6c757d;
+    border-top: 1px solid #dee2e6;
+}
