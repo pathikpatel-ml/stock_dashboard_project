@@ -36,70 +36,79 @@ app.title = "Stock Analysis Dashboard"
 def load_data_for_dashboard_from_repo():
     global signals_df_for_dashboard, ath_triggers_df_for_dashboard, growth_df_for_dashboard
     global all_available_symbols_for_dashboard
-    global LOADED_SIGNALS_FILE_DISPLAY_NAME, LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME
+    # LOADED_SIGNALS_FILE_DISPLAY_NAME and LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME
+    # are modified by the nested function which declares them global, so no need here.
 
     print(f"\n--- DASH APP: Loading Pre-calculated Data ---")
-    current_date_str = datetime.now().strftime("%Y%m%d")
+    current_date_str = datetime.now().strftime("%Y%m%d") # Defined in the outer function scope
 
+    # Nested function to handle loading logic for each CSV type
     def load_csv_data(filename_template, df_global_name_str, display_name_global_str, date_cols=None):
-        nonlocal signals_df_for_dashboard, ath_triggers_df_for_dashboard # To modify them
-        df_target = None
-        if df_global_name_str == "signals_df_for_dashboard": df_target = signals_df_for_dashboard
-        elif df_global_name_str == "ath_triggers_df_for_dashboard": df_target = ath_triggers_df_for_dashboard
-        
+        # Declare globals that this nested function will modify
+        global signals_df_for_dashboard, ath_triggers_df_for_dashboard
+        global LOADED_SIGNALS_FILE_DISPLAY_NAME, LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME
+
         expected_filename = filename_template.format(date_str=current_date_str)
         file_path = os.path.join(REPO_BASE_PATH, expected_filename)
-        loaded_display_name = f"{expected_filename} (Not Found)" # Default
         
+        # Temporary variables for this load attempt
+        loaded_df_for_this_call = pd.DataFrame() 
+        status_display_name_for_this_call = f"{expected_filename} (Not Found)" # Default
+
         if os.path.exists(file_path):
             try:
-                df_temp = pd.read_csv(file_path)
+                loaded_df_for_this_call = pd.read_csv(file_path)
                 if date_cols:
                     for col in date_cols:
-                        if col in df_temp.columns:
-                            df_temp[col] = pd.to_datetime(df_temp[col], errors='coerce')
+                        if col in loaded_df_for_this_call.columns:
+                            loaded_df_for_this_call[col] = pd.to_datetime(loaded_df_for_this_call[col], errors='coerce')
                 
-                # For ATH triggers, ensure ClosenessAbs is present
-                if df_global_name_str == "ath_triggers_df_for_dashboard":
-                    if 'CMP Proximity to Buy (%)' in df_temp.columns and 'ClosenessAbs (%)' not in df_temp.columns:
-                        proximity_numeric = pd.to_numeric(df_temp['CMP Proximity to Buy (%)'], errors='coerce')
-                        df_temp['ClosenessAbs (%)'] = proximity_numeric.abs()
-                    elif 'ClosenessAbs (%)' not in df_temp.columns:
-                         df_temp['ClosenessAbs (%)'] = np.inf
+                if df_global_name_str == "ath_triggers_df_for_dashboard": # Specific processing for ATH triggers
+                    if 'CMP Proximity to Buy (%)' in loaded_df_for_this_call.columns and \
+                       'ClosenessAbs (%)' not in loaded_df_for_this_call.columns:
+                        proximity_numeric = pd.to_numeric(loaded_df_for_this_call['CMP Proximity to Buy (%)'], errors='coerce')
+                        loaded_df_for_this_call['ClosenessAbs (%)'] = proximity_numeric.abs()
+                    elif 'ClosenessAbs (%)' not in loaded_df_for_this_call.columns: # If both are missing
+                         loaded_df_for_this_call['ClosenessAbs (%)'] = np.inf # Default for filtering
                 
-                if df_global_name_str == "signals_df_for_dashboard": signals_df_for_dashboard = df_temp
-                elif df_global_name_str == "ath_triggers_df_for_dashboard": ath_triggers_df_for_dashboard = df_temp
-
-                loaded_display_name = expected_filename # Success
-                print(f"DASH APP: Loaded {len(df_temp)} records from '{expected_filename}'.")
+                status_display_name_for_this_call = expected_filename # Success
+                print(f"DASH APP: Loaded {len(loaded_df_for_this_call)} records from '{expected_filename}'.")
             except Exception as e:
                 print(f"DASH ERROR loading file '{expected_filename}': {e}")
-                if df_global_name_str == "signals_df_for_dashboard": signals_df_for_dashboard = pd.DataFrame()
-                elif df_global_name_str == "ath_triggers_df_for_dashboard": ath_triggers_df_for_dashboard = pd.DataFrame()
-                loaded_display_name = f"{expected_filename} (Error)"
+                status_display_name_for_this_call = f"{expected_filename} (Error)"
+                # loaded_df_for_this_call remains an empty DataFrame
         else:
             print(f"DASH WARNING: File '{expected_filename}' NOT FOUND.")
-            if df_global_name_str == "signals_df_for_dashboard": signals_df_for_dashboard = pd.DataFrame()
-            elif df_global_name_str == "ath_triggers_df_for_dashboard": ath_triggers_df_for_dashboard = pd.DataFrame()
+            # loaded_df_for_this_call remains an empty DataFrame
 
-        if display_name_global_str == "LOADED_SIGNALS_FILE_DISPLAY_NAME": LOADED_SIGNALS_FILE_DISPLAY_NAME = loaded_display_name
-        elif display_name_global_str == "LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME": LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME = loaded_display_name
+        # Assign to the correct global DataFrame and update the global display name variable
+        if df_global_name_str == "signals_df_for_dashboard":
+            signals_df_for_dashboard = loaded_df_for_this_call
+            LOADED_SIGNALS_FILE_DISPLAY_NAME = status_display_name_for_this_call
+        elif df_global_name_str == "ath_triggers_df_for_dashboard":
+            ath_triggers_df_for_dashboard = loaded_df_for_this_call
+            LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME = status_display_name_for_this_call
 
-
+    # Call the nested function for each data type
     load_csv_data(SIGNALS_FILENAME_TEMPLATE, "signals_df_for_dashboard", "LOADED_SIGNALS_FILE_DISPLAY_NAME", date_cols=['Buy_Date', 'Sell_Date'])
     load_csv_data(ATH_TRIGGERS_FILENAME_TEMPLATE, "ath_triggers_df_for_dashboard", "LOADED_ATH_TRIGGERS_FILE_DISPLAY_NAME")
         
+    # Populate symbols for individual analysis dropdown (this part is fine)
     symbols_s = signals_df_for_dashboard['Symbol'].dropna().astype(str).str.upper().unique().tolist() if not signals_df_for_dashboard.empty and 'Symbol' in signals_df_for_dashboard.columns else []
     symbols_a = ath_triggers_df_for_dashboard['Symbol'].dropna().astype(str).str.upper().unique().tolist() if not ath_triggers_df_for_dashboard.empty and 'Symbol' in ath_triggers_df_for_dashboard.columns else []
     symbols_g = []
     if os.path.exists(ACTIVE_GROWTH_DF_PATH):
         try:
             growth_df_for_dashboard = pd.read_csv(ACTIVE_GROWTH_DF_PATH)
-            if 'Symbol' in growth_df_for_dashboard.columns: symbols_g = growth_df_for_dashboard['Symbol'].dropna().astype(str).str.upper().unique().tolist()
-        except: pass # Silently ignore if growth file load fails
+            if 'Symbol' in growth_df_for_dashboard.columns:
+                symbols_g = growth_df_for_dashboard['Symbol'].dropna().astype(str).str.upper().unique().tolist()
+        except Exception as e:
+            print(f"DASH WARNING: Could not load growth file '{ACTIVE_GROWTH_DF_PATH}' for dropdown: {e}")
+            # growth_df_for_dashboard remains as previously defined or empty
     
-    all_available_symbols_for_dashboard = sorted(list(filter(None, set(symbols_s + symbols_a + symbols_g))))
-    print(f"DASH APP: Symbols for dropdown: {len(all_available_symbols_for_dashboard)}.")
+    combined_symbols = set(symbols_s + symbols_a + symbols_g)
+    all_available_symbols_for_dashboard = sorted(list(filter(None, combined_symbols))) # Filter out potential None/empty strings
+    print(f"DASH APP: Symbols for individual analysis dropdown: {len(all_available_symbols_for_dashboard)}.")
     return True
 
 # --- yfinance Data Fetching (Individual Stock Chart) ---
