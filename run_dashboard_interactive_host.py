@@ -215,7 +215,9 @@ def create_app_layout():
                                     max_date_allowed=date.today() + timedelta(days=1),
                                     initial_visible_month=date.today(), 
                                     start_date=(date.today()-timedelta(days=365*2)),
-                                    end_date=date.today(), display_format='YYYY-MM-DD')
+                                    end_date=date.today(), display_format='YYYY-MM-DD',
+                                    style={'min-width': '240px'}
+                                   )
             ]),
             dcc.Loading(type="circle", children=dcc.Graph(id='price-chart')),
             html.H4("Signals for Selected Company"),
