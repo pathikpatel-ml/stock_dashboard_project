@@ -290,3 +290,28 @@ footer {
     flex-grow: 1; /* Allow it to take available space if other items are fixed size */
     min-width: 230px; /* Still good to have a min-width */
 }
+/* assets/custom_styles.css */
+.control-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap; /* IMPORTANT for responsiveness */
+    gap: 10px 15px; /* Vertical and horizontal gap */
+    margin-bottom: 25px;
+    padding: 10px 0;
+}
+
+/* Target the DatePickerRange specifically if it's inside a control-bar */
+.control-bar .DateInput { /* This is often the wrapper class for DatePickerRange */
+    min-width: 230px; /* Adjust as needed */
+    /* If you want it to take more space if available, but not less than min-width: */
+    /* flex-basis: 230px; */ /* Initial size */
+    /* flex-grow: 1; */     /* Allow it to grow */
+}
+
+/* Individual date inputs within the range picker */
+.control-bar .DateInput_input_1 {
+    width: 100px !important; /* Or auto, but ensure parent has enough width */
+    padding: 0.375rem 0.5rem !important; /* Adjust padding if too much */
+    text-align: center;
+}
