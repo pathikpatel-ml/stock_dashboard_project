@@ -248,3 +248,24 @@ footer {
     color: #6c757d;
     border-top: 1px solid #dee2e6;
 }
+/* In assets/custom_styles.css */
+
+/* Target the wrapper of the DatePickerRange if possible */
+/* You might need to find a more specific selector using browser dev tools */
+.control-bar div[id="date-picker-range"] { /* If the dcc component has an id, Dash might create a div with that id */
+    min-width: 240px; /* Or your preferred width */
+}
+
+/* Or target the specific input elements if the wrapper approach is difficult */
+/* This targets the visual input boxes directly */
+.DateInput_input, .DateInput_input_1 { 
+    /* If they are side-by-side, this won't increase the overall component width directly, 
+       but can help if internal padding/margins are the issue.
+       Often, the parent div controls the overall width. */
+}
+
+/* If the control-bar is using flexbox and items are not growing: */
+.control-bar .DateInput { /* This is a common class for the DatePickerRange wrapper */
+    flex-grow: 1; /* Allow it to take available space if other items are fixed size */
+    min-width: 230px; /* Still good to have a min-width */
+}
