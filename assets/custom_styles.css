@@ -167,6 +167,27 @@ h1 {
     font-size: 0.9em;
 }
 
+/* In assets/custom_styles.css */
+
+/* DataTable Styling */
+.dash-table-container { /* This is the className we added to the Div wrapping the DataTable */
+    overflow-x: auto; /* Ensure the Div itself can scroll if DataTable becomes wider */
+    width: 100%;      /* Make the container take full available width */
+}
+
+/* This rule targets the inner structure Dash creates */
+.dash-spreadsheet-container .dash-spreadsheet-inner {
+    min-width: 600px; /* Or some large enough value to force scrolling on small screens */
+                      /* This tells the inner table it's okay to be wide. */
+                      /* The parent .dash-table-container will handle the scroll. */
+    /* Alternatively, if you don't set a min-width here,
+       the `style_table={'overflowX': 'auto', 'minWidth': '100%'}` inside the Python
+       code should be sufficient for the table itself. */
+}
+
+/* The rest of your table th, td styling */
+/* ... */
+
 /* Style for the filter input cells */
 .dash-spreadsheet-container .dash-spreadsheet-inner th.dash-filter input {
     padding: 0.25rem 0.4rem !important;
