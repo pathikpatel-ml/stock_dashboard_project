@@ -27,7 +27,7 @@ all_available_symbols_for_dashboard = []
 LOADED_SIGNALS_FILE_DISPLAY_NAME = "N/A"
 LOADED_MA_SIGNALS_FILE_DISPLAY_NAME = "N/A"
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 app.title = "Stock Analysis Dashboard"
 # server = app.server
 
@@ -83,48 +83,28 @@ def load_data_for_dashboard_from_repo():
 
 # --- NEW HELPER: Process MA Signals for UI ---
 def process_ma_signals_for_ui(ma_events_df):
-    """
-    Processes the raw MA event log into two clean tables of active positions:
-    1. Active Primary Buys
-    2. Active Secondary Buys
-    Fetches Current Market Price (CMP) for all active symbols.
-    """
     if ma_events_df.empty or 'Symbol' not in ma_events_df.columns:
         return pd.DataFrame(), pd.DataFrame()
 
     active_primary_positions = {}
     active_secondary_positions = {}
 
-    # Determine the final state of each symbol by iterating through its events
     for symbol, group in ma_events_df.sort_values(by=['Symbol', 'Date']).groupby('Symbol'):
-        primary_buy_active = False
-        secondary_buy_active = False
-        
-        # We only need the last relevant buy events
         last_primary_buy = group[group['Event_Type'] == 'Primary_Buy'].tail(1)
-        last_primary_sell = group[group['Event_Type'] == 'Primary_Sell'].tail(1)
+        if last_primary_buy.empty: continue
         
-        # Check if there's a primary buy and if it's still open
-        if not last_primary_buy.empty:
-            # A primary buy exists. Is it closed?
-            if last_primary_sell.empty or (last_primary_sell.iloc[0]['Date'] < last_primary_buy.iloc[0]['Date']):
-                primary_buy_active = True
-                active_primary_positions[symbol] = last_primary_buy.iloc[0].to_dict()
-                
-        if primary_buy_active:
-            # Now check for secondary buys related to this open primary buy
-            # Filter events that happened on or after the open primary buy date
+        last_primary_sell = group[group['Date'] > last_primary_buy.iloc[0]['Date']][group['Event_Type'] == 'Primary_Sell'].tail(1)
+        
+        if last_primary_sell.empty:
+            active_primary_positions[symbol] = last_primary_buy.iloc[0].to_dict()
             relevant_events = group[group['Date'] >= last_primary_buy.iloc[0]['Date']]
             last_sec_buy = relevant_events[relevant_events['Event_Type'] == 'Secondary_Buy_Dip'].tail(1)
-            last_sec_sell = relevant_events[relevant_events['Event_Type'] == 'Secondary_Sell_Rise'].tail(1)
             
             if not last_sec_buy.empty:
-                # A secondary buy exists. Is it still open?
-                if last_sec_sell.empty or (last_sec_sell.iloc[0]['Date'] < last_sec_buy.iloc[0]['Date']):
-                    secondary_buy_active = True
+                last_sec_sell = relevant_events[relevant_events['Date'] > last_sec_buy.iloc[0]['Date']][relevant_events['Event_Type'] == 'Secondary_Sell_Rise'].tail(1)
+                if last_sec_sell.empty:
                     active_secondary_positions[symbol] = last_sec_buy.iloc[0].to_dict()
-    
-    # --- Fetch CMP for all active symbols ---
+
     active_symbols = set(active_primary_positions.keys())
     if not active_symbols:
         return pd.DataFrame(), pd.DataFrame()
@@ -138,18 +118,14 @@ def process_ma_signals_for_ui(ma_events_df):
                 base_sym = yf_sym.replace(".NS", "")
                 price_series = None
                 try:
-                    if isinstance(data.columns, pd.MultiIndex):
-                        price_series = data.get((yf_sym, 'Close'))
-                    else: # Single symbol case
-                        price_series = data.get('Close')
+                    if isinstance(data.columns, pd.MultiIndex): price_series = data.get((yf_sym, 'Close'))
+                    else: price_series = data.get('Close')
                     if price_series is not None and not price_series.dropna().empty:
                         latest_prices_map[base_sym] = price_series.dropna().iloc[-1]
-                except (KeyError, IndexError):
-                    continue
+                except (KeyError, IndexError): continue
     except Exception as e:
         print(f"DASH (MA UI Helper): yf.download error: {e}")
 
-    # --- Construct Final DataFrames for UI ---
     primary_list = []
     for symbol, data in active_primary_positions.items():
         cmp = latest_prices_map.get(symbol)
@@ -157,14 +133,10 @@ def process_ma_signals_for_ui(ma_events_df):
             buy_price = data['Price']
             diff_pct = ((cmp - buy_price) / buy_price) * 100 if buy_price != 0 else np.nan
             primary_list.append({
-                'Symbol': symbol,
-                'Company Name': data.get('Company Name', 'N/A'),
-                'Type': data.get('Type', 'N/A'),
-                'Market Cap': data.get('MarketCap', np.nan),
-                'Primary Buy Date': data['Date'].strftime('%Y-%m-%d'),
-                'Primary Buy Price': round(buy_price, 2),
-                'Current Price': round(cmp, 2),
-                'Difference (%)': round(diff_pct, 2)
+                'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'),
+                'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan),
+                'Primary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Primary Buy Price': round(buy_price, 2),
+                'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)
             })
             
     secondary_list = []
@@ -174,19 +146,14 @@ def process_ma_signals_for_ui(ma_events_df):
             buy_price = data['Price']
             diff_pct = ((cmp - buy_price) / buy_price) * 100 if buy_price != 0 else np.nan
             secondary_list.append({
-                'Symbol': symbol,
-                'Company Name': data.get('Company Name', 'N/A'),
-                'Type': data.get('Type', 'N/A'),
-                'Market Cap': data.get('MarketCap', np.nan),
-                'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'),
-                'Secondary Buy Price': round(buy_price, 2),
-                'Current Price': round(cmp, 2),
-                'Difference (%)': round(diff_pct, 2)
+                'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'),
+                'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan),
+                'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2),
+                'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)
             })
 
     primary_df = pd.DataFrame(primary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     secondary_df = pd.DataFrame(secondary_list).sort_values(by='Difference (%)').reset_index(drop=True)
-
     return primary_df, secondary_df
 
 # --- yfinance Data Fetching & V20 Helpers (UNCHANGED) ---
@@ -197,18 +164,56 @@ def fetch_historical_data_for_graph(symbol_nse_with_suffix):
         hist_data = hist_data.reset_index()
         if 'Date' not in hist_data.columns: return pd.DataFrame()
         hist_data['Date'] = pd.to_datetime(hist_data['Date']).dt.tz_localize(None)
+        required_ohlc = ['Open', 'High', 'Low', 'Close']
+        if not all(col in hist_data.columns for col in required_ohlc): return pd.DataFrame()
+        for col in required_ohlc: hist_data[col] = pd.to_numeric(hist_data[col], errors='coerce')
+        hist_data.dropna(subset=required_ohlc, inplace=True)
         return hist_data
     except Exception as e: return pd.DataFrame()
+
 def get_nearest_to_buy_from_loaded_signals(signals_df_local):
-    if signals_df_local.empty: return pd.DataFrame()
-    # Simplified logic assuming the file is pre-processed or will be fetched.
-    # The full logic from your previous file would go here if needed.
-    return pd.DataFrame() # This function is part of V20, keeping it separate.
+    if signals_df_local.empty or 'Symbol' not in signals_df_local.columns: return pd.DataFrame()
+    df_to_process = signals_df_local.copy()
+    unique_symbols = df_to_process['Symbol'].dropna().astype(str).str.upper().unique()
+    if not unique_symbols.any(): return pd.DataFrame()
+    yf_symbols = [f"{s}.NS" for s in unique_symbols]; latest_prices_map = {}
+    chunk_size = 50
+    for i in range(0, len(yf_symbols), chunk_size):
+        chunk = yf_symbols[i:i + chunk_size]
+        try:
+            data = yf.download(tickers=chunk, period="2d", progress=False, auto_adjust=False, group_by='ticker', timeout=20)
+            if data is not None and not data.empty:
+                for sym_ns_original_case in chunk:
+                    base_sym = sym_ns_original_case.replace(".NS", "")
+                    price_series = None
+                    if isinstance(data.columns, pd.MultiIndex):
+                        price_series = data.get((sym_ns_original_case, 'Close')) or data.get((sym_ns_original_case.upper(), 'Close'))
+                    elif sym_ns_original_case in data and 'Close' in data[sym_ns_original_case].columns:
+                        price_series = data[sym_ns_original_case]['Close']
+                    elif 'Close' in data.columns and len(chunk) == 1:
+                        price_series = data['Close']
+                    if price_series is not None and not price_series.dropna().empty:
+                        latest_prices_map[base_sym.upper()] = price_series.dropna().iloc[-1]
+        except Exception as e_yf: print(f"DASH (V20 NearestBuy): yf.download error for chunk: {e_yf}")
+    df_to_process['Latest Close Price'] = df_to_process['Symbol'].astype(str).str.upper().map(latest_prices_map)
+    df_to_process.dropna(subset=['Latest Close Price', 'Buy_Price_Low'], inplace=True)
+    if df_to_process.empty: return pd.DataFrame()
+    results = []
+    for _idx, row in df_to_process.iterrows():
+        buy_target, cmp_val = row['Buy_Price_Low'], row['Latest Close Price']
+        if buy_target == 0: continue
+        prox_pct = ((cmp_val - buy_target) / buy_target) * 100
+        buy_date_str = pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d') if pd.notna(row.get('Buy_Date')) else 'N/A'
+        results.append({'Symbol': str(row.get('Symbol','')).upper(), 'Signal Buy Date': buy_date_str, 'Target Buy Price (Low)': round(buy_target, 2),
+                        'Latest Close Price': round(cmp_val, 2), 'Proximity to Buy (%)': round(prox_pct, 2),
+                        'Closeness (%)': round(abs(prox_pct), 2),
+                        'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)})
+    if not results: return pd.DataFrame()
+    return pd.DataFrame(results).sort_values(by=['Closeness (%)', 'Symbol']).reset_index(drop=True)
 
 # --- App Layout Creation Function (UPDATED FOR MA UI) ---
 def create_app_layout():
     global LOADED_SIGNALS_FILE_DISPLAY_NAME, LOADED_MA_SIGNALS_FILE_DISPLAY_NAME, all_available_symbols_for_dashboard
-    
     def get_status_span(file_display_name_full):
         status_text = "Unavailable"; status_class = "status-unavailable"
         if "(Not Found)" in file_display_name_full: status_text = "Not Found"; status_class = "status-error"
@@ -217,15 +222,12 @@ def create_app_layout():
             try: date_part = file_display_name_full.split('_')[-1].split('.')[0]; datetime.strptime(date_part, "%Y%m%d"); status_text = f"Loaded ({date_part})"; status_class = "status-loaded"
             except: status_text = "Loaded (date?)"; status_class = "status-loaded"
         return html.Span(status_text, className=status_class)
-
     return html.Div(className="app-container", children=[
         html.H1("Stock Analysis Dashboard"),
         html.Div(id="app-subtitle", children=[
             html.Span("V20 Signals: "), get_status_span(LOADED_SIGNALS_FILE_DISPLAY_NAME),
             html.Span("  |  MA Signals: "), get_status_span(LOADED_MA_SIGNALS_FILE_DISPLAY_NAME)
         ]),
-
-        # --- Section for V20 Strategy Signals (UNCHANGED) ---
         html.Div(className='section-container', children=[
             html.H3("Stocks V20 Strategy Buy Signal"),
             html.Div(className='control-bar', children=[
@@ -235,8 +237,6 @@ def create_app_layout():
             ]),
             dcc.Loading(type="circle", children=[html.Div(id='v20-signals-table-container', className='dash-table-container')])
         ]),
-
-        # --- Section for Individual Stock Analysis (UNCHANGED) ---
         html.Div(className='section-container', children=[
             html.H3("Individual Stock Analysis"),
             html.Div(className='control-bar', children=[
@@ -252,21 +252,14 @@ def create_app_layout():
             html.H4("V20 Signals for Selected Company"), 
             dcc.Loading(type="circle", children=[html.Div(id='v20-signals-detail-table-container', className='dash-table-container')])
         ]),
-
-        # --- UPDATED Section for Moving Average (MA) Signals ---
         html.Div(className='section-container', children=[
             html.H3("Moving Average (MA) Signals"),
             html.Div(className='control-bar', children=[
                 html.Label("Select View:"),
                 dcc.Dropdown(id='ma-view-selector-dropdown',
-                             options=[
-                                 {'label': 'Active Primary Buys', 'value': 'primary'},
-                                 {'label': 'Active Secondary Buys', 'value': 'secondary'}
-                             ],
-                             value='primary', # Default view
-                             clearable=False,
-                             style={'min-width': '250px'}),
-                html.Button('Refresh MA Data', id='refresh-ma-data-button', n_clicks=0) # Changed to a refresh button
+                             options=[{'label': 'Active Primary Buys', 'value': 'primary'}, {'label': 'Active Secondary Buys', 'value': 'secondary'}],
+                             value='primary', clearable=False, style={'min-width': '250px'}),
+                html.Button('Refresh MA Data', id='refresh-ma-data-button', n_clicks=0)
             ]),
             dcc.Loading(type="circle", children=[html.Div(id='ma-signals-table-container')])
         ]),
@@ -274,68 +267,132 @@ def create_app_layout():
     ])
 
 # --- Callbacks ---
-# V20 Callbacks (UNCHANGED)
-@app.callback(Output('v20-signals-table-container', 'children'),[Input('refresh-v20-signals-button', 'n_clicks')],[State('v20-proximity-threshold-input', 'value')],prevent_initial_call=False)
-def update_v20_signals_table(_n_clicks, proximity_value): return html.Div("V20 Signals table logic here.", className="status-message info") # Placeholder
-@app.callback(Output('price-chart', 'figure'),[Input('company-dropdown', 'value'),Input('date-picker-range', 'start_date'),Input('date-picker-range', 'end_date')])
+# Callback for V20 Strategy Signals Table (Full, working version)
+@app.callback(Output('v20-signals-table-container', 'children'),
+              [Input('refresh-v20-signals-button', 'n_clicks')],
+              [State('v20-proximity-threshold-input', 'value')],
+              prevent_initial_call=False)
+def update_v20_signals_table(_n_clicks, proximity_value):
+    global signals_df_for_dashboard
+    if signals_df_for_dashboard.empty:
+        return html.Div(f"V20 signals data unavailable. Status: {LOADED_SIGNALS_FILE_DISPLAY_NAME}", className="status-message error")
+    processed_signals_df = get_nearest_to_buy_from_loaded_signals(signals_df_for_dashboard.copy())
+    if processed_signals_df.empty:
+        return html.Div("No V20 stocks meet criteria after processing.", className="status-message warning")
+    try: proximity_threshold = float(proximity_value if proximity_value is not None else 20)
+    except: proximity_threshold = 20.0 
+    if not (0 <= proximity_threshold <= 100): proximity_threshold = 20.0
+    filtered_df = processed_signals_df[processed_signals_df['Closeness (%)'] <= proximity_threshold]
+    if filtered_df.empty:
+        return html.Div(f"No V20 stocks within {proximity_threshold}% of buy signal.", className="status-message info")
+    display_columns = [col for col in filtered_df.columns if col != 'Closeness (%)']
+    return dash_table.DataTable(
+        data=filtered_df.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in display_columns],
+        page_size=15, sort_action="native", filter_action="native",
+        style_table={'overflowX': 'auto', 'minWidth': '100%'}
+    )
+
+# Callback for Individual Stock Chart (Full, working version)
+@app.callback(Output('price-chart', 'figure'),
+              [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
 def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date_str):
     if not selected_company: return go.Figure().update_layout(title="Select a Company")
-    return go.Figure().update_layout(title=f"Chart for {selected_company}") # Placeholder
-@app.callback(Output('v20-signals-detail-table-container', 'children'),[Input('company-dropdown', 'value'),Input('date-picker-range', 'start_date'),Input('date-picker-range', 'end_date')])
-def update_v20_signals_detail_table(selected_company, start_date_str, end_date_str): return html.Div(f"V20 detail for {selected_company}", className="status-message info") # Placeholder
+    try:
+        start_date_obj = pd.to_datetime(start_date_str).normalize()
+        end_date_obj = pd.to_datetime(end_date_str).normalize()
+    except: return go.Figure().update_layout(title="Invalid Date Range")
+
+    symbol_ns = f"{selected_company.upper()}.NS"
+    hist_df = fetch_historical_data_for_graph(symbol_ns)
+    fig = go.Figure()
+    if not hist_df.empty:
+        df_filtered_chart = hist_df[(hist_df['Date'] >= start_date_obj) & (hist_df['Date'] <= end_date_obj)]
+        if not df_filtered_chart.empty:
+            fig.add_trace(go.Candlestick(x=df_filtered_chart['Date'], open=df_filtered_chart['Open'], high=df_filtered_chart['High'], low=df_filtered_chart['Low'], close=df_filtered_chart['Close'], name='OHLC'))
+            df_filtered_chart['SMA20'] = df_filtered_chart['Close'].rolling(window=20, min_periods=1).mean()
+            df_filtered_chart['SMA50'] = df_filtered_chart['Close'].rolling(window=50, min_periods=1).mean()
+            df_filtered_chart['SMA200'] = df_filtered_chart['Close'].rolling(window=200, min_periods=1).mean()
+            fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA20'], mode='lines', name='SMA20', line=dict(color='blue', width=1)))
+            fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA50'], mode='lines', name='SMA50', line=dict(color='orange', width=1)))
+            fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA200'], mode='lines', name='SMA200', line=dict(color='purple', width=1)))
+        else: fig.update_layout(title=f"No Price Data for {selected_company} in Range")
+    else: fig.update_layout(title=f"No Price Data for {selected_company}")
+
+    if not signals_df_for_dashboard.empty and 'Symbol' in signals_df_for_dashboard.columns:
+        v20_sigs_on_chart = signals_df_for_dashboard[(signals_df_for_dashboard['Symbol'].astype(str).str.upper() == selected_company.upper())].copy()
+        v20_sigs_on_chart = v20_sigs_on_chart[(v20_sigs_on_chart['Buy_Date'] >= start_date_obj) & (v20_sigs_on_chart['Buy_Date'] <= end_date_obj)]
+        for _, sig_row in v20_sigs_on_chart.iterrows():
+            fig.add_trace(go.Scatter(x=[sig_row['Buy_Date']], y=[sig_row['Buy_Price_Low']], mode='markers', name='V20 Buy', marker=dict(symbol='triangle-up', color='green', size=10)))
+            if pd.notna(sig_row['Sell_Date']) and sig_row['Sell_Date'] <= end_date_obj:
+                 fig.add_trace(go.Scatter(x=[sig_row['Sell_Date']], y=[sig_row['Sell_Price_High']], mode='markers', name='V20 Sell', marker=dict(symbol='triangle-down', color='red', size=10)))
+    
+    if not ma_signals_df_for_dashboard.empty and 'Symbol' in ma_signals_df_for_dashboard.columns:
+        ma_events_on_chart = ma_signals_df_for_dashboard[(ma_signals_df_for_dashboard['Symbol'].astype(str).str.upper() == selected_company.upper()) & (ma_signals_df_for_dashboard['Date'] >= start_date_obj) & (ma_signals_df_for_dashboard['Date'] <= end_date_obj)].copy()
+        for _, event_row in ma_events_on_chart.iterrows():
+            event_type = event_row['Event_Type']
+            event_color, event_symbol, event_size = 'blue', 'circle', 8
+            if 'Buy' in event_type: event_color = 'darkgreen'; event_symbol = 'triangle-up' if 'Primary' in event_type else 'diamond-up';
+            elif 'Sell' in event_type: event_color = 'darkred'; event_symbol = 'triangle-down' if 'Primary' in event_type else 'diamond-down';
+            elif 'Open' in event_type: event_color = 'grey'; event_symbol = 'square';
+            fig.add_trace(go.Scatter(x=[event_row['Date']], y=[event_row['Price']], mode='markers', name=f"MA: {event_type}",
+                                     marker=dict(symbol=event_symbol, color=event_color, size=event_size, line=dict(width=1,color='DarkSlateGrey')),
+                                     hovertext=f"{event_type}<br>{event_row['Details']}<br>Price: {event_row['Price']}", hoverinfo="text"))
+    fig.update_layout(title=f'{selected_company} Analysis', xaxis_rangeslider_visible=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(t=50, b=20, l=30, r=30))
+    return fig
+
+# Callback for V20 Signals Detail Table (Full, working version)
+@app.callback(Output('v20-signals-detail-table-container', 'children'),
+              [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
+def update_v20_signals_detail_table(selected_company, start_date_str, end_date_str):
+    global signals_df_for_dashboard
+    if not selected_company: return html.Div("Select a company.", className="status-message info")
+    try: filter_start, filter_end = pd.to_datetime(start_date_str).normalize(), pd.to_datetime(end_date_str).normalize()
+    except: return html.Div("Invalid date range.", className="status-message error")
+    if signals_df_for_dashboard.empty: return html.Div(f"V20 Signals data unavailable. Status: {LOADED_SIGNALS_FILE_DISPLAY_NAME}", className="status-message error")
+    company_sigs = signals_df_for_dashboard[signals_df_for_dashboard['Symbol'].astype(str).str.upper() == selected_company.upper()].copy()
+    if company_sigs.empty: return html.Div(f"No V20 signals for {selected_company}.", className="status-message info")
+    df_disp = company_sigs[(company_sigs['Buy_Date'] >= filter_start) & (company_sigs['Buy_Date'] <= filter_end)].copy()
+    if df_disp.empty: return html.Div(f"No V20 signals for {selected_company} in selected date range.", className="status-message info")
+    for col in ['Buy_Date', 'Sell_Date']:
+        if col in df_disp.columns and pd.api.types.is_datetime64_any_dtype(df_disp[col]):
+            df_disp[col] = df_disp[col].dt.strftime('%Y-%m-%d')
+    df_disp.fillna('N/A', inplace=True)
+    return dash_table.DataTable(
+        data=df_disp.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in df_disp.columns if i != 'Closeness (%)'],
+        page_size=10, sort_action="native",
+        style_table={'overflowX': 'auto', 'minWidth': '100%'}
+    )
 
 # --- UPDATED Callback for Moving Average (MA) Signals Table ---
 @app.callback(Output('ma-signals-table-container', 'children'),
-              [Input('refresh-ma-data-button', 'n_clicks')], # Triggered by the refresh button
-              [State('ma-view-selector-dropdown', 'value')], # Get the view from the dropdown
-              prevent_initial_call=False) # Load on start
+              [Input('refresh-ma-data-button', 'n_clicks')],
+              [State('ma-view-selector-dropdown', 'value')],
+              prevent_initial_call=False)
 def update_ma_signals_table(_n_clicks, selected_view):
     global ma_signals_df_for_dashboard
-    print(f"MA Callback Fired: View='{selected_view}'") # For debugging
-
+    print(f"MA Callback Fired: View='{selected_view}'")
     if ma_signals_df_for_dashboard.empty:
         return html.Div(f"MA Signals data unavailable. Status: {LOADED_MA_SIGNALS_FILE_DISPLAY_NAME}", className="status-message error")
-
-    # Process the raw event log into active primary and secondary dataframes
     primary_df, secondary_df = process_ma_signals_for_ui(ma_signals_df_for_dashboard)
-    
-    # Select which DataFrame to display based on the dropdown value
     df_to_display = pd.DataFrame()
     if selected_view == 'primary':
         df_to_display = primary_df
-        if df_to_display.empty:
-            return html.Div("No active Primary Buy signals found.", className="status-message info")
+        if df_to_display.empty: return html.Div("No active Primary Buy signals found.", className="status-message info")
     elif selected_view == 'secondary':
         df_to_display = secondary_df
-        if df_to_display.empty:
-            return html.Div("No active Secondary Buy signals found.", className="status-message info")
-    else:
-        return html.Div("Invalid view selected.", className="status-message error")
-
+        if df_to_display.empty: return html.Div("No active Secondary Buy signals found.", className="status-message info")
+    else: return html.Div("Invalid view selected.", className="status-message error")
     return dash_table.DataTable(
         data=df_to_display.to_dict('records'),
         columns=[{'name': i, 'id': i} for i in df_to_display.columns],
-        page_size=20,
-        sort_action="native",
-        filter_action="native",
+        page_size=20, sort_action="native", filter_action="native",
         style_table={'overflowX': 'auto', 'minWidth': '100%'},
-        style_data_conditional=[ # Highlight positive/negative difference
-            {
-                'if': {
-                    'filter_query': '{Difference (%)} < 0',
-                    'column_id': 'Difference (%)'
-                },
-                'color': '#dc3545', # Red for negative
-                'fontWeight': 'bold'
-            },
-            {
-                'if': {
-                    'filter_query': '{Difference (%)} >= 0',
-                    'column_id': 'Difference (%)'
-                },
-                'color': '#28a745', # Green for positive
-                'fontWeight': 'bold'
-            }
+        style_data_conditional=[
+            {'if': {'filter_query': '{Difference (%)} < 0', 'column_id': 'Difference (%)'}, 'color': '#dc3545', 'fontWeight': 'bold'},
+            {'if': {'filter_query': '{Difference (%)} >= 0', 'column_id': 'Difference (%)'}, 'color': '#28a745', 'fontWeight': 'bold'}
         ]
     )
 
