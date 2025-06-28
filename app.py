@@ -14,47 +14,42 @@ server = app.server
 app.title = "Stock Analysis Dashboard"
 
 # 2. Load and process data ONCE on startup
+# This populates the data_manager.signals_df and data_manager.ma_signals_df
 data_manager.load_data_for_dashboard_from_repo()
 
-# --- NEW HELPER FUNCTION TO RESTORE UI DISPLAY ---
+# --- HELPER FUNCTION TO RESTORE UI DISPLAY ---
 def create_status_display():
     """
     This function recreates the original UI for displaying file status.
-    It reads the filenames from the data_manager configuration.
+    It checks if the dataframes in data_manager were loaded successfully.
     """
     today_str = datetime.now().strftime("%Y%m%d")
     
-    # Check V20 signals file status
+    # --- Determine status for V20 Signals ---
     v20_filename = data_manager.SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
-    v20_status_text = f"{v20_filename} (Loaded)" if not data_manager.signals_df.empty else f"{v20_filename} (Not Found/Error)"
+    # Check if the dataframe in the data_manager is empty or not
+    v20_status_text = f"{v20_filename} (Loaded)" if not data_manager.signals_df.empty else f"{v20_filename} (Not Found / Error)"
     
-    # Check MA signals file status
+    # --- Determine status for MA Signals ---
     ma_filename = data_manager.MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
-    ma_status_text = f"{ma_filename} (Loaded)" if not data_manager.ma_signals_df.empty else f"{ma_filename} (Not Found/Error)"
+    ma_status_text = f"{ma_filename} (Loaded)" if not data_manager.ma_signals_df.empty else f"{ma_filename} (Not Found / Error)"
 
-    # Helper to generate styled span
+    # Helper to generate styled span, just like in your original code
     def get_status_span(full_display_name):
         status_text = "Unavailable"
         status_class = "status-unavailable"
-        if "(Not Found/Error)" in full_display_name:
-             status_text = "Not Found / Error"
+        if "(Not Found / Error)" in full_display_name:
+             status_text = full_display_name.split(' ')[0] + " (Not Found)"
              status_class = "status-error"
         elif "(Loaded)" in full_display_name:
-            try: 
-                # Extract filename and date for display
-                filename_part = full_display_name.split(' ')[0]
-                date_part = filename_part.split('_')[-1].split('.')[0]
-                datetime.strptime(date_part, "%Y%m%d")
-                status_text = f"Loaded ({filename_part})"
-                status_class = "status-loaded"
-            except: # Fallback if parsing fails
-                status_text = "Loaded (Unknown File)"
-                status_class = "status-loaded"
+            filename_part = full_display_name.split(' ')[0]
+            status_text = f"{filename_part}"
+            status_class = "status-loaded"
         return html.Span(status_text, className=status_class)
 
     return html.Div(id="app-subtitle", children=[
-        html.Span("V20 Signals: "), get_status_span(v20_status_text),
-        html.Span("  |  MA Signals: "), get_status_span(ma_status_text)
+        html.Span("V20 Signals File: "), get_status_span(v20_status_text),
+        html.Span("  |  MA Signals File: "), get_status_span(ma_status_text)
     ])
 
 
@@ -62,7 +57,7 @@ def create_status_display():
 app.layout = html.Div(className="app-container", children=[
     html.H1("Stock Analysis Dashboard"),
     
-    # Use the new helper function to create the dynamic status display
+    # Use the helper function to create the dynamic status display
     create_status_display(),
     
     # Assemble layouts from modules
