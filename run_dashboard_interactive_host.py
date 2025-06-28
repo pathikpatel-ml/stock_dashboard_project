@@ -85,30 +85,26 @@ def load_data_for_dashboard_from_repo():
 def process_ma_signals_for_ui(ma_events_df):
     if ma_events_df.empty or 'Symbol' not in ma_events_df.columns:
         return pd.DataFrame(), pd.DataFrame()
-
     active_primary_positions = {}
     active_secondary_positions = {}
-
     for symbol, group in ma_events_df.sort_values(by=['Symbol', 'Date']).groupby('Symbol'):
         last_primary_buy = group[group['Event_Type'] == 'Primary_Buy'].tail(1)
         if last_primary_buy.empty: continue
+        # Find the next primary sell *after* the last primary buy
+        # A more robust way than just tail(1) on the whole group
+        primary_sell_after_buy = group[(group['Event_Type'] == 'Primary_Sell') & (group['Date'] > last_primary_buy.iloc[0]['Date'])]
         
-        last_primary_sell = group[group['Date'] > last_primary_buy.iloc[0]['Date']][group['Event_Type'] == 'Primary_Sell'].tail(1)
-        
-        if last_primary_sell.empty:
+        # If there are no primary sells after the last primary buy, the position is open
+        if primary_sell_after_buy.empty:
             active_primary_positions[symbol] = last_primary_buy.iloc[0].to_dict()
             relevant_events = group[group['Date'] >= last_primary_buy.iloc[0]['Date']]
             last_sec_buy = relevant_events[relevant_events['Event_Type'] == 'Secondary_Buy_Dip'].tail(1)
-            
             if not last_sec_buy.empty:
-                last_sec_sell = relevant_events[relevant_events['Date'] > last_sec_buy.iloc[0]['Date']][relevant_events['Event_Type'] == 'Secondary_Sell_Rise'].tail(1)
-                if last_sec_sell.empty:
+                secondary_sell_after_buy = relevant_events[(relevant_events['Event_Type'] == 'Secondary_Sell_Rise') & (relevant_events['Date'] > last_sec_buy.iloc[0]['Date'])]
+                if secondary_sell_after_buy.empty:
                     active_secondary_positions[symbol] = last_sec_buy.iloc[0].to_dict()
-
     active_symbols = set(active_primary_positions.keys())
-    if not active_symbols:
-        return pd.DataFrame(), pd.DataFrame()
-
+    if not active_symbols: return pd.DataFrame(), pd.DataFrame()
     yf_symbols = [f"{s}.NS" for s in active_symbols]
     latest_prices_map = {}
     try:
@@ -123,40 +119,26 @@ def process_ma_signals_for_ui(ma_events_df):
                     if price_series is not None and not price_series.dropna().empty:
                         latest_prices_map[base_sym] = price_series.dropna().iloc[-1]
                 except (KeyError, IndexError): continue
-    except Exception as e:
-        print(f"DASH (MA UI Helper): yf.download error: {e}")
-
+    except Exception as e: print(f"DASH (MA UI Helper): yf.download error: {e}")
     primary_list = []
     for symbol, data in active_primary_positions.items():
         cmp = latest_prices_map.get(symbol)
         if cmp is not None:
             buy_price = data['Price']
             diff_pct = ((cmp - buy_price) / buy_price) * 100 if buy_price != 0 else np.nan
-            primary_list.append({
-                'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'),
-                'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan),
-                'Primary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Primary Buy Price': round(buy_price, 2),
-                'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)
-            })
-            
+            primary_list.append({'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'), 'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan), 'Primary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Primary Buy Price': round(buy_price, 2), 'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)})
     secondary_list = []
     for symbol, data in active_secondary_positions.items():
         cmp = latest_prices_map.get(symbol)
         if cmp is not None:
             buy_price = data['Price']
             diff_pct = ((cmp - buy_price) / buy_price) * 100 if buy_price != 0 else np.nan
-            secondary_list.append({
-                'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'),
-                'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan),
-                'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2),
-                'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)
-            })
-
+            secondary_list.append({'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'), 'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan), 'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2), 'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)})
     primary_df = pd.DataFrame(primary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     secondary_df = pd.DataFrame(secondary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     return primary_df, secondary_df
 
-# --- yfinance Data Fetching & V20 Helpers (UNCHANGED) ---
+# --- yfinance Data Fetching (Individual Chart) ---
 def fetch_historical_data_for_graph(symbol_nse_with_suffix):
     try:
         hist_data = yf.Ticker(symbol_nse_with_suffix).history(period="5y", interval="1d", auto_adjust=False, actions=False, timeout=15)
@@ -171,12 +153,26 @@ def fetch_historical_data_for_graph(symbol_nse_with_suffix):
         return hist_data
     except Exception as e: return pd.DataFrame()
 
+# --- CORRECTED Helper for "Stocks V20 Strategy Buy Signal" ---
 def get_nearest_to_buy_from_loaded_signals(signals_df_local):
-    if signals_df_local.empty or 'Symbol' not in signals_df_local.columns: return pd.DataFrame()
+    if signals_df_local.empty or 'Symbol' not in signals_df_local.columns or 'Buy_Date' not in signals_df_local.columns:
+        return pd.DataFrame()
+    
+    # Ensure Buy_Date is a datetime object for proper sorting
     df_to_process = signals_df_local.copy()
-    unique_symbols = df_to_process['Symbol'].dropna().astype(str).str.upper().unique()
-    if not unique_symbols.any(): return pd.DataFrame()
-    yf_symbols = [f"{s}.NS" for s in unique_symbols]; latest_prices_map = {}
+    df_to_process['Buy_Date'] = pd.to_datetime(df_to_process['Buy_Date'], errors='coerce')
+    df_to_process.dropna(subset=['Buy_Date'], inplace=True)
+    
+    # *** THIS IS THE RESTORED, CRITICAL LOGIC for V20 ***
+    latest_signals = df_to_process.sort_values('Buy_Date', ascending=False).groupby('Symbol').first().reset_index()
+
+    unique_symbols = latest_signals['Symbol'].dropna().unique()
+    if not unique_symbols.any():
+        return pd.DataFrame()
+
+    print(f"DASH (V20 NearestBuy): Fetching CMPs for {len(unique_symbols)} latest signals...")
+    yf_symbols = [f"{s}.NS" for s in unique_symbols]
+    latest_prices_map = {}
     chunk_size = 50
     for i in range(0, len(yf_symbols), chunk_size):
         chunk = yf_symbols[i:i + chunk_size]
@@ -184,35 +180,53 @@ def get_nearest_to_buy_from_loaded_signals(signals_df_local):
             data = yf.download(tickers=chunk, period="2d", progress=False, auto_adjust=False, group_by='ticker', timeout=20)
             if data is not None and not data.empty:
                 for sym_ns_original_case in chunk:
-                    base_sym = sym_ns_original_case.replace(".NS", "")
+                    base_sym = sym_ns_original_case.replace(".NS", "").upper()
                     price_series = None
+                    # Robust price extraction
                     if isinstance(data.columns, pd.MultiIndex):
-                        price_series = data.get((sym_ns_original_case, 'Close')) or data.get((sym_ns_original_case.upper(), 'Close'))
-                    elif sym_ns_original_case in data and 'Close' in data[sym_ns_original_case].columns:
+                        if (sym_ns_original_case, 'Close') in data.columns:
+                            price_series = data[(sym_ns_original_case, 'Close')]
+                        elif (sym_ns_original_case.upper(), 'Close') in data.columns:
+                            price_series = data[(sym_ns_original_case.upper(), 'Close')]
+                    elif sym_ns_original_case in data and isinstance(data[sym_ns_original_case], pd.DataFrame) and 'Close' in data[sym_ns_original_case].columns:
                         price_series = data[sym_ns_original_case]['Close']
                     elif 'Close' in data.columns and len(chunk) == 1:
                         price_series = data['Close']
+                    
                     if price_series is not None and not price_series.dropna().empty:
-                        latest_prices_map[base_sym.upper()] = price_series.dropna().iloc[-1]
-        except Exception as e_yf: print(f"DASH (V20 NearestBuy): yf.download error for chunk: {e_yf}")
-    df_to_process['Latest Close Price'] = df_to_process['Symbol'].astype(str).str.upper().map(latest_prices_map)
-    df_to_process.dropna(subset=['Latest Close Price', 'Buy_Price_Low'], inplace=True)
-    if df_to_process.empty: return pd.DataFrame()
+                        latest_prices_map[base_sym] = price_series.dropna().iloc[-1]
+        except Exception as e_yf:
+            print(f"DASH (V20 NearestBuy): yf.download error for chunk: {e_yf}")
+
     results = []
-    for _idx, row in df_to_process.iterrows():
-        buy_target, cmp_val = row['Buy_Price_Low'], row['Latest Close Price']
-        if buy_target == 0: continue
+    # Iterate over the LATEST signals, not the full dataframe
+    for _idx, row in latest_signals.iterrows():
+        symbol = str(row.get('Symbol','')).upper()
+        cmp_val = latest_prices_map.get(symbol)
+        buy_target = row.get('Buy_Price_Low')
+
+        if pd.isna(cmp_val) or pd.isna(buy_target) or buy_target == 0:
+            continue
+
         prox_pct = ((cmp_val - buy_target) / buy_target) * 100
-        buy_date_str = pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d') if pd.notna(row.get('Buy_Date')) else 'N/A'
-        results.append({'Symbol': str(row.get('Symbol','')).upper(), 'Signal Buy Date': buy_date_str, 'Target Buy Price (Low)': round(buy_target, 2),
-                        'Latest Close Price': round(cmp_val, 2), 'Proximity to Buy (%)': round(prox_pct, 2),
-                        'Closeness (%)': round(abs(prox_pct), 2),
-                        'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)})
-    if not results: return pd.DataFrame()
-    return pd.DataFrame(results).sort_values(by=['Closeness (%)', 'Symbol']).reset_index(drop=True)
+        buy_date_str = pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d')
+        results.append({
+            'Symbol': symbol,
+            'Signal Buy Date': buy_date_str,
+            'Target Buy Price (Low)': round(buy_target, 2),
+            'Latest Close Price': round(cmp_val, 2),
+            'Proximity to Buy (%)': round(prox_pct, 2),
+            'Closeness (%)': round(abs(prox_pct), 2),
+            'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)
+        })
+        
+    if not results:
+        return pd.DataFrame()
+    return pd.DataFrame(results).sort_values(by=['Closeness (%)']).reset_index(drop=True)
 
 # --- App Layout Creation Function (UPDATED FOR MA UI) ---
 def create_app_layout():
+    # This function is unchanged from the last correct version provided.
     global LOADED_SIGNALS_FILE_DISPLAY_NAME, LOADED_MA_SIGNALS_FILE_DISPLAY_NAME, all_available_symbols_for_dashboard
     def get_status_span(file_display_name_full):
         status_text = "Unavailable"; status_class = "status-unavailable"
@@ -276,15 +290,23 @@ def update_v20_signals_table(_n_clicks, proximity_value):
     global signals_df_for_dashboard
     if signals_df_for_dashboard.empty:
         return html.Div(f"V20 signals data unavailable. Status: {LOADED_SIGNALS_FILE_DISPLAY_NAME}", className="status-message error")
-    processed_signals_df = get_nearest_to_buy_from_loaded_signals(signals_df_for_dashboard.copy())
+    
+    # Call the corrected helper function
+    processed_signals_df = get_nearest_to_buy_from_loaded_signals(signals_df_for_dashboard)
+    
     if processed_signals_df.empty:
+        # This is the message you were seeing. It now correctly indicates no *latest* signals meet criteria.
         return html.Div("No V20 stocks meet criteria after processing.", className="status-message warning")
+    
     try: proximity_threshold = float(proximity_value if proximity_value is not None else 20)
     except: proximity_threshold = 20.0 
     if not (0 <= proximity_threshold <= 100): proximity_threshold = 20.0
-    filtered_df = processed_signals_df[processed_signals_df['Closeness (%)'] <= proximity_threshold]
+
+    filtered_df = processed_signals_df[processed_signals_df['Closeness (%)'] <= proximity_threshold].copy()
+    
     if filtered_df.empty:
-        return html.Div(f"No V20 stocks within {proximity_threshold}% of buy signal.", className="status-message info")
+        return html.Div(f"No V20 stocks within {proximity_threshold}% of their latest buy signal.", className="status-message info")
+    
     display_columns = [col for col in filtered_df.columns if col != 'Closeness (%)']
     return dash_table.DataTable(
         data=filtered_df.to_dict('records'),
@@ -297,11 +319,11 @@ def update_v20_signals_table(_n_clicks, proximity_value):
 @app.callback(Output('price-chart', 'figure'),
               [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
 def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date_str):
-    if not selected_company: return go.Figure().update_layout(title="Select a Company")
+    if not selected_company: return go.Figure().update_layout(title="Select a Company", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
     try:
         start_date_obj = pd.to_datetime(start_date_str).normalize()
         end_date_obj = pd.to_datetime(end_date_str).normalize()
-    except: return go.Figure().update_layout(title="Invalid Date Range")
+    except: return go.Figure().update_layout(title="Invalid Date Range", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
 
     symbol_ns = f"{selected_company.upper()}.NS"
     hist_df = fetch_historical_data_for_graph(symbol_ns)
