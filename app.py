@@ -3,7 +3,7 @@ import dash
 from dash import html
 import data_manager
 from modules import v20_layout, ma_layout, individual_stock_layout
-from modules import v20_callbacks, ma_callbacks, individual_stock_callbacks
+from modules import v20_callbacks, ma_callbacks, individual_stock_callbacks # This line will now work
 
 # 1. Initialize the Dash App
 app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
@@ -17,7 +17,6 @@ data_manager.load_data_for_dashboard_from_repo()
 app.layout = html.Div(className="app-container", children=[
     html.H1("Stock Analysis Dashboard"),
     html.Div(id="app-subtitle", children=[
-        # A small callback could update this status, or it could be static
         html.Span(f"V20 Signals: {len(data_manager.v20_processed_df)} active"),
         html.Span("  |  MA Signals: Loaded"),
     ]),
@@ -32,7 +31,7 @@ app.layout = html.Div(className="app-container", children=[
 # 4. Register all callbacks from the modules
 v20_callbacks.register_v20_callbacks(app)
 ma_callbacks.register_ma_callbacks(app)
-individual_stock_callbacks.register_individual_stock_callbacks(app)
+individual_stock_callbacks.register_individual_stock_callbacks(app) # This line will now work
 
 # 5. Run the App
 if __name__ == '__main__':
