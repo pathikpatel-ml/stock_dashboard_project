@@ -81,7 +81,7 @@ def load_data_for_dashboard_from_repo():
     print(f"DASH APP: Symbols for individual analysis dropdown: {len(all_available_symbols_for_dashboard)}.")
     return True
 
-# --- NEW HELPER: Process MA Signals for UI ---
+# --- NEW HELPER: Process MA Signals for UI (UNCHANGED) ---
 def process_ma_signals_for_ui(ma_events_df):
     if ma_events_df.empty or 'Symbol' not in ma_events_df.columns:
         return pd.DataFrame(), pd.DataFrame()
@@ -90,11 +90,7 @@ def process_ma_signals_for_ui(ma_events_df):
     for symbol, group in ma_events_df.sort_values(by=['Symbol', 'Date']).groupby('Symbol'):
         last_primary_buy = group[group['Event_Type'] == 'Primary_Buy'].tail(1)
         if last_primary_buy.empty: continue
-        # Find the next primary sell *after* the last primary buy
-        # A more robust way than just tail(1) on the whole group
         primary_sell_after_buy = group[(group['Event_Type'] == 'Primary_Sell') & (group['Date'] > last_primary_buy.iloc[0]['Date'])]
-        
-        # If there are no primary sells after the last primary buy, the position is open
         if primary_sell_after_buy.empty:
             active_primary_positions[symbol] = last_primary_buy.iloc[0].to_dict()
             relevant_events = group[group['Date'] >= last_primary_buy.iloc[0]['Date']]
@@ -138,7 +134,7 @@ def process_ma_signals_for_ui(ma_events_df):
     secondary_df = pd.DataFrame(secondary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     return primary_df, secondary_df
 
-# --- yfinance Data Fetching (Individual Chart) ---
+# --- yfinance Data Fetching (Individual Chart) (UNCHANGED) ---
 def fetch_historical_data_for_graph(symbol_nse_with_suffix):
     try:
         hist_data = yf.Ticker(symbol_nse_with_suffix).history(period="5y", interval="1d", auto_adjust=False, actions=False, timeout=15)
@@ -155,15 +151,18 @@ def fetch_historical_data_for_graph(symbol_nse_with_suffix):
 
 # --- CORRECTED Helper for "Stocks V20 Strategy Buy Signal" ---
 def get_nearest_to_buy_from_loaded_signals(signals_df_local):
+    """
+    Finds the latest V20 signal for each stock, checks if it's still active
+    (CMP < Sell Price), and calculates its proximity to the buy price.
+    """
     if signals_df_local.empty or 'Symbol' not in signals_df_local.columns or 'Buy_Date' not in signals_df_local.columns:
         return pd.DataFrame()
     
-    # Ensure Buy_Date is a datetime object for proper sorting
     df_to_process = signals_df_local.copy()
     df_to_process['Buy_Date'] = pd.to_datetime(df_to_process['Buy_Date'], errors='coerce')
     df_to_process.dropna(subset=['Buy_Date'], inplace=True)
     
-    # *** THIS IS THE RESTORED, CRITICAL LOGIC for V20 ***
+    # This is the original, correct logic for the V20 "Nearest to Buy" table.
     latest_signals = df_to_process.sort_values('Buy_Date', ascending=False).groupby('Symbol').first().reset_index()
 
     unique_symbols = latest_signals['Symbol'].dropna().unique()
@@ -179,54 +178,55 @@ def get_nearest_to_buy_from_loaded_signals(signals_df_local):
         try:
             data = yf.download(tickers=chunk, period="2d", progress=False, auto_adjust=False, group_by='ticker', timeout=20)
             if data is not None and not data.empty:
-                for sym_ns_original_case in chunk:
-                    base_sym = sym_ns_original_case.replace(".NS", "").upper()
+                for sym_ns in chunk:
+                    base_sym = sym_ns.replace(".NS", "").upper()
                     price_series = None
-                    # Robust price extraction
                     if isinstance(data.columns, pd.MultiIndex):
-                        if (sym_ns_original_case, 'Close') in data.columns:
-                            price_series = data[(sym_ns_original_case, 'Close')]
-                        elif (sym_ns_original_case.upper(), 'Close') in data.columns:
-                            price_series = data[(sym_ns_original_case.upper(), 'Close')]
-                    elif sym_ns_original_case in data and isinstance(data[sym_ns_original_case], pd.DataFrame) and 'Close' in data[sym_ns_original_case].columns:
-                        price_series = data[sym_ns_original_case]['Close']
+                        if (sym_ns, 'Close') in data.columns: price_series = data[(sym_ns, 'Close')]
+                        elif (sym_ns.upper(), 'Close') in data.columns: price_series = data[(sym_ns.upper(), 'Close')]
+                    elif isinstance(data, dict):
+                        symbol_data = data.get(sym_ns) or data.get(sym_ns.upper())
+                        if symbol_data is not None and isinstance(symbol_data, pd.DataFrame) and 'Close' in symbol_data.columns:
+                            price_series = symbol_data['Close']
                     elif 'Close' in data.columns and len(chunk) == 1:
                         price_series = data['Close']
-                    
                     if price_series is not None and not price_series.dropna().empty:
                         latest_prices_map[base_sym] = price_series.dropna().iloc[-1]
         except Exception as e_yf:
             print(f"DASH (V20 NearestBuy): yf.download error for chunk: {e_yf}")
 
     results = []
-    # Iterate over the LATEST signals, not the full dataframe
     for _idx, row in latest_signals.iterrows():
         symbol = str(row.get('Symbol','')).upper()
         cmp_val = latest_prices_map.get(symbol)
         buy_target = row.get('Buy_Price_Low')
+        sell_target = row.get('Sell_Price_High') # Get the sell target
 
+        # Skip if we don't have prices or targets
         if pd.isna(cmp_val) or pd.isna(buy_target) or buy_target == 0:
             continue
+            
+        # *** THIS IS THE NEW, CORRECTED LOGIC ***
+        # If the sell target exists and the current price has met or exceeded it,
+        # the signal is "closed" and should not appear in this table.
+        if pd.notna(sell_target) and cmp_val >= sell_target:
+            continue
 
+        # If we reach here, the signal is active. Now calculate proximity for display.
         prox_pct = ((cmp_val - buy_target) / buy_target) * 100
         buy_date_str = pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d')
         results.append({
-            'Symbol': symbol,
-            'Signal Buy Date': buy_date_str,
-            'Target Buy Price (Low)': round(buy_target, 2),
-            'Latest Close Price': round(cmp_val, 2),
-            'Proximity to Buy (%)': round(prox_pct, 2),
+            'Symbol': symbol, 'Signal Buy Date': buy_date_str, 'Target Buy Price (Low)': round(buy_target, 2),
+            'Latest Close Price': round(cmp_val, 2), 'Proximity to Buy (%)': round(prox_pct, 2),
             'Closeness (%)': round(abs(prox_pct), 2),
             'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)
         })
         
-    if not results:
-        return pd.DataFrame()
+    if not results: return pd.DataFrame()
     return pd.DataFrame(results).sort_values(by=['Closeness (%)']).reset_index(drop=True)
 
-# --- App Layout Creation Function (UPDATED FOR MA UI) ---
+# --- App Layout Creation Function (UNCHANGED) ---
 def create_app_layout():
-    # This function is unchanged from the last correct version provided.
     global LOADED_SIGNALS_FILE_DISPLAY_NAME, LOADED_MA_SIGNALS_FILE_DISPLAY_NAME, all_available_symbols_for_dashboard
     def get_status_span(file_display_name_full):
         status_text = "Unavailable"; status_class = "status-unavailable"
@@ -295,17 +295,18 @@ def update_v20_signals_table(_n_clicks, proximity_value):
     processed_signals_df = get_nearest_to_buy_from_loaded_signals(signals_df_for_dashboard)
     
     if processed_signals_df.empty:
-        # This is the message you were seeing. It now correctly indicates no *latest* signals meet criteria.
-        return html.Div("No V20 stocks meet criteria after processing.", className="status-message warning")
+        # This message now correctly means no *active* latest signals were found.
+        return html.Div("No active V20 signals found.", className="status-message warning")
     
-    try: proximity_threshold = float(proximity_value if proximity_value is not None else 20)
-    except: proximity_threshold = 20.0 
-    if not (0 <= proximity_threshold <= 100): proximity_threshold = 20.0
+    try: proximity_threshold = float(proximity_value if proximity_value is not None else 100) # Default to 100 to show all active
+    except: proximity_threshold = 100.0 
+    if not (0 <= proximity_threshold): proximity_threshold = 100.0
 
+    # The filter for proximity is now just a way to focus on opportunities, not a primary rule.
     filtered_df = processed_signals_df[processed_signals_df['Closeness (%)'] <= proximity_threshold].copy()
     
     if filtered_df.empty:
-        return html.Div(f"No V20 stocks within {proximity_threshold}% of their latest buy signal.", className="status-message info")
+        return html.Div(f"No active V20 signals within {proximity_threshold}% of their buy price.", className="status-message info")
     
     display_columns = [col for col in filtered_df.columns if col != 'Closeness (%)']
     return dash_table.DataTable(
@@ -319,11 +320,11 @@ def update_v20_signals_table(_n_clicks, proximity_value):
 @app.callback(Output('price-chart', 'figure'),
               [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
 def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date_str):
-    if not selected_company: return go.Figure().update_layout(title="Select a Company", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    if not selected_company: return go.Figure().update_layout(title="Select a Company")
     try:
         start_date_obj = pd.to_datetime(start_date_str).normalize()
         end_date_obj = pd.to_datetime(end_date_str).normalize()
-    except: return go.Figure().update_layout(title="Invalid Date Range", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+    except: return go.Figure().update_layout(title="Invalid Date Range")
 
     symbol_ns = f"{selected_company.upper()}.NS"
     hist_df = fetch_historical_data_for_graph(symbol_ns)
@@ -388,7 +389,7 @@ def update_v20_signals_detail_table(selected_company, start_date_str, end_date_s
         style_table={'overflowX': 'auto', 'minWidth': '100%'}
     )
 
-# --- UPDATED Callback for Moving Average (MA) Signals Table ---
+# --- UPDATED Callback for Moving Average (MA) Signals Table (UNCHANGED from previous correct version) ---
 @app.callback(Output('ma-signals-table-container', 'children'),
               [Input('refresh-ma-data-button', 'n_clicks')],
               [State('ma-view-selector-dropdown', 'value')],
@@ -418,7 +419,7 @@ def update_ma_signals_table(_n_clicks, selected_view):
         ]
     )
 
-# --- Application Initialization & Run ---
+# --- Application Initialization & Run (UNCHANGED) ---
 if __name__ == '__main__':
     print("DASH APP: Initializing application...")
     load_data_for_dashboard_from_repo()
