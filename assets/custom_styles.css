@@ -270,3 +270,31 @@ footer {
     color: #6c757d;
     border-top: 1px solid #dee2e6;
 }
+
+
+/* --- START: SPECIFIC CORRECTIONS FOR DatePickerRange --- */
+
+/* Target the overall container of the DatePickerRange */
+.control-bar .DateInput {
+    display: inline-block; /* Override flex properties if needed */
+    width: auto !important; /* Let it size to its content */
+}
+
+/* Target the individual date input boxes */
+.DateInput_input, .DateInput_input_1 {
+    font-size: 14px !important;     /* Adjust font size */
+    padding: 6px 8px !important;    /* Adjust padding */
+    width: 110px !important;        /* Set a fixed, reasonable width */
+    height: auto !important;        /* Let height be determined by padding and font size */
+    box-sizing: border-box;         /* Ensure padding is included in the width */
+    border-radius: 4px !important;
+    border: 1px solid #ced4da !important;
+    text-align: center;
+}
+
+/* Target the arrow separator between the dates */
+.DateInput_arrow {
+    padding: 0 8px; /* Add some space around the arrow */
+}
+
+/* --- END: SPECIFIC CORRECTIONS FOR DatePickerRange --- */
