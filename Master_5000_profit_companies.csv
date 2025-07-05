@@ -1,80 +1,80 @@
-Symbol,Company Name,Revenue,Net Profit,EPS,Quarterly Net Profit,Public Holding,ROCE,Debt-to-Equity,PSU,MarketCap
-LT,Larsen & Toubro Limited,,,,,,,,False,505993.0226688
-RELIANCE,Reliance Industries Limited,,,,,,,,False,2050715.1826944
-SBIN,State Bank of India,,,,,,,,False,718788.886528
-HDFCBANK,HDFC Bank Limited,,,,,,,,False,1545005.1182592
-ICICIBANK,ICICI Bank Limited,,,,,,,,False,1043358.7052544
-AXISBANK,Axis Bank Limited,,,,,,,,False,379957.41184
-KOTAKBANK,Kotak Mahindra Bank Limited,,,,,,,,False,438985.68704
-HCLTECH,HCL Technologies Limited,,,,,,,,False,466826.5070592
-INFY,Infosys Limited,,,,,,,,False,666454.8777984
-TCS,Tata Consultancy Services Limited,,,,,,,,True,1245020.946432
-HDFCAMC,HDFC Asset Management Company Ltd,,,,,,,,True,110131.5571712
-NAM-INDIA,Nippon Life India Asset Management Ltd,,,,,,,,True,49795.9501824
-HDFCLIFE,HDFC Life Insurance Company Ltd,,,,,,,,False,173915.4784256
-ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,,,,,,,,True,93681.7000448
-ICICIGI,ICICI Lombard General Insurance Co Ltd,,,,,,,,True,100070.948864
-BAJAJFINSV,Bajaj Finserv Limited,,,,,,,,False,326015.9361024
-BAJAJHLDNG,Bajaj Holdings & Investment Limited,,,,,,,,True,157473.964032
-BAJFINANCE,Bajaj Finance Limited,,,,,,,,False,588270.6919424
-HINDUNILVR,Hindustan Unilever Limited,,,,,,,,True,542026.9174784
-NESTLEIND,Nestle India Ltd,,,,,,,,True,237057.2648448
-PGHH,Procter & Gamble Hygiene & Health Care,,,,,,,,False,42913.0448896
-PIDILITIND,Pidilite Industries Ltd,,,,,,,,True,155224.4146176
-COLPAL,Colgate-Palmolive ( India ) Ltd,,,,,,,,False,64766.6860032
-DABUR,Dabur India Ltd,,,,,,,,False,86263.4115072
-GILLETTE,Gillette India Ltd,,,,,,,,False,35134.9932032
-MARICO,Marico Ltd,,,,,,,,True,94705.5099904
-ITC,ITC Limited,,,,,,,,False,523902.8056064
-TITAN,Titan Company Ltd,,,,,,,,False,325208.4277248
-PAGEIND,Page Industries Ltd,,,,,,,,False,55206.6809856
-BATAINDIA,Bata India Ltd,,,,,,,,False,15832.6161408
-HAVELLS,Havells India Ltd,,,,,,,,True,98229.2758528
-VOLTAS,Voltas Ltd,,,,,,,,True,43190.419456
-GLAXO,Glaxosmithkline Pharmaceuticals Ltd,,,,,,,,False,58575.355904
-ABBOTINDIA,Abbott India Ltd,,,,,,,,False,74391.1063552
-PFIZER,Pfizer Ltd,,,,,,,,False,26067.0390272
-SANOFI,Sanofi India Ltd,,,,,,,,True,14260.5467648
-MARUTI,Maruti Suzuki India Limited,,,,,,,,False,397468.2902528
-ASIANPAINT,Asian Patins Ltd,,,,,,,,False,226191.5271168
-BERGEPAINT,Berger Paints India Ltd,,,,,,,,False,68146.3775232
-BAJAJ-AUTO,Bajaj Auto Limited,,,,,,,,False,235760.0452608
-CDSL,Central Depository Service (India) Ltd,,,,,,,,False,36794.44992
-BSE,BSE LTD,,,,,,,,True,112725.1705856
-ANGELONE,Angel One Ltd,,,,,,,,False,26339.7507072
-CAMS,Computer Age Management Sevices Ltd,,,,,,,,False,21219.7179392
-BAJAJHFL,Bajaj Housing Finance Ltd,,,,,,,,True,101712.7501824
-MCX,Multi Commodity Exchange Of India Ltd,,,,,,,,False,45082.0636672
-ULTRACEMCO,UltraTech Cement Limited,,,,,,,,False,359889.0041344
-ACC,ACC LTD,,,,,,,,True,36083.2466944
-TEAMLEASE,Teamlease Service Ltd,,,,,,,,True,3401.1721728
-QUESS,Quess Corp Ltd,,,,,,,,True,4545.1784192
-ASTRAZEN,Astrazeneca Pharma India Ltd,,,,,,,,True,22267.4993152
-CIPLA,Cipla Limited,,,,,,,,True,121384.7568384
-ERIS,Eris Lifesciences Ltd,,,,,,,,True,22875.676672
-LALPATHLAB,Dr. Lal Pathlabs Ltd,,,,,,,,True,23134.4357376
-APOLLOHOSP,Apollo Hospitals Enterprise Ltd,,,,,,,,True,105085.2589568
-MEDANTA,Global Health Ltd,,,,,,,,False,30536.056832
-FORTIS,Fortis Healthcare Ltd,,,,,,,,True,59188.707328
-ADANIPORTS,Adani Ports and Special Economic Zone Limited,,,,,,,,False,311103.3503744
-JSWINFRA,JSW Infrastructure Ltd,,,,,,,,False,65656.7435264
-AWL,AWL Agri Business Ltd,,,,,,,,True,33573.6602624
-GODREJCP,Godrej Consumer Products Limited,,,,,,,,False,120346.902528
-DIXON,Dixon Technologies (India) Ltd,,,,,,,,False,87215.7478912
-KAJARIACER,Kajaria Ceramics Ltd,,,,,,,,False,17341.5366656
-HONAUT,Honeywell Automation India Ltd,,,,,,,,False,35083.1509504
-DMART,Avenue Supermarts Ltd,,,,,,,,False,280693.6764416
-RELAXO,Relaxo Footwears Ltd,,,,,,,,True,10574.9291008
-BLUESTARCO,Blue Star Ltd,,,,,,,,False,33391.8765056
-BOSCHLTD,Bosch Ltd,,,,,,,,False,95146.3510016
-EICHERMOT,Eicher Motors Ltd,,,,,,,,False,155226.6297344
-M&M,Mahindra & Mahindra Limited,,,,,,,,False,384280.7169024
-MRF,MRF LTD,,,,,,,,True,60829.7091072
-TATAMOTORS,Tata Motors Limited,,,,,,,,True,252879.4902528
-HYUNDAI,Hyundai Motor India Limited,,,,,,,,True,178076.4901376
-INDHOTEL,Indian Hotels Company Ltd,,,,,,,,False,109277.0004992
-ITCHOTELS,ITC Hotels Ltd,,,,,,,,False,47030.2785536
-UNITDSPR,United Spirits Ltd,,,,,,,,True,102436.143104
-RADICO,Radico Khaitan Ltd,,,,,,,,True,34685.0033664
-UBL,United Breweries Ltd,,,,,,,,False,51853.7510912
-VBL,Varun Beverages Ltd,,,,,,,,False,156109.4258688
+Symbol,Company Name,Revenue,Net Profit,EPS,Quarterly Net Profit,Public Holding,ROCE,Debt-to-Equity,V40,MarketCap
+LT,Larsen & Toubro Limited,,,,,,,,TRUE,505993.0227
+RELIANCE,Reliance Industries Limited,,,,,,,,TRUE,2050715.183
+SBIN,State Bank of India,,,,,,,,TRUE,718788.8865
+HDFCBANK,HDFC Bank Limited,,,,,,,,TRUE,1545005.118
+ICICIBANK,ICICI Bank Limited,,,,,,,,TRUE,1043358.705
+AXISBANK,Axis Bank Limited,,,,,,,,TRUE,379957.4118
+KOTAKBANK,Kotak Mahindra Bank Limited,,,,,,,,TRUE,438985.687
+HCLTECH,HCL Technologies Limited,,,,,,,,TRUE,466826.5071
+INFY,Infosys Limited,,,,,,,,TRUE,666454.8778
+TCS,Tata Consultancy Services Limited,,,,,,,,TRUE,1245020.946
+HDFCAMC,HDFC Asset Management Company Ltd,,,,,,,,TRUE,110131.5572
+NAM-INDIA,Nippon Life India Asset Management Ltd,,,,,,,,TRUE,49795.95018
+HDFCLIFE,HDFC Life Insurance Company Ltd,,,,,,,,TRUE,173915.4784
+ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,,,,,,,,TRUE,93681.70004
+ICICIGI,ICICI Lombard General Insurance Co Ltd,,,,,,,,TRUE,100070.9489
+BAJAJFINSV,Bajaj Finserv Limited,,,,,,,,TRUE,326015.9361
+BAJAJHLDNG,Bajaj Holdings & Investment Limited,,,,,,,,TRUE,157473.964
+BAJFINANCE,Bajaj Finance Limited,,,,,,,,TRUE,588270.6919
+HINDUNILVR,Hindustan Unilever Limited,,,,,,,,TRUE,542026.9175
+NESTLEIND,Nestle India Ltd,,,,,,,,TRUE,237057.2648
+PGHH,Procter & Gamble Hygiene & Health Care,,,,,,,,TRUE,42913.04489
+PIDILITIND,Pidilite Industries Ltd,,,,,,,,TRUE,155224.4146
+COLPAL,Colgate-Palmolive ( India ) Ltd,,,,,,,,TRUE,64766.686
+DABUR,Dabur India Ltd,,,,,,,,TRUE,86263.41151
+GILLETTE,Gillette India Ltd,,,,,,,,TRUE,35134.9932
+MARICO,Marico Ltd,,,,,,,,TRUE,94705.50999
+ITC,ITC Limited,,,,,,,,TRUE,523902.8056
+TITAN,Titan Company Ltd,,,,,,,,TRUE,325208.4277
+PAGEIND,Page Industries Ltd,,,,,,,,TRUE,55206.68099
+BATAINDIA,Bata India Ltd,,,,,,,,TRUE,15832.61614
+HAVELLS,Havells India Ltd,,,,,,,,TRUE,98229.27585
+VOLTAS,Voltas Ltd,,,,,,,,TRUE,43190.41946
+GLAXO,Glaxosmithkline Pharmaceuticals Ltd,,,,,,,,TRUE,58575.3559
+ABBOTINDIA,Abbott India Ltd,,,,,,,,TRUE,74391.10636
+PFIZER,Pfizer Ltd,,,,,,,,TRUE,26067.03903
+SANOFI,Sanofi India Ltd,,,,,,,,TRUE,14260.54676
+MARUTI,Maruti Suzuki India Limited,,,,,,,,TRUE,397468.2903
+ASIANPAINT,Asian Patins Ltd,,,,,,,,TRUE,226191.5271
+BERGEPAINT,Berger Paints India Ltd,,,,,,,,TRUE,68146.37752
+BAJAJ-AUTO,Bajaj Auto Limited,,,,,,,,TRUE,235760.0453
+CDSL,Central Depository Service (India) Ltd,,,,,,,,FALSE,36794.44992
+BSE,BSE LTD,,,,,,,,FALSE,112725.1706
+ANGELONE,Angel One Ltd,,,,,,,,FALSE,26339.75071
+CAMS,Computer Age Management Sevices Ltd,,,,,,,,FALSE,21219.71794
+BAJAJHFL,Bajaj Housing Finance Ltd,,,,,,,,FALSE,101712.7502
+MCX,Multi Commodity Exchange Of India Ltd,,,,,,,,FALSE,45082.06367
+ULTRACEMCO,UltraTech Cement Limited,,,,,,,,FALSE,359889.0041
+ACC,ACC LTD,,,,,,,,FALSE,36083.24669
+TEAMLEASE,Teamlease Service Ltd,,,,,,,,FALSE,3401.172173
+QUESS,Quess Corp Ltd,,,,,,,,FALSE,4545.178419
+ASTRAZEN,Astrazeneca Pharma India Ltd,,,,,,,,FALSE,22267.49932
+CIPLA,Cipla Limited,,,,,,,,FALSE,121384.7568
+ERIS,Eris Lifesciences Ltd,,,,,,,,FALSE,22875.67667
+LALPATHLAB,Dr. Lal Pathlabs Ltd,,,,,,,,FALSE,23134.43574
+APOLLOHOSP,Apollo Hospitals Enterprise Ltd,,,,,,,,FALSE,105085.259
+MEDANTA,Global Health Ltd,,,,,,,,FALSE,30536.05683
+FORTIS,Fortis Healthcare Ltd,,,,,,,,FALSE,59188.70733
+ADANIPORTS,Adani Ports and Special Economic Zone Limited,,,,,,,,FALSE,311103.3504
+JSWINFRA,JSW Infrastructure Ltd,,,,,,,,FALSE,65656.74353
+AWL,AWL Agri Business Ltd,,,,,,,,FALSE,33573.66026
+GODREJCP,Godrej Consumer Products Limited,,,,,,,,FALSE,120346.9025
+DIXON,Dixon Technologies (India) Ltd,,,,,,,,FALSE,87215.74789
+KAJARIACER,Kajaria Ceramics Ltd,,,,,,,,FALSE,17341.53667
+HONAUT,Honeywell Automation India Ltd,,,,,,,,FALSE,35083.15095
+DMART,Avenue Supermarts Ltd,,,,,,,,FALSE,280693.6764
+RELAXO,Relaxo Footwears Ltd,,,,,,,,FALSE,10574.9291
+BLUESTARCO,Blue Star Ltd,,,,,,,,FALSE,33391.87651
+BOSCHLTD,Bosch Ltd,,,,,,,,FALSE,95146.351
+EICHERMOT,Eicher Motors Ltd,,,,,,,,FALSE,155226.6297
+M&M,Mahindra & Mahindra Limited,,,,,,,,FALSE,384280.7169
+MRF,MRF LTD,,,,,,,,FALSE,60829.70911
+TATAMOTORS,Tata Motors Limited,,,,,,,,FALSE,252879.4903
+HYUNDAI,Hyundai Motor India Limited,,,,,,,,FALSE,178076.4901
+INDHOTEL,Indian Hotels Company Ltd,,,,,,,,FALSE,109277.0005
+ITCHOTELS,ITC Hotels Ltd,,,,,,,,FALSE,47030.27855
+UNITDSPR,United Spirits Ltd,,,,,,,,FALSE,102436.1431
+RADICO,Radico Khaitan Ltd,,,,,,,,FALSE,34685.00337
+UBL,United Breweries Ltd,,,,,,,,FALSE,51853.75109
+VBL,Varun Beverages Ltd,,,,,,,,FALSE,156109.4259
