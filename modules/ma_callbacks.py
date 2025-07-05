@@ -12,6 +12,9 @@ def register_ma_callbacks(app):
         prevent_initial_call=False
     )
     def update_ma_signals_table(_n_clicks, selected_view):
+        # *** THIS IS THE KEY CHANGE ***
+        # Ensure the data file for today is loaded before processing
+        data_manager.load_data_if_stale()
         if data_manager.ma_signals_df.empty:
             return html.Div("MA Signals data unavailable.", className="status-message error")
         
