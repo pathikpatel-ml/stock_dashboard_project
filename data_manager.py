@@ -9,52 +9,77 @@ import yfinance as yf
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_data_{date_str}.csv"
+GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
+ACTIVE_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 
 # --- Global DataFrames (Data Cache) ---
 signals_df = pd.DataFrame()
 ma_signals_df = pd.DataFrame()
-v20_processed_df = pd.DataFrame()
+growth_df = pd.DataFrame()
 all_available_symbols = []
+v20_processed_df = pd.DataFrame() # This is our cache
 
-# --- NEW: Global variables to track loaded file dates ---
+# --- START: NEW GLOBAL VARIABLES TO FIX STALE DATA ISSUE ---
+# These variables will track the date of the loaded files.
 LOADED_V20_FILE_DATE = None
 LOADED_MA_FILE_DATE = None
+# --- END: NEW GLOBAL VARIABLES ---
 
-# --- V20 Helper Function (Unchanged) ---
-def process_v20_signals(v20_signals_df):
-    if v20_signals_df.empty: return pd.DataFrame()
-    df_to_process = v20_signals_df.copy()
-    df_to_process['Buy_Date'] = pd.to_datetime(df_to_process['Buy_Date'], errors='coerce')
-    df_to_process.dropna(subset=['Buy_Date'], inplace=True)
-    latest_signals = df_to_process.sort_values('Buy_Date', ascending=False).groupby('Symbol').first().reset_index()
-    unique_symbols = latest_signals['Symbol'].dropna().unique()
+
+# --- V20 Helper Function (Your Exact Logic - UNCHANGED) ---
+def process_v20_signals(signals_df_local):
+    """
+    This function uses the exact logic you provided to process V20 signals.
+    It fetches live prices for all signals and calculates proximity.
+    """
+    if signals_df_local.empty or 'Symbol' not in signals_df_local.columns: return pd.DataFrame()
+    df_to_process = signals_df_local.copy()
+    
+    print("DASH (V20 NearestBuy): Fetching CMPs...")
+    unique_symbols = df_to_process['Symbol'].dropna().astype(str).str.upper().unique()
     if not unique_symbols.any(): return pd.DataFrame()
-    print(f"PROCESS V20: Fetching live prices for {len(unique_symbols)} symbols...")
-    yf_symbols = [f"{s}.NS" for s in unique_symbols]
-    latest_prices_map = {}
-    data = yf.download(tickers=yf_symbols, period="2d", progress=False, auto_adjust=False, group_by='ticker', timeout=30)
-    if data is not None and not data.empty:
-        for sym_ns in yf_symbols:
-            base_sym = sym_ns.replace(".NS", "").upper()
-            price_series = None
-            try:
-                if isinstance(data.columns, pd.MultiIndex):
-                    if (sym_ns, 'Close') in data.columns: price_series = data[(sym_ns, 'Close')]
-                elif isinstance(data, dict):
-                    symbol_data = data.get(sym_ns)
-                    if symbol_data is not None and 'Close' in symbol_data.columns: price_series = symbol_data['Close']
-                elif 'Close' in data.columns and len(yf_symbols) == 1: price_series = data['Close']
-                if price_series is not None and not price_series.dropna().empty: latest_prices_map[base_sym] = price_series.dropna().iloc[-1]
-            except Exception: continue
+    
+    yf_symbols = [f"{s}.NS" for s in unique_symbols]; latest_prices_map = {}
+    chunk_size = 50
+    for i in range(0, len(yf_symbols), chunk_size):
+        chunk = yf_symbols[i:i + chunk_size]
+        try:
+            data = yf.download(tickers=chunk, period="2d", progress=False, auto_adjust=False, group_by='ticker', timeout=20)
+            if data is not None and not data.empty:
+                for sym_ns_original_case in chunk:
+                    base_sym = sym_ns_original_case.replace(".NS", "")
+                    price_series = None
+                    if isinstance(data.columns, pd.MultiIndex):
+                        if (sym_ns_original_case, 'Close') in data.columns:
+                            price_series = data[(sym_ns_original_case, 'Close')]
+                        elif (sym_ns_original_case.upper(), 'Close') in data.columns:
+                            price_series = data[(sym_ns_original_case.upper(), 'Close')]
+                    elif isinstance(data, dict) and sym_ns_original_case in data:
+                        if 'Close' in data[sym_ns_original_case].columns:
+                            price_series = data[sym_ns_original_case]['Close']
+                    elif 'Close' in data.columns and len(chunk) == 1:
+                        price_series = data['Close']
+                    
+                    if price_series is not None and not price_series.dropna().empty:
+                        latest_prices_map[base_sym.upper()] = price_series.dropna().iloc[-1]
+        except Exception as e_yf: print(f"DASH (V20 NearestBuy): yf.download error for chunk: {e_yf}")
+
+    df_to_process['Latest Close Price'] = df_to_process['Symbol'].astype(str).str.upper().map(latest_prices_map)
+    df_to_process.dropna(subset=['Latest Close Price'], inplace=True)
+    if df_to_process.empty: return pd.DataFrame()
+
     results = []
-    for _, row in latest_signals.iterrows():
-        symbol, cmp_val = str(row.get('Symbol','')).upper(), latest_prices_map.get(str(row.get('Symbol','')).upper())
-        buy_target, sell_target = row.get('Buy_Price_Low'), row.get('Sell_Price_High')
-        if pd.isna(cmp_val) or pd.isna(buy_target) or buy_target == 0: continue
-        if pd.notna(sell_target) and cmp_val >= sell_target: continue
+    for _idx, row in df_to_process.iterrows():
+        symbol, buy_target, cmp_val = str(row.get('Symbol','')).upper(), row.get('Buy_Price_Low'), row.get('Latest Close Price')
+        if not symbol or pd.isna(buy_target) or buy_target == 0 or pd.isna(cmp_val): continue
         prox_pct = ((cmp_val - buy_target) / buy_target) * 100
-        results.append({'Symbol': symbol, 'Signal Buy Date': pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d'), 'Target Buy Price (Low)': round(buy_target, 2), 'Sell_Price_High': round(sell_target, 2), 'Latest Close Price': round(cmp_val, 2), 'Proximity to Buy (%)': round(prox_pct, 2), 'Closeness (%)': round(abs(prox_pct), 2), 'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)})
-    return pd.DataFrame(results).sort_values(by=['Closeness (%)']).reset_index(drop=True)
+        buy_date_str = pd.to_datetime(row.get('Buy_Date')).strftime('%Y-%m-%d') if pd.notna(row.get('Buy_Date')) else 'N/A'
+        results.append({'Symbol': symbol, 'Signal Buy Date': buy_date_str, 'Target Buy Price (Low)': round(buy_target, 2),
+                        'Latest Close Price': round(cmp_val, 2), 'Proximity to Buy (%)': round(prox_pct, 2),
+                        'Closeness (%)': round(abs(prox_pct), 2),
+                        'Potential Gain (%)': round(row.get('Sequence_Gain_Percent', np.nan), 2)})
+    if not results: return pd.DataFrame()
+    return pd.DataFrame(results).sort_values(by=['Closeness (%)', 'Symbol']).reset_index(drop=True)
 
 # --- MA Helper Function (Unchanged) ---
 def process_ma_signals_for_ui(ma_events_df):
@@ -79,11 +104,13 @@ def process_ma_signals_for_ui(ma_events_df):
     secondary_list = [{'Symbol': s, 'Company Name': d.get('Company Name'), 'Type': d.get('Type'), 'Market Cap': d.get('MarketCap'), 'Secondary Buy Date': d['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(d['Price'], 2), 'Current Price': round(latest_prices_map.get(f"{s}.NS", 0), 2), 'Difference (%)': round(((latest_prices_map.get(f"{s}.NS", 0) - d['Price']) / d.get('Price', 1)) * 100, 2)} for s, d in active_secondary.items() if f"{s}.NS" in latest_prices_map]
     return pd.DataFrame(primary_list), pd.DataFrame(secondary_list)
 
-# --- Main Data Loading Function (MODIFIED) ---
+
+# --- START: NEW DYNAMIC DATA LOADING FUNCTION ---
+# This function replaces the old `load_data_for_dashboard_from_repo`
 def load_data_if_stale():
     """
     Checks if the data in memory is for today. If not, it reloads.
-    This function will be called from the UI callbacks.
+    This function will be called from the UI callbacks to prevent stale data.
     """
     global signals_df, ma_signals_df, all_available_symbols, v20_processed_df
     global LOADED_V20_FILE_DATE, LOADED_MA_FILE_DATE
@@ -97,7 +124,7 @@ def load_data_if_stale():
         if os.path.exists(v20_filename):
             try:
                 signals_df = pd.read_csv(v20_filename, parse_dates=['Buy_Date', 'Sell_Date'])
-                v20_processed_df = process_v20_signals(signals_df)
+                v20_processed_df = process_v20_signals(signals_df) # Process the new data
                 LOADED_V20_FILE_DATE = today_date
                 print(f"DATA MANAGER: Successfully loaded and processed {len(v20_processed_df)} V20 signals.")
             except Exception as e:
@@ -129,3 +156,5 @@ def load_data_if_stale():
     symbols_s = signals_df['Symbol'].dropna().unique().tolist() if not signals_df.empty else []
     symbols_m = ma_signals_df['Symbol'].dropna().unique().tolist() if not ma_signals_df.empty else []
     all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
+
+# --- END: NEW DYNAMIC DATA LOADING FUNCTION ---
