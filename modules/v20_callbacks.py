@@ -10,6 +10,10 @@ def register_v20_callbacks(app):
         prevent_initial_call=True
     )
     def refresh_v20_live_data(n_clicks):
+        print("V20 CALLBACK: Refresh button clicked. Checking for stale data...")
+        # *** THIS IS THE KEY CHANGE ***
+        # Ensure the data file for today is loaded before processing
+        data_manager.load_data_if_stale()
         print("V20 CALLBACK: Refreshing live data...")
         data_manager.v20_processed_df = data_manager.process_v20_signals(data_manager.signals_df)
         count = len(data_manager.v20_processed_df)
@@ -23,6 +27,9 @@ def register_v20_callbacks(app):
         State('v20-proximity-filter-input', 'value'),
     )
     def update_v20_table(_apply_clicks, _refresh_clicks, proximity_value):
+        # *** THIS IS THE KEY CHANGE ***
+        # Ensure the data file for today is loaded before processing
+        data_manager.load_data_if_stale()
         processed_df = data_manager.v20_processed_df
         if processed_df.empty:
             return html.Div("No V20 stocks meet criteria after processing.", className="status-message info")
