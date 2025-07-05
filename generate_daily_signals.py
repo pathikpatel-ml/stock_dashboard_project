@@ -135,6 +135,25 @@ def get_company_type(psu_value):
     elif isinstance(psu_value, bool): is_psu = psu_value
     return "PSU" if is_psu else "Non-PSU"
 
+def get_v40_type(v40_value):
+    """
+    Helper to determine type from the 'V40' column.
+    Returns 'V40' if TRUE, 'V40Next' if FALSE.
+    """
+    is_v40 = False
+    if isinstance(v40_value, str):
+        # Handles cases like "TRUE", "true", "True", "yes", "1", "y"
+        is_v40 = v40_value.strip().lower() in ['true', 'yes', '1', 'y']
+    elif isinstance(v40_value, (int, float)):
+        # Handles 1 or 1.0 as TRUE, 0 or 0.0 as FALSE
+        is_v40 = bool(v40_value)
+    elif isinstance(v40_value, bool):
+        # Handles native boolean True/False
+        is_v40 = v40_value
+        
+    return "V40" if is_v40 else "V40Next"
+# --- END: MODIFIED HELPER FUNCTION ---
+
 # --- Moving Average (MA) Signal Generation Functions ---
 def fetch_historical_data_yf_ma(symbol_nse):
     """Fetches historical data specifically for MA analysis (e.g., 2-5 years)."""
@@ -175,7 +194,7 @@ def generate_and_save_ma_signals_file(company_list_file_path, output_ma_signals_
         'Symbol', 'Company Name', 'Type', 'MarketCap', 'Date', 'Event_Type',
         'Price', 'SMA20', 'SMA50', 'SMA200', 'Primary_Buy_Ref_Price', 'Details'
     ]
-    essential_input_cols = ['Symbol', 'Company Name', 'PSU'] # From your profit_companies_file
+    essential_input_cols = ['Symbol', 'Company Name', 'V40'] # From your profit_companies_file
     for col in essential_input_cols:
         if col not in input_df.columns:
             print(f"MA Signals ERROR: Essential input column '{col}' missing in '{company_list_file_path}'.")
@@ -216,9 +235,9 @@ def generate_and_save_ma_signals_file(company_list_file_path, output_ma_signals_
         symbol_nse = f"{symbol_short}.NS"
         company_data = company_details_map.get(symbol_short, {})
         company_name = company_data.get('Company Name', "N/A")
-        psu_value = company_data.get('PSU', False) # Assuming 'PSU' column exists
+        v40_value = company_data.get('V40', False) # <<< CHANGE to get 'V40' value, 
         market_cap_value = company_data.get('MarketCap', np.nan)
-        company_type = get_company_type(psu_value)
+        company_type = get_v40_type(v40_value)
 
         sys.stdout.write(f"\rMA Signals: [{i+1}/{total_symbols_ma}] Processing {symbol_short}...")
         sys.stdout.flush()
