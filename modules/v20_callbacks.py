@@ -1,27 +1,27 @@
 # modules/v20_callbacks.py
+import dash # <<< THIS IS THE MISSING IMPORT
 from dash import html, dash_table
 from dash.dependencies import Input, Output, State
 import data_manager
 
 def register_v20_callbacks(app):
-    
-    # This callback handles both filtering (fast) and refreshing (slow)
     @app.callback(
         Output('v20-signals-table-container', 'children'),
         [Input('apply-v20-filter-button', 'n_clicks'),
          Input('refresh-v20-live-data-button', 'n_clicks')],
         State('v20-proximity-filter-input', 'value'),
+        prevent_initial_call=False # Run on startup to show initial cached data
     )
     def update_v20_table(_apply_clicks, _refresh_clicks, proximity_value):
         
         # Check which button was clicked to trigger the callback
         ctx = dash.callback_context
+        # If the refresh button was clicked, re-run the slow processing and update the cache
         if ctx.triggered and 'refresh-v20-live-data-button' in ctx.triggered[0]['prop_id']:
             print("V20 REFRESH: Re-processing with new live prices...")
-            # Re-run the slow processing and update the cache
             data_manager.v20_processed_df = data_manager.process_v20_signals(data_manager.v20_signals_df)
         
-        # Use the cached data for display. This is always fast.
+        # Always use the (potentially updated) cached data for display. This is FAST.
         processed_df = data_manager.v20_processed_df
         
         if processed_df.empty:
