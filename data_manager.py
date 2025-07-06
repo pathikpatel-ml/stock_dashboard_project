@@ -4,9 +4,7 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 import yfinance as yf
-# data_manager.py
-import os
-import pandas as pd
+import requests_cache
 # ... other imports ...
 
 # --- START: NEW GITHUB CONFIGURATION ---
@@ -15,18 +13,18 @@ GITHUB_USERNAME = "pathikpatel-ml"
 GITHUB_REPOSITORY = "stock_dashboard_project"
 # In data_manager.py
 
-# ... after the v20_processed_df = pd.DataFrame() line ...
-# --- NEW: Global variables to track loaded file dates ---
+# --- Configuration ---
+SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
+MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_data_{date_str}.csv"
+
+# --- Global In-Memory Cache ---
+v20_signals_cache = pd.DataFrame()
+ma_signals_cache = pd.DataFrame()
 V20_CACHE_DATE = None
 MA_CACHE_DATE = None
-# --- END: NEW GITHUB CONFIGURATION ---
-
-# ... rest of the file ...
 
 # --- Configuration (Unchanged) ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
-MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_data_{date_str}.csv"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 ACTIVE_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 
@@ -207,47 +205,33 @@ def process_ma_signals_for_ui(ma_events_df):
 
 # --- NEW SMART DATA LOADING FUNCTIONS ---
 def get_v20_signals():
-    """
-    Checks the cache first. If data is stale or not present,
-    it fetches from GitHub, updates the cache, and returns the data.
-    """
-    global v20_signals_cache, V20_CACHE_DATE # Use a distinct name to avoid confusion
+    global v20_signals_cache, V20_CACHE_DATE
     today_date = datetime.now().date()
-    
     if V20_CACHE_DATE != today_date:
-        print(f"DATA MANAGER: V20 cache is stale. Fetching from GitHub for {today_date}...")
+        print(f"CACHE MISS: V20 data is stale. Fetching from GitHub for {today_date}...")
         filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
         url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
         try:
-            # Note: We are now caching the raw signals df, not the processed one
             v20_signals_cache = pd.read_csv(url, parse_dates=['Buy_Date', 'Sell_Date'])
             V20_CACHE_DATE = today_date
-            print(f"DATA MANAGER: V20 cache updated. Loaded {len(v20_signals_cache)} signals.")
+            print(f"CACHE UPDATED: V20 cache updated with {len(v20_signals_cache)} signals.")
         except Exception as e:
-            print(f"DATA MANAGER ERROR: Failed to load V20 data from GitHub: {e}")
-            v20_signals_cache = pd.DataFrame()
-            V20_CACHE_DATE = None
-    
+            print(f"CACHE ERROR: Failed to load V20 data from GitHub: {e}")
+            v20_signals_cache = pd.DataFrame(); V20_CACHE_DATE = None
     return v20_signals_cache
 
 def get_ma_signals():
-    """
-    Checks the MA signals cache. Fetches from GitHub if stale.
-    """
     global ma_signals_cache, MA_CACHE_DATE
     today_date = datetime.now().date()
-    
     if MA_CACHE_DATE != today_date:
-        print(f"DATA MANAGER: MA cache is stale. Fetching from GitHub for {today_date}...")
+        print(f"CACHE MISS: MA data is stale. Fetching from GitHub for {today_date}...")
         filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
         url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
         try:
             ma_signals_cache = pd.read_csv(url, parse_dates=['Date'])
             MA_CACHE_DATE = today_date
-            print(f"DATA MANAGER: MA cache updated. Loaded {len(ma_signals_cache)} events.")
+            print(f"CACHE UPDATED: MA cache updated with {len(ma_signals_cache)} events.")
         except Exception as e:
-            print(f"DATA MANAGER ERROR: Failed to load MA data from GitHub: {e}")
-            ma_signals_cache = pd.DataFrame()
-            MA_CACHE_DATE = None
-            
+            print(f"CACHE ERROR: Failed to load MA data from GitHub: {e}")
+            ma_signals_cache = pd.DataFrame(); MA_CACHE_DATE = None
     return ma_signals_cache
