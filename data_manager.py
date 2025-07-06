@@ -121,117 +121,39 @@ def process_ma_signals_for_ui(ma_events_df):
     return pd.DataFrame(primary_list), pd.DataFrame(secondary_list)
 
 
-# --- START: NEW DYNAMIC DATA LOADING FUNCTION ---
-# This function replaces the old `load_data_for_dashboard_from_repo`
-# def load_data_if_stale():
-#     """
-#     Checks if the data in memory is for today. If not, it reloads.
-#     This function will be called from the UI callbacks to prevent stale data.
-#     """
-#     global signals_df, ma_signals_df, all_available_symbols, v20_processed_df
-#     global LOADED_V20_FILE_DATE, LOADED_MA_FILE_DATE
+# --- NEW MAIN DATA LOADING FUNCTION ---
+def load_data():
+    """
+    Loads all necessary data from GitHub on startup.
+    This mimics the successful monolithic approach.
+    """
+    global v20_signals_df, ma_signals_df, all_available_symbols
     
-#     today_date = datetime.now().date()
+    today_str = datetime.now().strftime("%Y%m%d")
     
-#     # Check and reload V20 data if stale
-#     if LOADED_V20_FILE_DATE != today_date:
-#         print(f"DATA MANAGER: V20 data is stale (or not loaded). Attempting to load for {today_date}...")
-#         v20_filename = os.path.join(REPO_BASE_PATH, SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d")))
-#         if os.path.exists(v20_filename):
-#             try:
-#                 signals_df = pd.read_csv(v20_filename, parse_dates=['Buy_Date', 'Sell_Date'])
-#                 v20_processed_df = process_v20_signals(signals_df) # Process the new data
-#                 LOADED_V20_FILE_DATE = today_date
-#                 print(f"DATA MANAGER: Successfully loaded and processed {len(v20_processed_df)} V20 signals.")
-#             except Exception as e:
-#                 print(f"DATA MANAGER ERROR: Failed to load V20 file '{v20_filename}': {e}")
-#                 signals_df = pd.DataFrame() # Clear on error
-#                 v20_processed_df = pd.DataFrame()
-#         else:
-#             print(f"DATA MANAGER: V20 file not found for today.")
-#             signals_df = pd.DataFrame()
-#             v20_processed_df = pd.DataFrame()
+    # Load V20 Signals
+    v20_filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
+    v20_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{v20_filename}"
+    print(f"Attempting to load V20 data from: {v20_url}")
+    try:
+        v20_signals_df = pd.read_csv(v20_url, parse_dates=['Buy_Date', 'Sell_Date'])
+        print(f"Successfully loaded {len(v20_signals_df)} V20 signals.")
+    except Exception as e:
+        print(f"Failed to load V20 data: {e}")
+        v20_signals_df = pd.DataFrame()
 
-#     # Check and reload MA data if stale
-#     if LOADED_MA_FILE_DATE != today_date:
-#         print(f"DATA MANAGER: MA data is stale. Attempting to load for {today_date}...")
-#         ma_filename = os.path.join(REPO_BASE_PATH, MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d")))
-#         if os.path.exists(ma_filename):
-#             try:
-#                 ma_signals_df = pd.read_csv(ma_filename, parse_dates=['Date'])
-#                 LOADED_MA_FILE_DATE = today_date
-#                 print(f"DATA MANAGER: Successfully loaded {len(ma_signals_df)} MA events.")
-#             except Exception as e:
-#                 print(f"DATA MANAGER ERROR: Failed to load MA file '{ma_filename}': {e}")
-#                 ma_signals_df = pd.DataFrame()
-#         else:
-#             print(f"DATA MANAGER: MA file not found for today.")
-#             ma_signals_df = pd.DataFrame()
-            
-#     # Always update the symbol list after loading
-#     symbols_s = signals_df['Symbol'].dropna().unique().tolist() if not signals_df.empty else []
-#     symbols_m = ma_signals_df['Symbol'].dropna().unique().tolist() if not ma_signals_df.empty else []
-#     all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
-
-# --- END: NEW DYNAMIC DATA LOADING FUNCTION ---
-
-# In data_manager.py
-
-# # --- NEW DYNAMIC DATA LOADING FUNCTION FROM GITHUB ---
-# def load_data_from_github(file_template):
-#     """
-#     Constructs the GitHub raw URL for today's file and attempts to load it.
-#     Returns a DataFrame (empty if it fails).
-#     """
-#     today_str = datetime.now().strftime("%Y%m%d")
-#     filename = file_template.format(date_str=today_str)
-    
-#     # Construct the full raw URL
-#     url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
-    
-#     print(f"Attempting to load data from: {url}")
-    
-#     try:
-#         # Use pandas to read directly from the URL. This is the key change.
-#         df = pd.read_csv(url)
-#         print(f"Successfully loaded {filename} from GitHub.")
-#         return df
-#     except Exception as e:
-#         # This will happen if the file doesn't exist (404 error) or other network issues
-#         print(f"Failed to load {filename} from GitHub. Error: {e}")
-#         return pd.DataFrame() # Return an empty DataFrame on failure
-
-# In data_manager.py (DELETE the old load function, ADD these two)
-
-# --- NEW SMART DATA LOADING FUNCTIONS ---
-def get_v20_signals():
-    global v20_signals_cache, V20_CACHE_DATE
-    today_date = datetime.now().date()
-    if V20_CACHE_DATE != today_date:
-        print(f"CACHE MISS: V20 data is stale. Fetching from GitHub for {today_date}...")
-        filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
-        url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
-        try:
-            v20_signals_cache = pd.read_csv(url, parse_dates=['Buy_Date', 'Sell_Date'])
-            V20_CACHE_DATE = today_date
-            print(f"CACHE UPDATED: V20 cache updated with {len(v20_signals_cache)} signals.")
-        except Exception as e:
-            print(f"CACHE ERROR: Failed to load V20 data from GitHub: {e}")
-            v20_signals_cache = pd.DataFrame(); V20_CACHE_DATE = None
-    return v20_signals_cache
-
-def get_ma_signals():
-    global ma_signals_cache, MA_CACHE_DATE
-    today_date = datetime.now().date()
-    if MA_CACHE_DATE != today_date:
-        print(f"CACHE MISS: MA data is stale. Fetching from GitHub for {today_date}...")
-        filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
-        url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
-        try:
-            ma_signals_cache = pd.read_csv(url, parse_dates=['Date'])
-            MA_CACHE_DATE = today_date
-            print(f"CACHE UPDATED: MA cache updated with {len(ma_signals_cache)} events.")
-        except Exception as e:
-            print(f"CACHE ERROR: Failed to load MA data from GitHub: {e}")
-            ma_signals_cache = pd.DataFrame(); MA_CACHE_DATE = None
-    return ma_signals_cache
+    # Load MA Signals
+    ma_filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
+    ma_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{ma_filename}"
+    print(f"Attempting to load MA data from: {ma_url}")
+    try:
+        ma_signals_df = pd.read_csv(ma_url, parse_dates=['Date'])
+        print(f"Successfully loaded {len(ma_signals_df)} MA events.")
+    except Exception as e:
+        print(f"Failed to load MA data: {e}")
+        ma_signals_df = pd.DataFrame()
+        
+    # Populate the symbol list for the dropdown
+    symbols_s = v20_signals_df['Symbol'].dropna().unique().tolist() if not v20_signals_df.empty else []
+    symbols_m = ma_signals_df['Symbol'].dropna().unique().tolist() if not ma_signals_df.empty else []
+    all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
