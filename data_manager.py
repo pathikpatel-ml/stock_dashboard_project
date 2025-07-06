@@ -13,6 +13,12 @@ import pandas as pd
 # Replace these with your actual GitHub username and repository name
 GITHUB_USERNAME = "pathikpatel-ml"
 GITHUB_REPOSITORY = "stock_dashboard_project"
+# In data_manager.py
+
+# ... after the v20_processed_df = pd.DataFrame() line ...
+# --- NEW: Global variables to track loaded file dates ---
+V20_CACHE_DATE = None
+MA_CACHE_DATE = None
 # --- END: NEW GITHUB CONFIGURATION ---
 
 # ... rest of the file ...
@@ -173,26 +179,75 @@ def process_ma_signals_for_ui(ma_events_df):
 
 # In data_manager.py
 
-# --- NEW DYNAMIC DATA LOADING FUNCTION FROM GITHUB ---
-def load_data_from_github(file_template):
+# # --- NEW DYNAMIC DATA LOADING FUNCTION FROM GITHUB ---
+# def load_data_from_github(file_template):
+#     """
+#     Constructs the GitHub raw URL for today's file and attempts to load it.
+#     Returns a DataFrame (empty if it fails).
+#     """
+#     today_str = datetime.now().strftime("%Y%m%d")
+#     filename = file_template.format(date_str=today_str)
+    
+#     # Construct the full raw URL
+#     url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
+    
+#     print(f"Attempting to load data from: {url}")
+    
+#     try:
+#         # Use pandas to read directly from the URL. This is the key change.
+#         df = pd.read_csv(url)
+#         print(f"Successfully loaded {filename} from GitHub.")
+#         return df
+#     except Exception as e:
+#         # This will happen if the file doesn't exist (404 error) or other network issues
+#         print(f"Failed to load {filename} from GitHub. Error: {e}")
+#         return pd.DataFrame() # Return an empty DataFrame on failure
+
+# In data_manager.py (DELETE the old load function, ADD these two)
+
+# --- NEW SMART DATA LOADING FUNCTIONS ---
+def get_v20_signals():
     """
-    Constructs the GitHub raw URL for today's file and attempts to load it.
-    Returns a DataFrame (empty if it fails).
+    Checks the cache first. If data is stale or not present,
+    it fetches from GitHub, updates the cache, and returns the data.
     """
-    today_str = datetime.now().strftime("%Y%m%d")
-    filename = file_template.format(date_str=today_str)
+    global v20_signals_cache, V20_CACHE_DATE # Use a distinct name to avoid confusion
+    today_date = datetime.now().date()
     
-    # Construct the full raw URL
-    url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
+    if V20_CACHE_DATE != today_date:
+        print(f"DATA MANAGER: V20 cache is stale. Fetching from GitHub for {today_date}...")
+        filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
+        url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
+        try:
+            # Note: We are now caching the raw signals df, not the processed one
+            v20_signals_cache = pd.read_csv(url, parse_dates=['Buy_Date', 'Sell_Date'])
+            V20_CACHE_DATE = today_date
+            print(f"DATA MANAGER: V20 cache updated. Loaded {len(v20_signals_cache)} signals.")
+        except Exception as e:
+            print(f"DATA MANAGER ERROR: Failed to load V20 data from GitHub: {e}")
+            v20_signals_cache = pd.DataFrame()
+            V20_CACHE_DATE = None
     
-    print(f"Attempting to load data from: {url}")
+    return v20_signals_cache
+
+def get_ma_signals():
+    """
+    Checks the MA signals cache. Fetches from GitHub if stale.
+    """
+    global ma_signals_cache, MA_CACHE_DATE
+    today_date = datetime.now().date()
     
-    try:
-        # Use pandas to read directly from the URL. This is the key change.
-        df = pd.read_csv(url)
-        print(f"Successfully loaded {filename} from GitHub.")
-        return df
-    except Exception as e:
-        # This will happen if the file doesn't exist (404 error) or other network issues
-        print(f"Failed to load {filename} from GitHub. Error: {e}")
-        return pd.DataFrame() # Return an empty DataFrame on failure
+    if MA_CACHE_DATE != today_date:
+        print(f"DATA MANAGER: MA cache is stale. Fetching from GitHub for {today_date}...")
+        filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_date.strftime("%Y%m%d"))
+        url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
+        try:
+            ma_signals_cache = pd.read_csv(url, parse_dates=['Date'])
+            MA_CACHE_DATE = today_date
+            print(f"DATA MANAGER: MA cache updated. Loaded {len(ma_signals_cache)} events.")
+        except Exception as e:
+            print(f"DATA MANAGER ERROR: Failed to load MA data from GitHub: {e}")
+            ma_signals_cache = pd.DataFrame()
+            MA_CACHE_DATE = None
+            
+    return ma_signals_cache
