@@ -121,39 +121,63 @@ def process_ma_signals_for_ui(ma_events_df):
     return pd.DataFrame(primary_list), pd.DataFrame(secondary_list)
 
 
-# --- NEW MAIN DATA LOADING FUNCTION ---
-def load_data():
-    """
-    Loads all necessary data from GitHub on startup.
-    This mimics the successful monolithic approach.
-    """
-    global v20_signals_df, ma_signals_df, all_available_symbols
+# # --- NEW MAIN DATA LOADING FUNCTION ---
+# def load_data():
+#     """
+#     Loads all necessary data from GitHub on startup.
+#     This mimics the successful monolithic approach.
+#     """
+#     global v20_signals_df, ma_signals_df, all_available_symbols
     
+#     today_str = datetime.now().strftime("%Y%m%d")
+    
+#     # Load V20 Signals
+#     v20_filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
+#     v20_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{v20_filename}"
+#     print(f"Attempting to load V20 data from: {v20_url}")
+#     try:
+#         v20_signals_df = pd.read_csv(v20_url, parse_dates=['Buy_Date', 'Sell_Date'])
+#         print(f"Successfully loaded {len(v20_signals_df)} V20 signals.")
+#     except Exception as e:
+#         print(f"Failed to load V20 data: {e}")
+#         v20_signals_df = pd.DataFrame()
+
+#     # Load MA Signals
+#     ma_filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
+#     ma_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{ma_filename}"
+#     print(f"Attempting to load MA data from: {ma_url}")
+#     try:
+#         ma_signals_df = pd.read_csv(ma_url, parse_dates=['Date'])
+#         print(f"Successfully loaded {len(ma_signals_df)} MA events.")
+#     except Exception as e:
+#         print(f"Failed to load MA data: {e}")
+#         ma_signals_df = pd.DataFrame()
+        
+#     # Populate the symbol list for the dropdown
+#     symbols_s = v20_signals_df['Symbol'].dropna().unique().tolist() if not v20_signals_df.empty else []
+#     symbols_m = ma_signals_df['Symbol'].dropna().unique().tolist() if not ma_signals_df.empty else []
+#     all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
+
+def load_and_process_data_on_startup():
+    global v20_signals_df, ma_signals_df, all_available_symbols, v20_processed_df
     today_str = datetime.now().strftime("%Y%m%d")
     
-    # Load V20 Signals
-    v20_filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
-    v20_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{v20_filename}"
-    print(f"Attempting to load V20 data from: {v20_url}")
+    # Load V20 from GitHub
+    v20_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)}"
     try:
         v20_signals_df = pd.read_csv(v20_url, parse_dates=['Buy_Date', 'Sell_Date'])
-        print(f"Successfully loaded {len(v20_signals_df)} V20 signals.")
+        # Initial slow processing
+        v20_processed_df = process_v20_signals(v20_signals_df)
+        print(f"STARTUP: Loaded and processed {len(v20_processed_df)} active V20 signals.")
     except Exception as e:
-        print(f"Failed to load V20 data: {e}")
-        v20_signals_df = pd.DataFrame()
+        print(f"STARTUP ERROR: Failed to load V20 data: {e}")
 
-    # Load MA Signals
-    ma_filename = MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
-    ma_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{ma_filename}"
-    print(f"Attempting to load MA data from: {ma_url}")
+    # Load MA from GitHub
+    ma_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)}"
     try:
         ma_signals_df = pd.read_csv(ma_url, parse_dates=['Date'])
-        print(f"Successfully loaded {len(ma_signals_df)} MA events.")
+        print(f"STARTUP: Loaded {len(ma_signals_df)} MA events.")
     except Exception as e:
-        print(f"Failed to load MA data: {e}")
-        ma_signals_df = pd.DataFrame()
-        
-    # Populate the symbol list for the dropdown
-    symbols_s = v20_signals_df['Symbol'].dropna().unique().tolist() if not v20_signals_df.empty else []
-    symbols_m = ma_signals_df['Symbol'].dropna().unique().tolist() if not ma_signals_df.empty else []
-    all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
+        print(f"STARTUP ERROR: Failed to load MA data: {e}")
+
+    # (This part for dropdowns was removed as per your request)
