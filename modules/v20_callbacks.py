@@ -5,9 +5,10 @@ import data_manager
 
 def register_v20_callbacks(app):
     @app.callback(
-        Output('v20-refresh-status-message', 'children'),
-        Input('refresh-v20-live-data-button', 'n_clicks'),
-        prevent_initial_call=True
+        Output('v20-signals-table-container', 'children'),
+        [Input('apply-v20-filter-button', 'n_clicks'),
+         Input('refresh-v20-live-data-button', 'n_clicks')],
+        State('v20-proximity-filter-input', 'value'),
     )
     def refresh_v20_live_data(n_clicks):
         print("V20 CALLBACK: Refresh button clicked. Checking for stale data...")
@@ -29,10 +30,21 @@ def register_v20_callbacks(app):
     def update_v20_table(_apply_clicks, _refresh_clicks, proximity_value):
         # *** THIS IS THE KEY CHANGE ***
         # Ensure the data file for today is loaded before processing
-        data_manager.load_data_if_stale()
-        processed_df = data_manager.v20_processed_df
+        # --- START: MODIFIED LOADING LOGIC ---
+        print("V20 CALLBACK: Loading latest data from GitHub...")
+        
+        # Call the new helper function from data_manager
+        signals_df = data_manager.load_data_from_github(data_manager.SIGNALS_FILENAME_TEMPLATE)
+        
+        if signals_df.empty:
+            return html.Div("V20 signals file could not be loaded from GitHub for today.", className="status-message error")
+        # --- END: MODIFIED LOADING LOGIC ---
+        
+        # --- The rest of the function remains exactly the same ---
+        processed_df = data_manager.process_v20_signals(signals_df)
+        
         if processed_df.empty:
-            return html.Div("No V20 stocks meet criteria after processing.", className="status-message info")
+            return html.Div("No active V20 signals found after processing.", className="status-message info")
         
         try: proximity_threshold = float(proximity_value if proximity_value is not None else 20)
         except: proximity_threshold = 20.0
