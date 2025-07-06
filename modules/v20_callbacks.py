@@ -4,23 +4,23 @@ from dash.dependencies import Input, Output, State
 import data_manager
 
 def register_v20_callbacks(app):
-    @app.callback(
-        Output('v20-signals-table-container', 'children'),
-        [Input('apply-v20-filter-button', 'n_clicks'),
-         Input('refresh-v20-live-data-button', 'n_clicks')],
-        State('v20-proximity-filter-input', 'value'),
-        prevent_initial_call=True
-    )
-    def refresh_v20_live_data(n_clicks):
-        print("V20 CALLBACK: Refresh button clicked. Checking for stale data...")
-        # *** THIS IS THE KEY CHANGE ***
-        # Ensure the data file for today is loaded before processing
-        data_manager.load_data_if_stale()
-        print("V20 CALLBACK: Refreshing live data...")
-        data_manager.v20_processed_df = data_manager.process_v20_signals(data_manager.signals_df)
-        count = len(data_manager.v20_processed_df)
-        print(f"V20 CALLBACK: Refresh complete. Processed {count} signals.")
-        return html.Div(f"Live prices refreshed. {count} signals processed.", className="status-message info")
+    # @app.callback(
+    #     Output('v20-signals-table-container', 'children'),
+    #     [Input('apply-v20-filter-button', 'n_clicks'),
+    #      Input('refresh-v20-live-data-button', 'n_clicks')],
+    #     State('v20-proximity-filter-input', 'value'),
+    #     prevent_initial_call=True
+    # )
+    # def refresh_v20_live_data(n_clicks):
+    #     print("V20 CALLBACK: Refresh button clicked. Checking for stale data...")
+    #     # *** THIS IS THE KEY CHANGE ***
+    #     # Ensure the data file for today is loaded before processing
+    #     data_manager.load_data_if_stale()
+    #     print("V20 CALLBACK: Refreshing live data...")
+    #     data_manager.v20_processed_df = data_manager.process_v20_signals(data_manager.signals_df)
+    #     count = len(data_manager.v20_processed_df)
+    #     print(f"V20 CALLBACK: Refresh complete. Processed {count} signals.")
+    #     return html.Div(f"Live prices refreshed. {count} signals processed.", className="status-message info")
 
     @app.callback(
         Output('v20-signals-table-container', 'children'),
@@ -30,14 +30,12 @@ def register_v20_callbacks(app):
         prevent_initial_call=False
     )
     def update_v20_table(_apply_clicks, _refresh_clicks, proximity_value):
-        # This line now gets data from cache or fetches from GitHub if stale
-        signals_df = data_manager.get_v20_signals()
+        # The data is already loaded. We just process it.
+        if data_manager.v20_signals_df.empty:
+            return html.Div("V20 signals data not loaded on startup.", className="status-message error")
         
-        if signals_df.empty:
-            return html.Div("V20 signals file could not be loaded from GitHub for today.", className="status-message error")
-        
-        # The 'refresh' button triggers a re-process of the cached data with new live prices
-        processed_df = data_manager.process_v20_signals(signals_df)
+        # This re-fetches live prices and processes the V20 data
+        processed_df = data_manager.process_v20_signals(data_manager.v20_signals_df)
         
         if processed_df.empty:
             return html.Div("No active V20 signals found after processing.", className="status-message info")
