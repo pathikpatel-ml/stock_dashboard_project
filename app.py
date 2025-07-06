@@ -143,7 +143,7 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='asse
 server = app.server
 app.title = "Stock Signal Dashboard"
 
-data_manager.load_data()
+data_manager.load_and_process_data_on_startup()
 
 # 2. Define the App Layout
 # The layout is static. The dynamic parts are handled by callbacks.
