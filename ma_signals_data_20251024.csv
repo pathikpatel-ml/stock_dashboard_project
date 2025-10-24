@@ -1,7 +1,7 @@
 Symbol,Company Name,Type,MarketCap,Date,Event_Type,Price,SMA20,SMA50,SMA200,Primary_Buy_Ref_Price,Details
 ACC,ACC LTD,V40Next,36083.24669,2024-10-22,Primary_Buy,2246.35,2375.64,2383.09,2489.35,2246.35,MA Crossover Buy
 ACC,ACC LTD,V40Next,36083.24669,2025-01-06,Secondary_Buy_Dip,1984.1,2130.68,2197.67,2414.98,2246.35,10% dip from primary buy
-ACC,ACC LTD,V40Next,36083.24669,2025-10-21,Position_Still_Open,1848.9,1850.23,1839.38,1903.58,2246.35,Primary buy from 2024-10-22 at 2246.35 is still active. Secondary buy at 1984.10 is also active.
+ACC,ACC LTD,V40Next,36083.24669,2025-10-23,Position_Still_Open,1855.7,1849.08,1840.73,1902.51,2246.35,Primary buy from 2024-10-22 at 2246.35 is still active. Secondary buy at 1984.10 is also active.
 ADANIPORTS,Adani Ports and Special Economic Zone Limited,V40Next,311103.3504,2024-11-21,Primary_Buy,1114.65,1328.94,1387.2,1388.37,1114.65,MA Crossover Buy
 ADANIPORTS,Adani Ports and Special Economic Zone Limited,V40Next,311103.3504,2025-06-03,Primary_Sell,1432.3,1390.78,1279.57,1273.69,1114.65,Closed primary buy from 2024-11-21 at 1114.65
 ANGELONE,Angel One Ltd,V40Next,26339.75071,2024-04-18,Primary_Buy,2792.8,2844.6,2941.87,3033.28,2792.8,MA Crossover Buy
@@ -11,7 +11,7 @@ ANGELONE,Angel One Ltd,V40Next,26339.75071,2024-11-26,Primary_Sell,2909.2,2838.0
 ANGELONE,Angel One Ltd,V40Next,26339.75071,2025-02-24,Primary_Buy,2273.05,2333.38,2548.62,2594.82,2273.05,MA Crossover Buy
 ANGELONE,Angel One Ltd,V40Next,26339.75071,2025-03-03,Secondary_Buy_Dip,1978.05,2291.22,2475.87,2586.4,2273.05,10% dip from primary buy
 ANGELONE,Angel One Ltd,V40Next,26339.75071,2025-03-19,Secondary_Sell_Rise,2215.35,2129.09,2289.79,2556.21,2273.05,Sell from secondary dip (buy at 1978.05)
-ANGELONE,Angel One Ltd,V40Next,26339.75071,2025-10-21,Position_Still_Open,2497.8,2293.09,2349.05,2498.66,2273.05,Primary buy from 2025-02-24 at 2273.05 is still active. Secondary buy occurred and was sold.
+ANGELONE,Angel One Ltd,V40Next,26339.75071,2025-10-23,Position_Still_Open,2511.0,2307.25,2348.22,2496.33,2273.05,Primary buy from 2025-02-24 at 2273.05 is still active. Secondary buy occurred and was sold.
 APOLLOHOSP,Apollo Hospitals Enterprise Ltd,V40Next,105085.259,2025-03-07,Primary_Buy,6216.1,6324.93,6710.5,6727.23,6216.1,MA Crossover Buy
 APOLLOHOSP,Apollo Hospitals Enterprise Ltd,V40Next,105085.259,2025-06-12,Primary_Sell,6996.5,6950.52,6924.3,6881.18,6216.1,Closed primary buy from 2025-03-07 at 6216.10
 ASIANPAINT,Asian Patins Ltd,V40,226191.5271,2024-02-29,Primary_Buy,2821.9,2946.62,3121.52,3122.41,2821.9,MA Crossover Buy
@@ -25,7 +25,7 @@ AWL,AWL Agri Business Ltd,V40Next,33573.66026,2024-08-26,Primary_Sell,378.45,368
 AWL,AWL Agri Business Ltd,V40Next,33573.66026,2024-11-04,Primary_Buy,331.35,332.61,347.13,347.88,331.35,MA Crossover Buy
 AWL,AWL Agri Business Ltd,V40Next,33573.66026,2024-11-21,Secondary_Buy_Dip,294.9,331.57,338.63,346.29,331.35,10% dip from primary buy
 AWL,AWL Agri Business Ltd,V40Next,33573.66026,2024-12-27,Secondary_Sell_Rise,329.2,309.62,319.19,339.82,331.35,Sell from secondary dip (buy at 294.90)
-AWL,AWL Agri Business Ltd,V40Next,33573.66026,2025-10-21,Position_Still_Open,261.4,263.71,260.08,264.44,331.35,Primary buy from 2024-11-04 at 331.35 is still active. Secondary buy occurred and was sold.
+AWL,AWL Agri Business Ltd,V40Next,33573.66026,2025-10-23,Position_Still_Open,260.1,263.71,260.2,264.09,331.35,Primary buy from 2024-11-04 at 331.35 is still active. Secondary buy occurred and was sold.
 AXISBANK,Axis Bank Limited,V40,379957.4118,2024-12-12,Primary_Buy,1145.65,1147.93,1160.67,1161.52,1145.65,MA Crossover Buy
 AXISBANK,Axis Bank Limited,V40,379957.4118,2025-01-15,Secondary_Buy_Dip,1026.8,1071.46,1119.01,1161.69,1145.65,10% dip from primary buy
 AXISBANK,Axis Bank Limited,V40,379957.4118,2025-04-16,Secondary_Sell_Rise,1161.3,1081.98,1039.45,1129.12,1145.65,Sell from secondary dip (buy at 1026.80)
@@ -43,7 +43,7 @@ BAJAJFINSV,Bajaj Finserv Limited,V40,326015.9361,2025-02-07,Primary_Sell,1798.35
 BAJAJHFL,Bajaj Housing Finance Ltd,V40Next,101712.7502,2024-12-12,Primary_Buy,132.75,134.35,137.41,141.94,132.75,MA Crossover Buy
 BAJAJHFL,Bajaj Housing Finance Ltd,V40Next,101712.7502,2025-01-10,Secondary_Buy_Dip,118.51,125.94,131.16,137.99,132.75,10% dip from primary buy
 BAJAJHFL,Bajaj Housing Finance Ltd,V40Next,101712.7502,2025-04-21,Secondary_Sell_Rise,130.72,122.45,117.08,128.15,132.75,Sell from secondary dip (buy at 118.51)
-BAJAJHFL,Bajaj Housing Finance Ltd,V40Next,101712.7502,2025-10-21,Position_Still_Open,110.7,110.48,111.95,117.37,132.75,Primary buy from 2024-12-12 at 132.75 is still active. Secondary buy occurred and was sold.
+BAJAJHFL,Bajaj Housing Finance Ltd,V40Next,101712.7502,2025-10-23,Position_Still_Open,110.2,110.36,111.91,117.29,132.75,Primary buy from 2024-12-12 at 132.75 is still active. Secondary buy occurred and was sold.
 BAJFINANCE,Bajaj Finance Limited,V40,588270.6919,2024-02-05,Primary_Buy,660.82,726.73,730.24,733.66,660.82,MA Crossover Buy
 BAJFINANCE,Bajaj Finance Limited,V40,588270.6919,2024-09-26,Primary_Sell,776.84,744.37,701.53,701.01,660.82,Closed primary buy from 2024-02-05 at 660.82
 BAJFINANCE,Bajaj Finance Limited,V40,588270.6919,2024-12-20,Primary_Buy,684.83,686.46,686.86,695.41,684.83,MA Crossover Buy
@@ -53,7 +53,7 @@ BATAINDIA,Bata India Ltd,V40,15832.61614,2024-08-02,Primary_Sell,1619.2,1561.44,
 BATAINDIA,Bata India Ltd,V40,15832.61614,2024-10-09,Primary_Buy,1401.25,1418.27,1447.46,1450.57,1401.25,MA Crossover Buy
 BATAINDIA,Bata India Ltd,V40,15832.61614,2025-01-27,Secondary_Buy_Dip,1238.2,1354.27,1370.33,1410.94,1401.25,10% dip from primary buy
 BATAINDIA,Bata India Ltd,V40,15832.61614,2025-02-01,Secondary_Sell_Rise,1377.15,1322.48,1369.93,1409.15,1401.25,Sell from secondary dip (buy at 1238.20)
-BATAINDIA,Bata India Ltd,V40,15832.61614,2025-10-21,Position_Still_Open,1165.5,1176.01,1175.17,1234.07,1401.25,Primary buy from 2024-10-09 at 1401.25 is still active. Secondary buy occurred and was sold.
+BATAINDIA,Bata India Ltd,V40,15832.61614,2025-10-23,Position_Still_Open,1167.6,1173.07,1174.88,1232.8,1401.25,Primary buy from 2024-10-09 at 1401.25 is still active. Secondary buy occurred and was sold.
 BERGEPAINT,Berger Paints India Ltd,V40,68146.37752,2024-03-13,Primary_Buy,556.75,570.3,573.83,574.43,556.75,MA Crossover Buy
 BERGEPAINT,Berger Paints India Ltd,V40,68146.37752,2024-05-09,Secondary_Buy_Dip,481.25,518.28,547.42,564.24,556.75,10% dip from primary buy
 BERGEPAINT,Berger Paints India Ltd,V40,68146.37752,2024-07-24,Secondary_Sell_Rise,529.95,516.15,500.32,546.37,556.75,Sell from secondary dip (buy at 481.25)
@@ -65,7 +65,7 @@ BLUESTARCO,Blue Star Ltd,V40Next,33391.87651,2025-10-10,Primary_Sell,1949.1,1918
 BOSCHLTD,Bosch Ltd,V40Next,95146.351,2025-02-01,Primary_Buy,28689.25,30733.68,33338.33,33440.71,28689.25,MA Crossover Buy
 BOSCHLTD,Bosch Ltd,V40Next,95146.351,2025-07-10,Primary_Sell,36195.0,33187.25,32049.6,31968.4,28689.25,Closed primary buy from 2025-02-01 at 28689.25
 CAMS,Computer Age Management Sevices Ltd,V40Next,21219.71794,2025-02-24,Primary_Buy,3417.75,3512.15,4195.89,4219.8,3417.75,MA Crossover Buy
-CAMS,Computer Age Management Sevices Ltd,V40Next,21219.71794,2025-10-21,Position_Still_Open,3838.0,3829.57,3843.83,3886.54,3417.75,Primary buy from 2025-02-24 at 3417.75 is still active. No secondary buy triggered yet for this primary cycle.
+CAMS,Computer Age Management Sevices Ltd,V40Next,21219.71794,2025-10-23,Position_Still_Open,3873.4,3823.93,3846.4,3879.89,3417.75,Primary buy from 2025-02-24 at 3417.75 is still active. No secondary buy triggered yet for this primary cycle.
 CDSL,Central Depository Service (India) Ltd,V40Next,36794.44992,2025-03-10,Primary_Buy,1107.3,1189.13,1386.64,1396.39,1107.3,MA Crossover Buy
 CDSL,Central Depository Service (India) Ltd,V40Next,36794.44992,2025-06-24,Primary_Sell,1748.5,1683.95,1474.79,1464.9,1107.3,Closed primary buy from 2025-03-10 at 1107.30
 CIPLA,Cipla Limited,V40Next,121384.7568,2024-12-20,Primary_Buy,1472.05,1482.66,1512.85,1514.38,1472.05,MA Crossover Buy
@@ -73,7 +73,7 @@ CIPLA,Cipla Limited,V40Next,121384.7568,2025-07-25,Primary_Sell,1532.5,1492.11,1
 COLPAL,Colgate-Palmolive ( India ) Ltd,V40,64766.686,2024-12-18,Primary_Buy,2776.45,2862.87,3047.68,3051.01,2776.45,MA Crossover Buy
 COLPAL,Colgate-Palmolive ( India ) Ltd,V40,64766.686,2025-02-13,Secondary_Buy_Dip,2475.35,2695.63,2742.03,3062.78,2776.45,10% dip from primary buy
 COLPAL,Colgate-Palmolive ( India ) Ltd,V40,64766.686,2025-04-24,Secondary_Sell_Rise,2732.0,2480.85,2473.73,2984.92,2776.45,Sell from secondary dip (buy at 2475.35)
-COLPAL,Colgate-Palmolive ( India ) Ltd,V40,64766.686,2025-10-21,Position_Still_Open,2260.6,2243.64,2291.41,2454.28,2776.45,Primary buy from 2024-12-18 at 2776.45 is still active. Secondary buy occurred and was sold.
+COLPAL,Colgate-Palmolive ( India ) Ltd,V40,64766.686,2025-10-23,Position_Still_Open,2286.9,2241.74,2293.0,2451.81,2776.45,Primary buy from 2024-12-18 at 2776.45 is still active. Secondary buy occurred and was sold.
 DABUR,Dabur India Ltd,V40,86263.41151,2024-03-20,Primary_Buy,520.2,532.15,538.39,538.78,520.2,MA Crossover Buy
 DABUR,Dabur India Ltd,V40,86263.41151,2024-06-11,Primary_Sell,613.45,567.32,538.53,538.37,520.2,Closed primary buy from 2024-03-20 at 520.20
 DABUR,Dabur India Ltd,V40,86263.41151,2024-11-25,Primary_Buy,521.5,527.1,574.14,574.77,521.5,MA Crossover Buy
@@ -95,20 +95,20 @@ GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-01-15,Secondary_Bu
 GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-02-06,Secondary_Sell_Rise,2260.65,2054.27,2195.21,2490.13,2274.45,Sell from secondary dip (buy at 2042.50)
 GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-04-17,Primary_Sell,2906.8,2809.59,2564.36,2552.61,2274.45,Closed primary buy from 2024-12-27 at 2274.45
 GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-10-16,Primary_Buy,2723.7,2732.36,2755.1,2764.41,2723.7,MA Crossover Buy
-GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-10-21,Position_Still_Open,2758.8,2731.79,2755.23,2772.29,2723.7,Primary buy from 2025-10-16 at 2723.70 is still active. No secondary buy triggered yet for this primary cycle.
+GLAXO,Glaxosmithkline Pharmaceuticals Ltd,V40,58575.3559,2025-10-23,Position_Still_Open,2760.7,2731.74,2757.42,2774.99,2723.7,Primary buy from 2025-10-16 at 2723.70 is still active. No secondary buy triggered yet for this primary cycle.
 GODREJCP,Godrej Consumer Products Limited,V40Next,120346.9025,2024-11-25,Primary_Buy,1218.7,1238.02,1321.73,1327.59,1218.7,MA Crossover Buy
 GODREJCP,Godrej Consumer Products Limited,V40Next,120346.9025,2024-12-17,Secondary_Buy_Dip,1089.3,1188.0,1244.16,1324.31,1218.7,10% dip from primary buy
 GODREJCP,Godrej Consumer Products Limited,V40Next,120346.9025,2025-04-09,Secondary_Sell_Rise,1242.35,1119.78,1090.36,1257.8,1218.7,Sell from secondary dip (buy at 1089.30)
 GODREJCP,Godrej Consumer Products Limited,V40Next,120346.9025,2025-07-31,Primary_Sell,1259.0,1249.58,1226.23,1184.18,1218.7,Closed primary buy from 2024-11-25 at 1218.70
 HAVELLS,Havells India Ltd,V40,98229.27585,2024-12-18,Primary_Buy,1697.05,1724.01,1734.75,1761.01,1697.05,MA Crossover Buy
 HAVELLS,Havells India Ltd,V40,98229.27585,2025-01-14,Secondary_Buy_Dip,1525.0,1653.11,1675.08,1773.91,1697.05,10% dip from primary buy
-HAVELLS,Havells India Ltd,V40,98229.27585,2025-10-21,Position_Still_Open,1484.1,1497.63,1532.05,1541.44,1697.05,Primary buy from 2024-12-18 at 1697.05 is still active. Secondary buy at 1525.00 is also active.
+HAVELLS,Havells India Ltd,V40,98229.27585,2025-10-23,Position_Still_Open,1496.4,1493.84,1532.14,1540.42,1697.05,Primary buy from 2024-12-18 at 1697.05 is still active. Secondary buy at 1525.00 is also active.
 HCLTECH,HCL Technologies Limited,V40,466826.5071,2024-05-30,Primary_Buy,1331.85,1338.85,1452.93,1464.11,1331.85,MA Crossover Buy
 HCLTECH,HCL Technologies Limited,V40,466826.5071,2024-08-01,Primary_Sell,1640.55,1577.22,1474.22,1471.07,1331.85,Closed primary buy from 2024-05-30 at 1331.85
 HCLTECH,HCL Technologies Limited,V40,466826.5071,2025-03-18,Primary_Buy,1545.15,1606.37,1711.47,1718.51,1545.15,MA Crossover Buy
 HCLTECH,HCL Technologies Limited,V40,466826.5071,2025-04-07,Secondary_Buy_Dip,1374.1,1546.16,1628.69,1728.13,1545.15,10% dip from primary buy
 HCLTECH,HCL Technologies Limited,V40,466826.5071,2025-04-23,Secondary_Sell_Rise,1594.0,1500.1,1579.73,1727.82,1545.15,Sell from secondary dip (buy at 1374.10)
-HCLTECH,HCL Technologies Limited,V40,466826.5071,2025-10-21,Position_Still_Open,1486.0,1450.07,1461.94,1595.73,1545.15,Primary buy from 2025-03-18 at 1545.15 is still active. Secondary buy occurred and was sold.
+HCLTECH,HCL Technologies Limited,V40,466826.5071,2025-10-23,Position_Still_Open,1523.9,1454.78,1462.91,1593.49,1545.15,Primary buy from 2025-03-18 at 1545.15 is still active. Secondary buy occurred and was sold.
 HDFCAMC,HDFC Asset Management Company Ltd,V40,110131.5572,2025-02-03,Primary_Buy,3810.9,3908.69,4149.54,4153.18,3810.9,MA Crossover Buy
 HDFCAMC,HDFC Asset Management Company Ltd,V40,110131.5572,2025-05-23,Primary_Sell,4814.1,4540.59,4227.71,4213.79,3810.9,Closed primary buy from 2025-02-03 at 3810.90
 HDFCBANK,HDFC Bank Limited,V40,1545005.118,2024-02-28,Primary_Buy,704.7,711.08,767.96,768.64,704.7,MA Crossover Buy
@@ -124,7 +124,7 @@ HINDUNILVR,Hindustan Unilever Limited,V40,542026.9175,2025-07-31,Primary_Sell,25
 HONAUT,Honeywell Automation India Ltd,V40Next,35083.15095,2024-11-25,Primary_Buy,41413.0,44317.47,47574.74,47585.38,41413.0,MA Crossover Buy
 HONAUT,Honeywell Automation India Ltd,V40Next,35083.15095,2025-02-10,Secondary_Buy_Dip,37140.15,39710.13,40665.03,47947.47,41413.0,10% dip from primary buy
 HONAUT,Honeywell Automation India Ltd,V40Next,35083.15095,2025-07-03,Secondary_Sell_Rise,41200.0,38628.5,37425.4,40018.89,41413.0,Sell from secondary dip (buy at 37140.15)
-HONAUT,Honeywell Automation India Ltd,V40Next,35083.15095,2025-10-21,Position_Still_Open,36460.0,36180.75,36759.4,37180.5,41413.0,Primary buy from 2024-11-25 at 41413.00 is still active. Secondary buy occurred and was sold.
+HONAUT,Honeywell Automation India Ltd,V40Next,35083.15095,2025-10-23,Position_Still_Open,36325.0,36156.75,36761.8,37150.28,41413.0,Primary buy from 2024-11-25 at 41413.00 is still active. Secondary buy occurred and was sold.
 HYUNDAI,Hyundai Motor India Limited,V40Next,178076.4901,2025-01-09,Primary_Buy,1785.55,1796.5,1819.5,1821.99,1785.55,MA Crossover Buy
 HYUNDAI,Hyundai Motor India Limited,V40Next,178076.4901,2025-03-17,Secondary_Buy_Dip,1598.35,1742.75,1758.74,1791.24,1785.55,10% dip from primary buy
 HYUNDAI,Hyundai Motor India Limited,V40Next,178076.4901,2025-03-24,Secondary_Sell_Rise,1759.0,1698.27,1744.38,1785.06,1785.55,Sell from secondary dip (buy at 1598.35)
@@ -138,19 +138,19 @@ ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2024-04-01,P
 ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2025-01-21,Primary_Buy,635.55,651.89,670.78,671.55,635.55,MA Crossover Buy
 ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2025-02-24,Secondary_Buy_Dip,566.4,590.62,622.38,671.08,635.55,10% dip from primary buy
 ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2025-05-19,Secondary_Sell_Rise,623.45,603.35,579.23,663.08,635.55,Sell from secondary dip (buy at 566.40)
-ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2025-10-21,Position_Still_Open,595.3,595.12,604.87,609.24,635.55,Primary buy from 2025-01-21 at 635.55 is still active. Secondary buy occurred and was sold.
+ICICIPRULI,ICICI Prudential Life Insurance comp Ltd,V40,93681.70004,2025-10-23,Position_Still_Open,607.15,595.44,604.81,608.97,635.55,Primary buy from 2025-01-21 at 635.55 is still active. Secondary buy occurred and was sold.
 INDHOTEL,Indian Hotels Company Ltd,V40Next,109277.0005,2025-07-04,Primary_Buy,747.55,761.19,767.03,767.42,747.55,MA Crossover Buy
-INDHOTEL,Indian Hotels Company Ltd,V40Next,109277.0005,2025-10-21,Position_Still_Open,744.25,731.12,756.45,768.64,747.55,Primary buy from 2025-07-04 at 747.55 is still active. No secondary buy triggered yet for this primary cycle.
+INDHOTEL,Indian Hotels Company Ltd,V40Next,109277.0005,2025-10-23,Position_Still_Open,737.55,730.4,756.49,767.93,747.55,Primary buy from 2025-07-04 at 747.55 is still active. No secondary buy triggered yet for this primary cycle.
 INFY,Infosys Limited,V40,666454.8778,2024-05-08,Primary_Buy,1427.3,1441.55,1528.8,1529.55,1427.3,MA Crossover Buy
 INFY,Infosys Limited,V40,666454.8778,2024-07-22,Primary_Sell,1810.85,1650.69,1537.01,1531.61,1427.3,Closed primary buy from 2024-05-08 at 1427.30
 INFY,Infosys Limited,V40,666454.8778,2025-03-19,Primary_Buy,1586.55,1704.87,1809.71,1815.61,1586.55,MA Crossover Buy
 INFY,Infosys Limited,V40,666454.8778,2025-04-07,Secondary_Buy_Dip,1396.75,1580.55,1727.22,1820.19,1586.55,10% dip from primary buy
 INFY,Infosys Limited,V40,666454.8778,2025-05-12,Secondary_Sell_Rise,1626.9,1476.65,1563.91,1803.74,1586.55,Sell from secondary dip (buy at 1396.75)
-INFY,Infosys Limited,V40,666454.8778,2025-10-21,Position_Still_Open,1472.4,1472.95,1480.16,1605.31,1586.55,Primary buy from 2025-03-19 at 1586.55 is still active. Secondary buy occurred and was sold.
+INFY,Infosys Limited,V40,666454.8778,2025-10-23,Position_Still_Open,1528.5,1474.5,1482.27,1603.16,1586.55,Primary buy from 2025-03-19 at 1586.55 is still active. Secondary buy occurred and was sold.
 ITC,ITC Limited,V40,523902.8056,2024-03-01,Primary_Buy,409.5,412.7,441.49,441.65,409.5,MA Crossover Buy
 ITC,ITC Limited,V40,523902.8056,2024-07-23,Primary_Sell,492.2,447.06,437.16,436.54,409.5,Closed primary buy from 2024-03-01 at 409.50
 ITC,ITC Limited,V40,523902.8056,2025-01-20,Primary_Buy,437.7,458.78,465.81,466.54,437.7,MA Crossover Buy
-ITC,ITC Limited,V40,523902.8056,2025-10-21,Position_Still_Open,412.85,403.51,407.07,418.5,437.7,Primary buy from 2025-01-20 at 437.70 is still active. No secondary buy triggered yet for this primary cycle.
+ITC,ITC Limited,V40,523902.8056,2025-10-23,Position_Still_Open,415.95,404.15,407.1,418.13,437.7,Primary buy from 2025-01-20 at 437.70 is still active. No secondary buy triggered yet for this primary cycle.
 JSWINFRA,JSW Infrastructure Ltd,V40Next,65656.74353,2025-02-03,Primary_Buy,257.15,284.81,305.5,305.59,257.15,MA Crossover Buy
 JSWINFRA,JSW Infrastructure Ltd,V40Next,65656.74353,2025-02-14,Secondary_Buy_Dip,228.5,261.86,293.22,305.89,257.15,10% dip from primary buy
 JSWINFRA,JSW Infrastructure Ltd,V40Next,65656.74353,2025-02-21,Secondary_Sell_Rise,259.3,251.18,284.18,305.43,257.15,Sell from secondary dip (buy at 228.50)
@@ -166,7 +166,7 @@ KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2024-05-03,Secondary_Buy_Di
 KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2024-05-23,Secondary_Sell_Rise,1709.05,1654.09,1723.62,1762.92,1720.35,Sell from secondary dip (buy at 1546.70)
 KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2024-09-16,Primary_Sell,1831.3,1798.17,1797.23,1770.87,1720.35,Closed primary buy from 2024-03-12 at 1720.35
 KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2025-09-29,Primary_Buy,1991.6,1992.77,2007.04,2014.07,1991.6,MA Crossover Buy
-KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2025-10-21,Position_Still_Open,2197.0,2109.82,2034.04,2041.83,1991.6,Primary buy from 2025-09-29 at 1991.60 is still active. No secondary buy triggered yet for this primary cycle.
+KOTAKBANK,Kotak Mahindra Bank Limited,V40,438985.687,2025-10-23,Position_Still_Open,2225.6,2118.71,2039.5,2043.77,1991.6,Primary buy from 2025-09-29 at 1991.60 is still active. No secondary buy triggered yet for this primary cycle.
 LALPATHLAB,Dr. Lal Pathlabs Ltd,V40Next,23134.43574,2024-02-05,Primary_Buy,2421.25,2464.64,2553.27,2555.11,2421.25,MA Crossover Buy
 LALPATHLAB,Dr. Lal Pathlabs Ltd,V40Next,23134.43574,2024-03-07,Secondary_Buy_Dip,2179.05,2385.57,2452.94,2516.15,2421.25,10% dip from primary buy
 LALPATHLAB,Dr. Lal Pathlabs Ltd,V40Next,23134.43574,2024-05-13,Secondary_Sell_Rise,2494.3,2323.61,2256.88,2434.16,2421.25,Sell from secondary dip (buy at 2179.05)
@@ -210,7 +210,7 @@ PAGEIND,Page Industries Ltd,V40,55206.68099,2024-06-28,Primary_Sell,39099.35,387
 PAGEIND,Page Industries Ltd,V40,55206.68099,2025-04-07,Primary_Buy,41304.45,41648.49,42424.07,43273.56,41304.45,MA Crossover Buy
 PAGEIND,Page Industries Ltd,V40,55206.68099,2025-05-23,Primary_Sell,47495.0,46370.0,44121.72,44110.07,41304.45,Closed primary buy from 2025-04-07 at 41304.45
 PAGEIND,Page Industries Ltd,V40,55206.68099,2025-09-25,Primary_Buy,42625.0,44204.0,45311.1,45341.51,42625.0,MA Crossover Buy
-PAGEIND,Page Industries Ltd,V40,55206.68099,2025-10-21,Position_Still_Open,41585.0,41607.75,43464.0,44785.57,42625.0,Primary buy from 2025-09-25 at 42625.00 is still active. No secondary buy triggered yet for this primary cycle.
+PAGEIND,Page Industries Ltd,V40,55206.68099,2025-10-23,Position_Still_Open,41460.0,41541.75,43395.9,44752.13,42625.0,Primary buy from 2025-09-25 at 42625.00 is still active. No secondary buy triggered yet for this primary cycle.
 PFIZER,Pfizer Ltd,V40,26067.03903,2025-01-24,Primary_Buy,4713.95,5108.59,5115.7,5128.91,4713.95,MA Crossover Buy
 PFIZER,Pfizer Ltd,V40,26067.03903,2025-02-11,Secondary_Buy_Dip,4111.15,4582.4,4900.88,5145.42,4713.95,10% dip from primary buy
 PFIZER,Pfizer Ltd,V40,26067.03903,2025-05-20,Secondary_Sell_Rise,4949.8,4337.23,4181.56,4986.4,4713.95,Sell from secondary dip (buy at 4111.15)
@@ -219,16 +219,16 @@ PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2024-01-30,Primary_B
 PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2024-08-12,Primary_Sell,17070.1,16986.44,16735.63,16715.97,17148.4,Closed primary buy from 2024-01-30 at 17148.40
 PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2024-11-04,Primary_Buy,16090.55,16350.41,16471.55,16477.19,16090.55,MA Crossover Buy
 PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2025-01-23,Secondary_Buy_Dip,14478.5,14690.97,15273.31,16137.56,16090.55,10% dip from primary buy
-PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2025-10-21,Position_Still_Open,13869.0,14046.9,13616.02,13781.33,16090.55,Primary buy from 2024-11-04 at 16090.55 is still active. Secondary buy at 14478.50 is also active.
+PGHH,Procter & Gamble Hygiene & Health Care,V40,42913.04489,2025-10-23,Position_Still_Open,13705.0,14061.75,13625.66,13777.0,16090.55,Primary buy from 2024-11-04 at 16090.55 is still active. Secondary buy at 14478.50 is also active.
 PIDILITIND,Pidilite Industries Ltd,V40,155224.4146,2025-01-01,Primary_Buy,1431.85,1531.13,1538.38,1541.31,1431.85,MA Crossover Buy
 PIDILITIND,Pidilite Industries Ltd,V40,155224.4146,2025-08-22,Primary_Sell,1543.6,1503.9,1503.62,1480.97,1431.85,Closed primary buy from 2025-01-01 at 1431.85
 QUESS,Quess Corp Ltd,V40Next,4545.178419,2025-01-16,Primary_Buy,647.0,656.4,674.43,674.75,647.0,MA Crossover Buy
 QUESS,Quess Corp Ltd,V40Next,4545.178419,2025-04-15,Secondary_Buy_Dip,298.2,626.83,620.06,679.77,647.0,10% dip from primary buy
 QUESS,Quess Corp Ltd,V40Next,4545.178419,2025-04-17,Secondary_Sell_Rise,328.7,597.9,609.27,676.95,647.0,Sell from secondary dip (buy at 298.20)
-QUESS,Quess Corp Ltd,V40Next,4545.178419,2025-10-21,Position_Still_Open,238.75,246.85,259.69,410.81,647.0,Primary buy from 2025-01-16 at 647.00 is still active. Secondary buy occurred and was sold.
+QUESS,Quess Corp Ltd,V40Next,4545.178419,2025-10-23,Position_Still_Open,235.0,245.52,259.04,408.65,647.0,Primary buy from 2025-01-16 at 647.00 is still active. Secondary buy occurred and was sold.
 RELAXO,Relaxo Footwears Ltd,V40Next,10574.9291,2024-01-23,Primary_Buy,854.8,892.32,900.48,900.51,854.8,MA Crossover Buy
 RELAXO,Relaxo Footwears Ltd,V40Next,10574.9291,2024-10-22,Secondary_Buy_Dip,766.6,796.98,807.35,831.67,854.8,10% dip from primary buy
-RELAXO,Relaxo Footwears Ltd,V40Next,10574.9291,2025-10-21,Position_Still_Open,442.6,439.73,460.71,463.89,854.8,Primary buy from 2024-01-23 at 854.80 is still active. Secondary buy at 766.60 is also active.
+RELAXO,Relaxo Footwears Ltd,V40Next,10574.9291,2025-10-23,Position_Still_Open,443.75,439.15,460.85,462.95,854.8,Primary buy from 2024-01-23 at 854.80 is still active. Secondary buy at 766.60 is also active.
 RELIANCE,Reliance Industries Limited,V40,2050715.183,2024-10-22,Primary_Buy,1343.35,1406.35,1453.92,1455.95,1343.35,MA Crossover Buy
 RELIANCE,Reliance Industries Limited,V40,2050715.183,2024-12-20,Secondary_Buy_Dip,1205.3,1280.52,1302.54,1433.4,1343.35,10% dip from primary buy
 RELIANCE,Reliance Industries Limited,V40,2050715.183,2025-04-28,Secondary_Sell_Rise,1368.8,1257.35,1241.34,1339.98,1343.35,Sell from secondary dip (buy at 1205.30)
@@ -236,20 +236,20 @@ RELIANCE,Reliance Industries Limited,V40,2050715.183,2025-06-04,Primary_Sell,142
 SANOFI,Sanofi India Ltd,V40,14260.54676,2024-06-28,Primary_Buy,6500.0,7937.67,8234.63,8244.48,6500.0,MA Crossover Buy
 SANOFI,Sanofi India Ltd,V40,14260.54676,2025-01-13,Secondary_Buy_Dip,5592.85,6070.55,6226.12,7113.43,6500.0,10% dip from primary buy
 SANOFI,Sanofi India Ltd,V40,14260.54676,2025-04-08,Secondary_Sell_Rise,6182.5,5806.19,5504.2,6256.89,6500.0,Sell from secondary dip (buy at 5592.85)
-SANOFI,Sanofi India Ltd,V40,14260.54676,2025-10-21,Position_Still_Open,4774.2,4750.86,4963.89,5607.53,6500.0,Primary buy from 2024-06-28 at 6500.00 is still active. Secondary buy occurred and was sold.
+SANOFI,Sanofi India Ltd,V40,14260.54676,2025-10-23,Position_Still_Open,4713.0,4736.44,4954.16,5600.55,6500.0,Primary buy from 2024-06-28 at 6500.00 is still active. Secondary buy occurred and was sold.
 SBIN,State Bank of India,V40,718788.8865,2025-01-20,Primary_Buy,779.25,779.37,815.26,815.78,779.25,MA Crossover Buy
 SBIN,State Bank of India,V40,718788.8865,2025-02-28,Secondary_Buy_Dip,688.8,733.25,757.25,808.96,779.25,10% dip from primary buy
 SBIN,State Bank of India,V40,718788.8865,2025-03-24,Secondary_Sell_Rise,780.8,726.65,739.9,802.04,779.25,Sell from secondary dip (buy at 688.80)
 SBIN,State Bank of India,V40,718788.8865,2025-06-06,Primary_Sell,813.05,799.54,789.18,788.59,779.25,Closed primary buy from 2025-01-20 at 779.25
 TATAMOTORS,Tata Motors Limited,V40Next,252879.4903,2024-10-31,Primary_Buy,834.05,896.59,971.92,972.8,834.05,MA Crossover Buy
 TATAMOTORS,Tata Motors Limited,V40Next,252879.4903,2024-12-19,Secondary_Buy_Dip,744.05,787.39,826.97,959.24,834.05,10% dip from primary buy
-TATAMOTORS,Tata Motors Limited,V40Next,252879.4903,2025-10-21,Position_Still_Open,401.85,600.15,653.77,681.04,834.05,Primary buy from 2024-10-31 at 834.05 is still active. Secondary buy at 744.05 is also active.
+TATAMOTORS,Tata Motors Limited,V40Next,252879.4903,2025-10-23,Position_Still_Open,405.85,585.38,649.22,679.25,834.05,Primary buy from 2024-10-31 at 834.05 is still active. Secondary buy at 744.05 is also active.
 TCS,Tata Consultancy Services Limited,V40,1245020.946,2025-02-17,Primary_Buy,3904.5,4051.22,4148.29,4148.72,3904.5,MA Crossover Buy
 TCS,Tata Consultancy Services Limited,V40,1245020.946,2025-02-28,Secondary_Buy_Dip,3483.25,3888.79,4037.72,4139.72,3904.5,10% dip from primary buy
-TCS,Tata Consultancy Services Limited,V40,1245020.946,2025-10-21,Position_Still_Open,3006.7,2976.31,3044.16,3440.57,3904.5,Primary buy from 2025-02-17 at 3904.50 is still active. Secondary buy at 3483.25 is also active.
+TCS,Tata Consultancy Services Limited,V40,1245020.946,2025-10-23,Position_Still_Open,3073.2,2976.85,3044.89,3435.06,3904.5,Primary buy from 2025-02-17 at 3904.50 is still active. Secondary buy at 3483.25 is also active.
 TEAMLEASE,Teamlease Service Ltd,V40Next,3401.172173,2024-11-01,Primary_Buy,2774.65,2925.02,3049.87,3055.35,2774.65,MA Crossover Buy
 TEAMLEASE,Teamlease Service Ltd,V40Next,3401.172173,2025-01-30,Secondary_Buy_Dip,2431.9,2700.56,2800.06,2990.46,2774.65,10% dip from primary buy
-TEAMLEASE,Teamlease Service Ltd,V40Next,3401.172173,2025-10-21,Position_Still_Open,1755.2,1780.99,1811.85,2011.01,2774.65,Primary buy from 2024-11-01 at 2774.65 is still active. Secondary buy at 2431.90 is also active.
+TEAMLEASE,Teamlease Service Ltd,V40Next,3401.172173,2025-10-23,Position_Still_Open,1756.8,1775.4,1812.23,2004.46,2774.65,Primary buy from 2024-11-01 at 2774.65 is still active. Secondary buy at 2431.90 is also active.
 TITAN,Titan Company Ltd,V40,325208.4277,2024-05-30,Primary_Buy,3271.85,3352.26,3533.86,3553.09,3271.85,MA Crossover Buy
 TITAN,Titan Company Ltd,V40,325208.4277,2024-09-27,Primary_Sell,3816.7,3730.85,3558.88,3555.6,3271.85,Closed primary buy from 2024-05-30 at 3271.85
 TITAN,Titan Company Ltd,V40,325208.4277,2024-11-14,Primary_Buy,3183.7,3255.46,3504.66,3506.63,3183.7,MA Crossover Buy
@@ -258,16 +258,16 @@ UBL,United Breweries Ltd,V40Next,51853.75109,2025-03-17,Primary_Buy,1884.75,1960
 UBL,United Breweries Ltd,V40Next,51853.75109,2025-05-07,Primary_Sell,2181.8,2119.12,2018.3,2018.13,1884.75,Closed primary buy from 2025-03-17 at 1884.75
 UBL,United Breweries Ltd,V40Next,51853.75109,2025-07-29,Primary_Buy,1975.6,1991.75,2001.02,2008.87,1975.6,MA Crossover Buy
 UBL,United Breweries Ltd,V40Next,51853.75109,2025-09-22,Secondary_Buy_Dip,1774.9,1816.51,1900.67,1993.85,1975.6,10% dip from primary buy
-UBL,United Breweries Ltd,V40Next,51853.75109,2025-10-21,Position_Still_Open,1797.9,1782.11,1821.98,1971.43,1975.6,Primary buy from 2025-07-29 at 1975.60 is still active. Secondary buy at 1774.90 is also active.
+UBL,United Breweries Ltd,V40Next,51853.75109,2025-10-23,Position_Still_Open,1828.8,1783.77,1820.15,1969.9,1975.6,Primary buy from 2025-07-29 at 1975.60 is still active. Secondary buy at 1774.90 is also active.
 ULTRACEMCO,UltraTech Cement Limited,V40Next,359889.0041,2025-03-04,Primary_Buy,10370.1,11158.66,11176.76,11251.85,10370.1,MA Crossover Buy
 ULTRACEMCO,UltraTech Cement Limited,V40Next,359889.0041,2025-05-19,Primary_Sell,11929.0,11814.4,11357.03,11350.77,10370.1,Closed primary buy from 2025-03-04 at 10370.10
 UNITDSPR,United Spirits Ltd,V40Next,102436.1431,2025-03-10,Primary_Buy,1313.1,1341.48,1434.32,1438.0,1313.1,MA Crossover Buy
 UNITDSPR,United Spirits Ltd,V40Next,102436.1431,2025-06-03,Primary_Sell,1579.6,1549.46,1502.67,1483.26,1313.1,Closed primary buy from 2025-03-10 at 1313.10
 UNITDSPR,United Spirits Ltd,V40Next,102436.1431,2025-07-22,Primary_Buy,1343.5,1386.84,1471.74,1473.26,1343.5,MA Crossover Buy
-UNITDSPR,United Spirits Ltd,V40Next,102436.1431,2025-10-21,Position_Still_Open,1359.7,1338.35,1325.52,1414.06,1343.5,Primary buy from 2025-07-22 at 1343.50 is still active. No secondary buy triggered yet for this primary cycle.
+UNITDSPR,United Spirits Ltd,V40Next,102436.1431,2025-10-23,Position_Still_Open,1351.2,1338.85,1326.71,1412.37,1343.5,Primary buy from 2025-07-22 at 1343.50 is still active. No secondary buy triggered yet for this primary cycle.
 VBL,Varun Beverages Ltd,V40Next,156109.4259,2025-01-29,Primary_Buy,541.55,575.43,608.74,609.31,541.55,MA Crossover Buy
 VBL,Varun Beverages Ltd,V40Next,156109.4259,2025-02-17,Secondary_Buy_Dip,474.55,540.82,585.71,607.12,541.55,10% dip from primary buy
 VBL,Varun Beverages Ltd,V40Next,156109.4259,2025-03-19,Secondary_Sell_Rise,540.9,481.51,523.65,596.01,541.55,Sell from secondary dip (buy at 474.55)
-VBL,Varun Beverages Ltd,V40Next,156109.4259,2025-10-21,Position_Still_Open,459.45,448.05,474.12,500.95,541.55,Primary buy from 2025-01-29 at 541.55 is still active. Secondary buy occurred and was sold.
+VBL,Varun Beverages Ltd,V40Next,156109.4259,2025-10-23,Position_Still_Open,465.55,448.4,473.52,500.04,541.55,Primary buy from 2025-01-29 at 541.55 is still active. Secondary buy occurred and was sold.
 VOLTAS,Voltas Ltd,V40,43190.41946,2025-02-12,Primary_Buy,1299.15,1407.92,1604.19,1607.58,1299.15,MA Crossover Buy
 VOLTAS,Voltas Ltd,V40,43190.41946,2025-10-16,Primary_Sell,1415.6,1381.26,1370.98,1368.9,1299.15,Closed primary buy from 2025-02-12 at 1299.15
