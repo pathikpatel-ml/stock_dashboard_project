@@ -330,7 +330,7 @@ def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date
     hist_df = fetch_historical_data_for_graph(symbol_ns)
     fig = go.Figure()
     if not hist_df.empty:
-        df_filtered_chart = hist_df[(hist_df['Date'] >= start_date_obj) & (hist_df['Date'] <= end_date_obj)]
+        df_filtered_chart = hist_df[(hist_df['Date'] >= start_date_obj) & (hist_df['Date'] <= end_date_obj)].copy()
         if not df_filtered_chart.empty:
             fig.add_trace(go.Candlestick(x=df_filtered_chart['Date'], open=df_filtered_chart['Open'], high=df_filtered_chart['High'], low=df_filtered_chart['Low'], close=df_filtered_chart['Close'], name='OHLC'))
             df_filtered_chart['SMA20'] = df_filtered_chart['Close'].rolling(window=20, min_periods=1).mean()
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     load_data_for_dashboard_from_repo()
     app.layout = create_app_layout
     print("DASH APP: App layout assigned. Application ready.")
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run(debug=True, host='0.0.0.0', port=8050)
 else: 
     print("DASH APP: Initializing application for WSGI server...")
     load_data_for_dashboard_from_repo()
