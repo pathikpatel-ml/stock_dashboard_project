@@ -29,7 +29,7 @@ LOADED_MA_SIGNALS_FILE_DISPLAY_NAME = "N/A"
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 app.title = "Stock Analysis Dashboard"
-# server = app.server
+server = app.server
 
 # --- Data Loading Logic (UNCHANGED) ---
 def load_data_for_dashboard_from_repo():

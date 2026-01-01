@@ -3,3 +3,9 @@ textblob
 nltk
 newsapi
 python-dotenv
+dash
+plotly
+pandas
+numpy
+yfinance
+gunicorn
