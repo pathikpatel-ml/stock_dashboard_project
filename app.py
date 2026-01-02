@@ -23,8 +23,8 @@ app.index_string = '''
         <title>{%title%}</title>
         {%favicon%}
         {%css%}
-        <link rel="stylesheet" href="/assets/enhanced_styles.css?v=2.0">
-        <link rel="stylesheet" href="/assets/dashboard.css?v=2.0">
+        <link rel="stylesheet" href="/assets/enhanced_styles.css?v=3.0">
+        <link rel="stylesheet" href="/assets/dashboard.css?v=3.0">
     </head>
     <body>
         {%app_entry%}
