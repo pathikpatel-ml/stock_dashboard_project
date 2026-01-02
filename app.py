@@ -14,6 +14,29 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='asse
 server = app.server
 app.title = "Stock Signal Dashboard"
 
+# Force CSS cache refresh by adding external stylesheets
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <link rel="stylesheet" href="/assets/enhanced_styles.css?v=2.0">
+        <link rel="stylesheet" href="/assets/dashboard.css?v=2.0">
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
 # 2. LOAD AND PROCESS DATA ON STARTUP - THIS IS THE KEY
 # This populates the data_manager.v20_signals_df and ma_signals_df
 # It also does the initial slow processing for the V20 cache.
@@ -80,4 +103,4 @@ def update_status_display(_, __):
 # 5. Run the App
 if __name__ == '__main__':
     print("DASH APP: Application ready. Starting server...")
-    app.run(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
