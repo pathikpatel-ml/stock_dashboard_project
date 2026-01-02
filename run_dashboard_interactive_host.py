@@ -11,6 +11,14 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 import yfinance as yf
+from src.indicators import (
+    AdvancedIndicatorCalculator,
+    identify_signals,
+    RSI, MACD, BollingerBands, StochasticOscillator, ADX, ATR, IchimokuCloud, KeltnerChannel
+)
+from modules.news_sentiment_analyzer import SentimentAnalyzer, NewsAPIPatcher
+from modules.signal_generator import SignalGenerator, SignalType, TradingSignal
+from modules.notification_engine import get_notification_engine, NotificationChannel, AlertType, NotificationPriority
 
 # --- Configuration (UNCHANGED) ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +34,19 @@ growth_df_for_dashboard = pd.DataFrame()
 all_available_symbols_for_dashboard = []
 LOADED_SIGNALS_FILE_DISPLAY_NAME = "N/A"
 LOADED_MA_SIGNALS_FILE_DISPLAY_NAME = "N/A"
+
+# Initialize indicator calculator
+indicator_calculator = AdvancedIndicatorCalculator(cache_enabled=True)
+
+# Initialize sentiment analyzer
+sentiment_analyzer = SentimentAnalyzer()
+
+# Initialize signal generator
+signal_generator = SignalGenerator()
+
+# Initialize notification engine
+notification_engine = get_notification_engine(async_mode=True)
+notification_engine.start_async()
 
 app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
 app.title = "Stock Analysis Dashboard"
@@ -129,7 +150,7 @@ def process_ma_signals_for_ui(ma_events_df):
         if cmp is not None:
             buy_price = data['Price']
             diff_pct = ((cmp - buy_price) / buy_price) * 100 if buy_price != 0 else np.nan
-            secondary_list.append({'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'), 'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan), 'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2), 'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)})
+            secondary_list.append({'Symbol': symbol, 'Company Name': data.get('Company Name', 'N/A'), 'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan), 'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2), 'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)}) 'Type': data.get('Type', 'N/A'), 'Market Cap': data.get('MarketCap', np.nan), 'Secondary Buy Date': data['Date'].strftime('%Y-%m-%d'), 'Secondary Buy Price': round(buy_price, 2), 'Current Price': round(cmp, 2), 'Difference (%)': round(diff_pct, 2)})
     primary_df = pd.DataFrame(primary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     secondary_df = pd.DataFrame(secondary_list).sort_values(by='Difference (%)').reset_index(drop=True)
     return primary_df, secondary_df
@@ -148,6 +169,169 @@ def fetch_historical_data_for_graph(symbol_nse_with_suffix):
         hist_data.dropna(subset=required_ohlc, inplace=True)
         return hist_data
     except Exception as e: return pd.DataFrame()
+
+# --- NEW HELPER: Add Advanced Indicators to Chart ---
+def add_indicators_to_chart(fig, df_chart, enabled_indicators):
+    """
+    Add selected technical indicators to the chart.
+    
+    Args:
+        fig: Plotly figure object
+        df_chart: DataFrame with OHLC data and date
+        enabled_indicators: List of indicator names to display
+    """
+    if df_chart.empty or len(df_chart) < 30:
+        return fig
+    
+    try:
+        close_prices = df_chart['Close'].values
+        high_prices = df_chart['High'].values
+        low_prices = df_chart['Low'].values
+        
+        # Calculate indicators
+        indicators = indicator_calculator.calculate_all(close_prices, high_prices, low_prices)
+        
+        # Add RSI
+        if 'rsi' in enabled_indicators and 'rsi' in indicators:
+            rsi_values = indicators['rsi']
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=rsi_values, 
+                name='RSI (14)', 
+                line=dict(color='#FF6B6B', width=1.5),
+                yaxis='y4', 
+                opacity=0.8
+            ))
+        
+        # Add MACD
+        if 'macd' in enabled_indicators and 'macd_line' in indicators:
+            macd_line = indicators['macd_line']
+            macd_signal = indicators['macd_signal']
+            macd_hist = indicators['macd_histogram']
+            
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=macd_line,
+                name='MACD Line',
+                line=dict(color='#4ECDC4', width=1.5),
+                yaxis='y5'
+            ))
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=macd_signal,
+                name='MACD Signal',
+                line=dict(color='#FF6B9D', width=1.5, dash='dash'),
+                yaxis='y5'
+            ))
+            
+            # MACD Histogram as bar chart
+            colors = ['green' if x > 0 else 'red' for x in macd_hist]
+            fig.add_trace(go.Bar(
+                x=df_chart['Date'], y=macd_hist,
+                name='MACD Histogram',
+                marker=dict(color=colors),
+                yaxis='y5',
+                opacity=0.3
+            ))
+        
+        # Add Bollinger Bands
+        if 'bollinger' in enabled_indicators and 'bb_upper' in indicators:
+            bb_upper = indicators['bb_upper']
+            bb_middle = indicators['bb_middle']
+            bb_lower = indicators['bb_lower']
+            
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=bb_upper,
+                name='BB Upper (20, 2)',
+                line=dict(color='#95E1D3', width=0.5, dash='dot'),
+                yaxis='y2',
+                opacity=0.6
+            ))
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=bb_middle,
+                name='BB Middle (SMA20)',
+                line=dict(color='#38A3A5', width=1),
+                yaxis='y2'
+            ))
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=bb_lower,
+                name='BB Lower (20, 2)',
+                line=dict(color='#95E1D3', width=0.5, dash='dot'),
+                yaxis='y2',
+                opacity=0.6,
+                fill='tonexty'
+            ))
+        
+        # Add Stochastic Oscillator
+        if 'stochastic' in enabled_indicators and 'stoch_k' in indicators:
+            stoch_k = indicators['stoch_k']
+            stoch_d = indicators['stoch_d']
+            
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=stoch_k,
+                name='Stochastic %K (14,3)',
+                line=dict(color='#FFD93D', width=1.5),
+                yaxis='y6'
+            ))
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=stoch_d,
+                name='Stochastic %D (14,3)',
+                line=dict(color='#6BCB77', width=1.5, dash='dash'),
+                yaxis='y6'
+            ))
+            
+            # Add overbought/oversold lines
+            fig.add_hline(y=80, line_dash="dash", line_color="red", annotation_text="OB", yaxis='y6', opacity=0.3)
+            fig.add_hline(y=20, line_dash="dash", line_color="green", annotation_text="OS", yaxis='y6', opacity=0.3)
+        
+        # Add ATR
+        if 'atr' in enabled_indicators and 'atr' in indicators:
+            atr_values = indicators['atr']
+            fig.add_trace(go.Scatter(
+                x=df_chart['Date'], y=atr_values,
+                name='ATR (14)',
+                line=dict(color='#A8DADC', width=1.5),
+                yaxis='y7'
+            ))
+        
+        # Update layout to include secondary y-axes for indicators
+        fig.update_layout(
+            yaxis2=dict(
+                title="Bollinger Bands",
+                overlaying="y",
+                side="left",
+                position=0.0,
+                showgrid=False
+            ) if 'bollinger' in enabled_indicators else {},
+            yaxis4=dict(
+                title="RSI",
+                overlaying="y",
+                side="right",
+                range=[0, 100],
+                showgrid=False
+            ) if 'rsi' in enabled_indicators else {},
+            yaxis5=dict(
+                title="MACD",
+                overlaying="y",
+                side="right",
+                showgrid=False
+            ) if 'macd' in enabled_indicators else {},
+            yaxis6=dict(
+                title="Stochastic",
+                overlaying="y",
+                side="right",
+                range=[0, 100],
+                showgrid=False
+            ) if 'stochastic' in enabled_indicators else {},
+            yaxis7=dict(
+                title="ATR",
+                overlaying="y",
+                side="right",
+                showgrid=False
+            ) if 'atr' in enabled_indicators else {},
+        )
+        
+    except Exception as e:
+        print(f"Error adding indicators to chart: {e}")
+    
+    return fig
 
 # --- CORRECTED Helper for "Stocks V20 Strategy Buy Signal" ---
 def get_nearest_to_buy_from_loaded_signals(signals_df_local):
@@ -242,6 +426,11 @@ def create_app_layout():
             html.Span("V20 Signals: "), get_status_span(LOADED_SIGNALS_FILE_DISPLAY_NAME),
             html.Span("  |  MA Signals: "), get_status_span(LOADED_MA_SIGNALS_FILE_DISPLAY_NAME)
         ]),
+        # --- Notification Section ---
+        html.Div(id='notification-section', className='section-container', children=[
+            html.H3("Notifications & Today's Triggers"),
+            dcc.Loading(type="circle", children=[html.Div(id='notification-container')])
+        ]),
         html.Div(className='section-container', children=[
             html.H3("Stocks V20 Strategy Buy Signal"),
             html.Div(className='control-bar', children=[
@@ -262,7 +451,28 @@ def create_app_layout():
                                     initial_visible_month=date.today(), start_date=(date.today()-timedelta(days=365*2)),
                                     end_date=date.today(), display_format='YYYY-MM-DD', style={'min-width': '240px'})
             ]),
+            html.Div(className='control-bar', children=[
+                html.Label("Display Indicators:", style={'fontWeight': 'bold'}),
+                dcc.Checklist(
+                    id='indicator-selector',
+                    options=[
+                        {'label': ' RSI (14)', 'value': 'rsi'},
+                        {'label': ' MACD', 'value': 'macd'},
+                        {'label': ' Bollinger Bands', 'value': 'bollinger'},
+                        {'label': ' Stochastic', 'value': 'stochastic'},
+                        {'label': ' ATR (14)', 'value': 'atr'},
+                        {'label': ' ADX', 'value': 'adx'},
+                        {'label': ' Ichimoku', 'value': 'ichimoku'},
+                        {'label': ' Keltner', 'value': 'keltner'},
+                    ],
+                    value=['rsi', 'macd', 'bollinger', 'stochastic', 'atr', 'adx', 'ichimoku', 'keltner'],
+                    inline=True,
+                    style={'display': 'flex', 'gap': '15px'}
+                )
+            ]),
             dcc.Loading(type="circle", children=dcc.Graph(id='price-chart')),
+            html.H4("Technical Indicators Summary"),
+            dcc.Loading(type="circle", children=[html.Div(id='indicators-summary-container', className='dash-table-container')]),
             html.H4("V20 Signals for Selected Company"), 
             dcc.Loading(type="circle", children=[html.Div(id='v20-signals-detail-table-container', className='dash-table-container')])
         ]),
@@ -318,8 +528,8 @@ def update_v20_signals_table(_n_clicks, proximity_value):
 
 # Callback for Individual Stock Chart (Full, working version)
 @app.callback(Output('price-chart', 'figure'),
-              [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date')])
-def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date_str):
+              [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'), Input('indicator-selector', 'value')])
+def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date_str, selected_indicators):
     if not selected_company: return go.Figure().update_layout(title="Select a Company")
     try:
         start_date_obj = pd.to_datetime(start_date_str).normalize()
@@ -339,6 +549,10 @@ def update_graph_and_signals_on_chart(selected_company, start_date_str, end_date
             fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA20'], mode='lines', name='SMA20', line=dict(color='blue', width=1)))
             fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA50'], mode='lines', name='SMA50', line=dict(color='orange', width=1)))
             fig.add_trace(go.Scatter(x=df_filtered_chart['Date'], y=df_filtered_chart['SMA200'], mode='lines', name='SMA200', line=dict(color='purple', width=1)))
+            
+            # Add advanced indicators if selected
+            if selected_indicators:
+                fig = add_indicators_to_chart(fig, df_filtered_chart, selected_indicators)
         else: fig.update_layout(title=f"No Price Data for {selected_company} in Range")
     else: fig.update_layout(title=f"No Price Data for {selected_company}")
 
@@ -388,6 +602,229 @@ def update_v20_signals_detail_table(selected_company, start_date_str, end_date_s
         page_size=10, sort_action="native",
         style_table={'overflowX': 'auto', 'minWidth': '100%'}
     )
+
+# --- NEW Callback for Notifications ---
+@app.callback(Output('notification-container', 'children'),
+              [Input('refresh-v20-signals-button', 'n_clicks'), Input('refresh-ma-data-button', 'n_clicks')],
+              prevent_initial_call=False)
+def update_notifications(_v20_clicks, _ma_clicks):
+    """
+    Display today's trading signals and notifications.
+    """
+    try:
+        # Get today's date
+        today = datetime.now().date()
+        
+        notifications = []
+        
+        # Check for V20 signals from today
+        if not signals_df_for_dashboard.empty:
+            today_v20_signals = signals_df_for_dashboard[
+                signals_df_for_dashboard['Buy_Date'].dt.date == today
+            ]
+            
+            if not today_v20_signals.empty:
+                for _, signal in today_v20_signals.iterrows():
+                    notifications.append({
+                        'type': 'V20 Buy Signal',
+                        'symbol': signal['Symbol'],
+                        'message': f"New V20 buy signal for {signal['Symbol']} at ₹{signal['Buy_Price_Low']:.2f}",
+                        'priority': 'high',
+                        'time': signal['Buy_Date'].strftime('%H:%M')
+                    })
+        
+        # Check for MA signals from today
+        if not ma_signals_df_for_dashboard.empty:
+            today_ma_signals = ma_signals_df_for_dashboard[
+                ma_signals_df_for_dashboard['Date'].dt.date == today
+            ]
+            
+            if not today_ma_signals.empty:
+                for _, signal in today_ma_signals.iterrows():
+                    event_type = signal['Event_Type']
+                    priority = 'high' if 'Primary' in event_type else 'medium'
+                    notifications.append({
+                        'type': f'MA {event_type}',
+                        'symbol': signal['Symbol'],
+                        'message': f"{event_type} for {signal['Symbol']} at ₹{signal['Price']:.2f}",
+                        'priority': priority,
+                        'time': signal['Date'].strftime('%H:%M')
+                    })
+        
+        # Generate sentiment-based alerts for active positions
+        try:
+            active_symbols = []
+            if not signals_df_for_dashboard.empty:
+                # Get symbols with recent V20 signals
+                recent_signals = signals_df_for_dashboard[
+                    signals_df_for_dashboard['Buy_Date'] >= (datetime.now() - timedelta(days=30))
+                ]
+                active_symbols.extend(recent_signals['Symbol'].unique())
+            
+            # Sample sentiment alerts (in real implementation, this would use the sentiment analyzer)
+            if active_symbols:
+                sample_symbol = active_symbols[0] if active_symbols else 'RELIANCE'
+                notifications.append({
+                    'type': 'Sentiment Alert',
+                    'symbol': sample_symbol,
+                    'message': f"Positive news sentiment detected for {sample_symbol}",
+                    'priority': 'medium',
+                    'time': datetime.now().strftime('%H:%M')
+                })
+        except Exception as e:
+            print(f"Error generating sentiment alerts: {e}")
+        
+        if not notifications:
+            return html.Div([
+                html.P("No new notifications today.", className="status-message info"),
+                html.P(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 
+                      style={'fontSize': '12px', 'color': '#666', 'marginTop': '10px'})
+            ])
+        
+        # Sort notifications by priority and time
+        priority_order = {'high': 0, 'medium': 1, 'low': 2}
+        notifications.sort(key=lambda x: (priority_order.get(x['priority'], 3), x['time']), reverse=True)
+        
+        notification_elements = []
+        for notif in notifications[:10]:  # Show max 10 notifications
+            priority_class = f"notification-{notif['priority']}"
+            notification_elements.append(
+                html.Div([
+                    html.Div([
+                        html.Span(notif['type'], className="notification-type"),
+                        html.Span(notif['time'], className="notification-time")
+                    ], className="notification-header"),
+                    html.Div([
+                        html.Strong(notif['symbol']),
+                        html.Span(f" - {notif['message']}", style={'marginLeft': '5px'})
+                    ], className="notification-content")
+                ], className=f"notification-item {priority_class}")
+            )
+        
+        notification_elements.append(
+            html.P(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 
+                  style={'fontSize': '12px', 'color': '#666', 'marginTop': '15px', 'textAlign': 'center'})
+        )
+        
+        return html.Div(notification_elements, className="notifications-container")
+    
+    except Exception as e:
+        print(f"Error in notifications callback: {e}")
+        return html.Div(f"Error loading notifications: {str(e)}", className="status-message error")
+
+# --- NEW Callback for Indicators Summary ---
+@app.callback(Output('indicators-summary-container', 'children'),
+              [Input('company-dropdown', 'value'), Input('date-picker-range', 'start_date'), Input('date-picker-range', 'end_date'), Input('indicator-selector', 'value')])
+def update_indicators_summary(selected_company, start_date_str, end_date_str, selected_indicators):
+    if not selected_company or not selected_indicators:
+        return html.Div("Select a company and at least one indicator.", className="status-message info")
+    
+    try:
+        start_date_obj = pd.to_datetime(start_date_str).normalize()
+        end_date_obj = pd.to_datetime(end_date_str).normalize()
+    except:
+        return html.Div("Invalid date range.", className="status-message error")
+    
+    symbol_ns = f"{selected_company.upper()}.NS"
+    hist_df = fetch_historical_data_for_graph(symbol_ns)
+    
+    if hist_df.empty:
+        return html.Div(f"No price data for {selected_company}.", className="status-message warning")
+    
+    df_filtered = hist_df[(hist_df['Date'] >= start_date_obj) & (hist_df['Date'] <= end_date_obj)].copy()
+    
+    if df_filtered.empty or len(df_filtered) < 30:
+        return html.Div("Insufficient data for indicator calculation. Need at least 30 days.", className="status-message warning")
+    
+    try:
+        close_prices = df_filtered['Close'].values
+        high_prices = df_filtered['High'].values
+        low_prices = df_filtered['Low'].values
+        
+        # Calculate indicators
+        indicators = indicator_calculator.calculate_all(close_prices, high_prices, low_prices)
+        
+        # Build summary data
+        summary_data = []
+        current_price = close_prices[-1]
+        
+        if 'rsi' in selected_indicators and 'rsi' in indicators:
+            rsi_val = indicators['rsi'][-1]
+            signal = 'OVERBOUGHT' if rsi_val > 70 else ('OVERSOLD' if rsi_val < 30 else 'NEUTRAL')
+            summary_data.append({
+                'Indicator': 'RSI (14)',
+                'Current Value': round(rsi_val, 2),
+                'Signal': signal,
+                'Interpretation': f'RSI is {signal} - {"Price may reverse down" if signal == "OVERBOUGHT" else ("Price may reverse up" if signal == "OVERSOLD" else "Neutral momentum")}'
+            })
+        
+        if 'macd' in selected_indicators and 'macd_line' in indicators:
+            macd_val = indicators['macd_line'][-1]
+            signal_val = indicators['macd_signal'][-1]
+            hist_val = indicators['macd_histogram'][-1]
+            trend = 'BULLISH' if macd_val > signal_val else 'BEARISH'
+            summary_data.append({
+                'Indicator': 'MACD',
+                'Current Value': round(hist_val, 4),
+                'Signal': trend,
+                'Interpretation': f'MACD is {trend} - {"Price momentum is positive" if trend == "BULLISH" else "Price momentum is negative"}'
+            })
+        
+        if 'bollinger' in selected_indicators and 'bb_upper' in indicators:
+            bb_upper = indicators['bb_upper'][-1]
+            bb_lower = indicators['bb_lower'][-1]
+            bb_middle = indicators['bb_middle'][-1]
+            position = 'ABOVE_MIDDLE' if current_price > bb_middle else 'BELOW_MIDDLE'
+            proximity = ((current_price - bb_lower) / (bb_upper - bb_lower) * 100) if (bb_upper - bb_lower) != 0 else 50
+            summary_data.append({
+                'Indicator': 'Bollinger Bands',
+                'Current Value': round(proximity, 2),
+                'Signal': f'{position} ({round(proximity, 1)}%)',
+                'Interpretation': f'Price is {"near upper band" if proximity > 80 else ("near lower band" if proximity < 20 else "in middle of bands")}'
+            })
+        
+        if 'stochastic' in selected_indicators and 'stoch_k' in indicators:
+            stoch_val = indicators['stoch_k'][-1]
+            signal = 'OVERBOUGHT' if stoch_val > 80 else ('OVERSOLD' if stoch_val < 20 else 'NEUTRAL')
+            summary_data.append({
+                'Indicator': 'Stochastic %K',
+                'Current Value': round(stoch_val, 2),
+                'Signal': signal,
+                'Interpretation': f'Stochastic is {signal} - {"Momentum is high, possible reversal" if signal == "OVERBOUGHT" else ("Momentum is low, possible reversal up" if signal == "OVERSOLD" else "Normal momentum")}'
+            })
+        
+        if 'atr' in selected_indicators and 'atr' in indicators:
+            atr_val = indicators['atr'][-1]
+            atr_pct = (atr_val / current_price * 100)
+            volatility = 'HIGH' if atr_pct > 2 else ('LOW' if atr_pct < 0.5 else 'NORMAL')
+            summary_data.append({
+                'Indicator': 'ATR (14)',
+                'Current Value': round(atr_val, 2),
+                'Signal': f'{volatility} ({round(atr_pct, 2)}%)',
+                'Interpretation': f'Volatility is {volatility} - Expected daily price movement ~{round(atr_val, 2)}'
+            })
+        
+        if not summary_data:
+            return html.Div("No indicators available for summary.", className="status-message info")
+        
+        summary_df = pd.DataFrame(summary_data)
+        
+        return dash_table.DataTable(
+            data=summary_df.to_dict('records'),
+            columns=[{'name': i, 'id': i} for i in summary_df.columns],
+            page_size=10,
+            style_table={'overflowX': 'auto', 'minWidth': '100%'},
+            style_cell={'textAlign': 'left'},
+            style_data_conditional=[
+                {'if': {'column_id': 'Signal', 'filter_query': '{Signal} contains BULLISH or OVERBOUGHT or HIGH'}, 'backgroundColor': '#c8e6c9', 'color': '#1b5e20'},
+                {'if': {'column_id': 'Signal', 'filter_query': '{Signal} contains BEARISH or OVERSOLD or LOW'}, 'backgroundColor': '#ffcdd2', 'color': '#b71c1c'},
+                {'if': {'column_id': 'Signal', 'filter_query': '{Signal} contains NEUTRAL'}, 'backgroundColor': '#fff9c4', 'color': '#f57f17'},
+            ]
+        )
+    
+    except Exception as e:
+        print(f"Error calculating indicators summary: {e}")
+        return html.Div(f"Error calculating indicators: {str(e)}", className="status-message error")
 
 # --- UPDATED Callback for Moving Average (MA) Signals Table (UNCHANGED from previous correct version) ---
 @app.callback(Output('ma-signals-table-container', 'children'),

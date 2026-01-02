@@ -5,6 +5,7 @@ from datetime import datetime
 import numpy as np
 import yfinance as yf
 import requests_cache
+import time
 # ... other imports ...
 
 # --- START: NEW GITHUB CONFIGURATION ---
@@ -30,6 +31,7 @@ ACTIVE_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 
 # --- Global DataFrames (Data Cache) ---
 signals_df = pd.DataFrame()
+v20_signals_df = pd.DataFrame()  # Added missing global variable
 ma_signals_df = pd.DataFrame()
 growth_df = pd.DataFrame()
 all_available_symbols = []

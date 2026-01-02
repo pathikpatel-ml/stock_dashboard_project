@@ -104,27 +104,23 @@ class RSI:
         Returns:
             Array of RSI values (0-100)
         """
-        if len(prices) < self.period + 1:
-            raise ValueError(f"Need at least {self.period + 1} data points")
-        
+        if prices is None or len(prices) < self.period + 1:
+            return np.array([])
         # Check cache
         if self.cache:
             params = {'period': self.period}
             cached_result = self.cache.get(prices, params)
             if cached_result is not None:
                 return cached_result
-        
         # Calculate price changes
         deltas = np.diff(prices)
         seed = deltas[:self.period + 1]
-        
         # Separate gains and losses
         up = seed[seed >= 0].sum() / self.period
         down = -seed[seed < 0].sum() / self.period
         rs = up / down if down != 0 else 0
-        rsi = np.zeros_like(prices)
-        rsi[:self.period] = 100. - 100. / (1. + rs)
-        
+        rsi = np.full_like(prices, np.nan)
+        rsi[self.period] = 100. - 100. / (1. + rs)
         # Smooth calculation using EMA method
         for i in range(self.period, len(prices)):
             delta = deltas[i - 1]
@@ -134,18 +130,14 @@ class RSI:
             else:
                 upval = 0.
                 downval = -delta
-            
             up = (up * (self.period - 1) + upval) / self.period
             down = (down * (self.period - 1) + downval) / self.period
-            
             rs = up / down if down != 0 else 0
             rsi[i] = 100. - 100. / (1. + rs)
-        
         # Cache result
         if self.cache:
             params = {'period': self.period}
             self.cache.put(prices, params, rsi)
-        
         return rsi
 
 
@@ -195,9 +187,8 @@ class MACD:
         Returns:
             Tuple of (MACD line, Signal line, Histogram)
         """
-        if len(prices) < self.slow_period:
-            raise ValueError(f"Need at least {self.slow_period} data points")
-        
+        if prices is None or len(prices) < self.slow_period:
+            return (np.array([]), np.array([]), np.array([]))
         # Check cache
         if self.cache:
             params = {'fast': self.fast_period, 'slow': self.slow_period, 
@@ -205,28 +196,26 @@ class MACD:
             cached_result = self.cache.get(prices, params)
             if cached_result is not None:
                 return cached_result
-        
         # Calculate EMAs
         fast_ema = self._ema(prices, self.fast_period)
         slow_ema = self._ema(prices, self.slow_period)
-        
         # Calculate MACD line
         macd_line = fast_ema - slow_ema
-        
         # Calculate signal line
         signal_line = self._ema(macd_line, self.signal_period)
-        
         # Calculate histogram
         histogram = macd_line - signal_line
-        
+        # Fill invalid values with np.nan
+        valid_start = self.slow_period
+        macd_line[:valid_start] = np.nan
+        signal_line[:valid_start] = np.nan
+        histogram[:valid_start] = np.nan
         result = (macd_line, signal_line, histogram)
-        
         # Cache result
         if self.cache:
             params = {'fast': self.fast_period, 'slow': self.slow_period, 
                      'signal': self.signal_period}
             self.cache.put(prices, params, result)
-        
         return result
 
 
@@ -261,37 +250,27 @@ class BollingerBands:
         Returns:
             Tuple of (upper_band, middle_band, lower_band)
         """
-        if len(prices) < self.period:
-            raise ValueError(f"Need at least {self.period} data points")
-        
+        if prices is None or len(prices) < self.period:
+            return (np.array([]), np.array([]), np.array([]))
         # Check cache
         if self.cache:
             params = {'period': self.period, 'std_dev': self.std_dev}
             cached_result = self.cache.get(prices, params)
             if cached_result is not None:
                 return cached_result
-        
         # Calculate moving average
-        middle_band = np.zeros_like(prices)
+        middle_band = np.full_like(prices, np.nan)
+        std_dev_band = np.full_like(prices, np.nan)
         for i in range(self.period - 1, len(prices)):
             middle_band[i] = np.mean(prices[i - self.period + 1:i + 1])
-        
-        # Calculate standard deviation
-        std_dev_band = np.zeros_like(prices)
-        for i in range(self.period - 1, len(prices)):
             std_dev_band[i] = np.std(prices[i - self.period + 1:i + 1])
-        
-        # Calculate bands
         upper_band = middle_band + (self.std_dev * std_dev_band)
         lower_band = middle_band - (self.std_dev * std_dev_band)
-        
         result = (upper_band, middle_band, lower_band)
-        
         # Cache result
         if self.cache:
             params = {'period': self.period, 'std_dev': self.std_dev}
             self.cache.put(prices, params, result)
-        
         return result
 
 
@@ -329,13 +308,11 @@ class StochasticOscillator:
         Returns:
             Tuple of (%K line, %D line)
         """
-        if len(prices) < self.period:
-            raise ValueError(f"Need at least {self.period} data points")
-        
+        if prices is None or len(prices) < self.period:
+            return (np.array([]), np.array([]))
         # Use price as default for high/low if not provided
         high_prices = high_prices if high_prices is not None else prices
         low_prices = low_prices if low_prices is not None else prices
-        
         # Check cache
         if self.cache:
             combined_data = np.concatenate([prices, high_prices, low_prices])
@@ -343,31 +320,23 @@ class StochasticOscillator:
             cached_result = self.cache.get(combined_data, params)
             if cached_result is not None:
                 return cached_result
-        
-        # Calculate %K
-        k_percent = np.zeros_like(prices)
+        k_percent = np.full_like(prices, np.nan)
         for i in range(self.period - 1, len(prices)):
             lowest_low = np.min(low_prices[i - self.period + 1:i + 1])
             highest_high = np.max(high_prices[i - self.period + 1:i + 1])
-            
             if highest_high - lowest_low != 0:
                 k_percent[i] = 100 * (prices[i] - lowest_low) / (highest_high - lowest_low)
             else:
-                k_percent[i] = 50  # Default to 50 if range is 0
-        
-        # Calculate %D (smoothed %K)
-        d_percent = np.zeros_like(prices)
+                k_percent[i] = 50
+        d_percent = np.full_like(prices, np.nan)
         for i in range(self.period + self.smoothing_period - 2, len(prices)):
             d_percent[i] = np.mean(k_percent[i - self.smoothing_period + 1:i + 1])
-        
         result = (k_percent, d_percent)
-        
         # Cache result
         if self.cache:
             combined_data = np.concatenate([prices, high_prices, low_prices])
             params = {'period': self.period, 'smoothing': self.smoothing_period}
             self.cache.put(combined_data, params, result)
-        
         return result
 
 
@@ -402,61 +371,49 @@ class ADX:
         Returns:
             Array of ADX values
         """
-        if len(high_prices) < self.period:
-            raise ValueError(f"Need at least {self.period} data points")
-        
+        if high_prices is None or low_prices is None or close_prices is None or len(high_prices) < self.period:
+            return np.array([])
         # Calculate true range
-        tr = np.zeros_like(high_prices)
+        tr = np.full_like(high_prices, np.nan)
         tr[0] = high_prices[0] - low_prices[0]
-        
         for i in range(1, len(high_prices)):
             tr[i] = max(
                 high_prices[i] - low_prices[i],
                 abs(high_prices[i] - close_prices[i - 1]),
                 abs(low_prices[i] - close_prices[i - 1])
             )
-        
         # Calculate directional movements
-        plus_dm = np.zeros_like(high_prices)
-        minus_dm = np.zeros_like(high_prices)
-        
+        plus_dm = np.full_like(high_prices, np.nan)
+        minus_dm = np.full_like(high_prices, np.nan)
         for i in range(1, len(high_prices)):
             up_move = high_prices[i] - high_prices[i - 1]
             down_move = low_prices[i - 1] - low_prices[i]
-            
             if up_move > down_move and up_move > 0:
                 plus_dm[i] = up_move
             if down_move > up_move and down_move > 0:
                 minus_dm[i] = down_move
-        
         # Calculate smoothed values
-        atr = np.zeros_like(high_prices)
+        atr = np.full_like(high_prices, np.nan)
         atr[0] = tr[0]
         for i in range(1, len(tr)):
             atr[i] = (atr[i - 1] * (self.period - 1) + tr[i]) / self.period
-        
-        plus_di = np.zeros_like(high_prices)
-        minus_di = np.zeros_like(high_prices)
-        
+        plus_di = np.full_like(high_prices, np.nan)
+        minus_di = np.full_like(high_prices, np.nan)
         for i in range(self.period, len(high_prices)):
             plus_sum = np.sum(plus_dm[i - self.period + 1:i + 1])
             minus_sum = np.sum(minus_dm[i - self.period + 1:i + 1])
             atr_avg = np.mean(atr[i - self.period + 1:i + 1])
-            
             plus_di[i] = 100 * plus_sum / atr_avg if atr_avg != 0 else 0
             minus_di[i] = 100 * minus_sum / atr_avg if atr_avg != 0 else 0
-        
         # Calculate ADX
         di_diff = np.abs(plus_di - minus_di)
         di_sum = plus_di + minus_di
         dx = 100 * di_diff / di_sum
-        
-        adx = np.zeros_like(high_prices)
-        adx[self.period] = np.mean(dx[1:self.period + 1])
-        
-        for i in range(self.period + 1, len(high_prices)):
-            adx[i] = (adx[i - 1] * (self.period - 1) + dx[i]) / self.period
-        
+        adx = np.full_like(high_prices, np.nan)
+        if len(high_prices) > self.period:
+            adx[self.period] = np.mean(dx[1:self.period + 1])
+            for i in range(self.period + 1, len(high_prices)):
+                adx[i] = (adx[i - 1] * (self.period - 1) + dx[i]) / self.period
         return adx
 
 
@@ -491,27 +448,22 @@ class ATR:
         Returns:
             Array of ATR values
         """
-        if len(high_prices) < self.period:
-            raise ValueError(f"Need at least {self.period} data points")
-        
+        if high_prices is None or low_prices is None or close_prices is None or len(high_prices) < self.period:
+            return np.array([])
         # Calculate true range
         tr = np.zeros_like(high_prices)
         tr[0] = high_prices[0] - low_prices[0]
-        
         for i in range(1, len(high_prices)):
             tr[i] = max(
                 high_prices[i] - low_prices[i],
                 abs(high_prices[i] - close_prices[i - 1]),
                 abs(low_prices[i] - close_prices[i - 1])
             )
-        
         # Calculate ATR using smoothing
         atr = np.zeros_like(high_prices)
         atr[0] = tr[0]
-        
         for i in range(1, len(tr)):
             atr[i] = (atr[i - 1] * (self.period - 1) + tr[i]) / self.period
-        
         return atr
 
 
@@ -552,36 +504,30 @@ class IchimokuCloud:
         Returns:
             Dictionary with Ichimoku components
         """
-        if len(high_prices) < self.long_period:
-            raise ValueError(f"Need at least {self.long_period} data points")
-        
+        if high_prices is None or low_prices is None or len(high_prices) < self.long_period:
+            return {'tenkan': np.array([]), 'kijun': np.array([]), 'senkou_a': np.array([]), 'senkou_b': np.array([]), 'chikou': np.array([])}
         # Tenkan-sen (Conversion Line)
         tenkan = np.zeros_like(high_prices)
         for i in range(self.short_period - 1, len(high_prices)):
             short_high = np.max(high_prices[i - self.short_period + 1:i + 1])
             short_low = np.min(low_prices[i - self.short_period + 1:i + 1])
             tenkan[i] = (short_high + short_low) / 2
-        
         # Kijun-sen (Base Line)
         kijun = np.zeros_like(high_prices)
         for i in range(self.mid_period - 1, len(high_prices)):
             mid_high = np.max(high_prices[i - self.mid_period + 1:i + 1])
             mid_low = np.min(low_prices[i - self.mid_period + 1:i + 1])
             kijun[i] = (mid_high + mid_low) / 2
-        
         # Senkou Span A (Leading Span A)
         senkou_a = (tenkan + kijun) / 2
-        
         # Senkou Span B (Leading Span B)
         senkou_b = np.zeros_like(high_prices)
         for i in range(self.long_period - 1, len(high_prices)):
             long_high = np.max(high_prices[i - self.long_period + 1:i + 1])
             long_low = np.min(low_prices[i - self.long_period + 1:i + 1])
             senkou_b[i] = (long_high + long_low) / 2
-        
         # Chikou Span (Lagging Span)
         chikou = np.roll(np.zeros_like(high_prices), self.displacement)
-        
         return {
             'tenkan': tenkan,
             'kijun': kijun,
@@ -627,38 +573,30 @@ class KeltnerChannel:
         Returns:
             Dictionary with Keltner Channel components
         """
-        if len(close_prices) < self.period:
-            raise ValueError(f"Need at least {self.period} data points")
-        
+        if high_prices is None or low_prices is None or close_prices is None or len(close_prices) < self.period:
+            return {'ema': np.array([]), 'upper_band': np.array([]), 'lower_band': np.array([]), 'atr': np.array([])}
         # Calculate EMA of close prices
         ema = np.zeros_like(close_prices, dtype=float)
         multiplier = 2.0 / (self.period + 1.0)
         ema[0] = close_prices[0]
-        
         for i in range(1, len(close_prices)):
             ema[i] = close_prices[i] * multiplier + ema[i - 1] * (1 - multiplier)
-        
         # Calculate ATR
         tr = np.zeros_like(high_prices, dtype=float)
         tr[0] = high_prices[0] - low_prices[0]
-        
         for i in range(1, len(high_prices)):
             tr[i] = max(
                 high_prices[i] - low_prices[i],
                 abs(high_prices[i] - close_prices[i - 1]),
                 abs(low_prices[i] - close_prices[i - 1])
             )
-        
         atr = np.zeros_like(tr)
         atr[0] = tr[0]
-        
         for i in range(1, len(tr)):
             atr[i] = (atr[i - 1] * (self.atr_period - 1) + tr[i]) / self.atr_period
-        
         # Calculate bands
         upper_band = ema + (atr * self.atr_multiplier)
         lower_band = ema - (atr * self.atr_multiplier)
-        
         return {
             'ema': ema,
             'upper_band': upper_band,

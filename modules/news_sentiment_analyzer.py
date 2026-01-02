@@ -36,7 +36,10 @@ try:
     try:
         nltk.data.find('sentiment/vader_lexicon.zip')
     except LookupError:
-        nltk.download('vader_lexicon')
+        try:
+            nltk.download('vader_lexicon', quiet=True)
+        except Exception as e:
+            logging.warning(f"Failed to download NLTK VADER lexicon: {e}")
 except ImportError:
     SentimentIntensityAnalyzer = None
     logging.warning("NLTK VADER not available. Install with: pip install nltk")

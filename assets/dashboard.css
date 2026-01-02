@@ -1,0 +1,365 @@
+/* Stock Dashboard CSS */
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+.app-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+
+/* Header Styles */
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 2.5em;
+    font-weight: 300;
+}
+
+#app-subtitle {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 10px;
+    background-color: #ecf0f1;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+/* Status Indicators */
+.status-loaded {
+    color: #27ae60;
+    font-weight: bold;
+    background-color: #d5f4e6;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.status-error {
+    color: #e74c3c;
+    font-weight: bold;
+    background-color: #fadbd8;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.status-unavailable {
+    color: #f39c12;
+    font-weight: bold;
+    background-color: #fdeaa7;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+/* Section Containers */
+.section-container {
+    margin-bottom: 40px;
+    padding: 25px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.section-container h3 {
+    color: #34495e;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    font-weight: 400;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.section-container h4 {
+    color: #34495e;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    font-weight: 500;
+}
+
+/* Control Bar */
+.control-bar {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    flex-wrap: wrap;
+}
+
+.control-bar label {
+    font-weight: 500;
+    color: #495057;
+    margin-right: 5px;
+}
+
+.control-bar input, .control-bar button {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.control-bar button {
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.control-bar button:hover {
+    background-color: #0056b3;
+}
+
+/* Dropdown Styles */
+.Select-control {
+    min-height: 38px;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+}
+
+/* Notifications */
+.notifications-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #fafafa;
+}
+
+.notification-item {
+    margin-bottom: 10px;
+    padding: 12px;
+    border-radius: 5px;
+    border-left: 4px solid #ccc;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.notification-high {
+    border-left-color: #e74c3c;
+    background-color: #fdf2f2;
+}
+
+.notification-medium {
+    border-left-color: #f39c12;
+    background-color: #fef9e7;
+}
+
+.notification-low {
+    border-left-color: #3498db;
+    background-color: #ebf3fd;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.notification-type {
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #666;
+}
+
+.notification-time {
+    font-size: 11px;
+    color: #999;
+}
+
+.notification-content {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Status Messages */
+.status-message {
+    padding: 15px;
+    border-radius: 5px;
+    margin: 10px 0;
+    font-weight: 500;
+}
+
+.status-message.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+.status-message.warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Table Styles */
+.dash-table-container {
+    margin: 20px 0;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dash-table-container .dash-spreadsheet-container {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.dash-table-container .dash-table {
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.dash-table-container .dash-header {
+    background-color: #34495e !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+}
+
+.dash-table-container .dash-cell {
+    text-align: center;
+    padding: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.dash-table-container .dash-cell:hover {
+    background-color: #f8f9fa;
+}
+
+/* Chart Styles */
+.js-plotly-plot {
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Indicator Checklist */
+.control-bar .dash-checklist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.control-bar .dash-checklist .dash-checklist-option {
+    display: flex;
+    align-items: center;
+    margin-right: 0;
+}
+
+.control-bar .dash-checklist input[type="checkbox"] {
+    margin-right: 5px;
+    transform: scale(1.1);
+}
+
+.control-bar .dash-checklist label {
+    font-size: 13px;
+    color: #495057;
+    cursor: pointer;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    margin-top: 40px;
+    padding: 20px;
+    color: #6c757d;
+    font-size: 14px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Loading Spinner */
+._dash-loading {
+    margin: 20px 0;
+}
+
+._dash-loading-callback {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .app-container {
+        padding: 10px;
+        margin: 10px;
+    }
+    
+    .control-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .control-bar > * {
+        margin-bottom: 10px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+    
+    .section-container {
+        padding: 15px;
+    }
+}
+
+/* Date Picker Styles */
+.DateInput {
+    width: 120px;
+}
+
+.DateRangePickerInput {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px;
+    background-color: white;
+}
+
+/* Custom scrollbar for tables */
+.dash-table-container .dash-spreadsheet-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
