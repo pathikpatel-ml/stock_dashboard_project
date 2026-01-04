@@ -205,6 +205,7 @@ class StockScreener:
             return pd.DataFrame()
         
         screened_stocks = []
+        all_processed_stocks = []  # Store ALL stocks with their data
         total_stocks = len(nse_symbols)
         
         print(f"Screening {total_stocks} stocks...")
@@ -217,8 +218,12 @@ class StockScreener:
                 # Get financial data
                 stock_data = self.get_financial_data(symbol)
                 
-                if stock_data and self.apply_screening_criteria(stock_data):
-                    screened_stocks.append({
+                if stock_data:
+                    # Add screening result to the data
+                    passes_criteria = self.apply_screening_criteria(stock_data)
+                    
+                    # Store ALL stocks with complete data
+                    all_stock_record = {
                         'Symbol': stock_data['symbol'],
                         'Company Name': stock_data['company_name'],
                         'Sector': stock_data['sector'],
@@ -232,8 +237,30 @@ class StockScreener:
                         'Public Holding (%)': round(stock_data['public_holding'], 2),
                         'Is Bank/Finance': stock_data['is_bank_finance'],
                         'Is PSU': stock_data['is_psu'],
+                        'Is Highest Quarter': stock_data.get('is_highest_quarter', False),
+                        'Passes Criteria': passes_criteria,
                         'Screening Date': datetime.now().strftime('%Y-%m-%d')
-                    })
+                    }
+                    all_processed_stocks.append(all_stock_record)
+                    
+                    # Only add to screened_stocks if it passes criteria
+                    if passes_criteria:
+                        screened_stocks.append({
+                            'Symbol': stock_data['symbol'],
+                            'Company Name': stock_data['company_name'],
+                            'Sector': stock_data['sector'],
+                            'Industry': stock_data['industry'],
+                            'Market Cap': stock_data['market_cap'],
+                            'Net Profit (Cr)': round(stock_data['net_profit'], 2),
+                            'ROCE (%)': round(stock_data['roce'], 2),
+                            'ROE (%)': round(stock_data['roe'], 2),
+                            'Debt to Equity': round(stock_data['debt_to_equity'], 4),
+                            'Latest Quarter Profit (Cr)': round(stock_data['latest_quarter_profit'], 2),
+                            'Public Holding (%)': round(stock_data['public_holding'], 2),
+                            'Is Bank/Finance': stock_data['is_bank_finance'],
+                            'Is PSU': stock_data['is_psu'],
+                            'Screening Date': datetime.now().strftime('%Y-%m-%d')
+                        })
                 
                 # Rate limiting to avoid overwhelming the API
                 time.sleep(0.1)
@@ -244,7 +271,25 @@ class StockScreener:
         
         print(f"\n\nScreening completed. Found {len(screened_stocks)} stocks meeting criteria.")
         
-        # Convert to DataFrame
+        # Save ALL processed stocks to comprehensive CSV
+        if all_processed_stocks:
+            all_df = pd.DataFrame(all_processed_stocks)
+            all_df = all_df.sort_values('Market Cap', ascending=False)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            comprehensive_filename = f'comprehensive_stock_analysis_{timestamp}.csv'
+            
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
+            os.makedirs(output_dir, exist_ok=True)
+            
+            comprehensive_filepath = os.path.join(output_dir, comprehensive_filename)
+            all_df.to_csv(comprehensive_filepath, index=False)
+            print(f"\nCOMPREHENSIVE DATA saved to: {comprehensive_filepath}")
+            print(f"Total stocks analyzed: {len(all_processed_stocks)}")
+            print(f"Stocks passing criteria: {len(screened_stocks)}")
+            print(f"Success rate: {(len(screened_stocks)/len(all_processed_stocks))*100:.2f}%")
+        
+        # Convert to DataFrame for regular processing
         df = pd.DataFrame(screened_stocks)
         
         if not df.empty:
