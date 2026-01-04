@@ -10,14 +10,30 @@ import os
 import sys
 import subprocess
 from datetime import datetime
-from modules.stock_screener import generate_weekly_stock_list
+from modules.stock_screener import StockScreener
 
 # --- Configuration ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 STOCK_LIST_FILENAME = "Master_company_market_trend_analysis.csv"
 OUTPUT_STOCK_LIST_PATH = os.path.join(REPO_BASE_PATH, STOCK_LIST_FILENAME)
 
-# --- Git Helper Functions ---
+def generate_weekly_stock_list(output_path):
+    """Generate weekly stock list using the StockScreener"""
+    try:
+        screener = StockScreener()
+        df = screener.screen_stocks()
+        
+        if not df.empty:
+            # Save to the specified output path
+            df.to_csv(output_path, index=False)
+            print(f"Stock list saved to: {output_path}")
+            return True, len(df)
+        else:
+            print("No stocks found meeting criteria")
+            return False, 0
+    except Exception as e:
+        print(f"Error generating stock list: {e}")
+        return False, 0
 def run_git_command(command_list, working_dir="."):
     try:
         process = subprocess.Popen(command_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
