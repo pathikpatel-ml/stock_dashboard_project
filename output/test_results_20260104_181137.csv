@@ -1,0 +1,9 @@
+Symbol,Company,Sector,Net Profit (Cr),ROCE (%),ROE (%),Debt/Equity,Public Holding (%),Is Bank/Finance,Is PSU,Highest Quarter,Meets Criteria
+RELIANCE,Reliance Industries Limited,Energy,69648.0,3.94,9.72,0.3565,48.84,False,False,True,False
+TCS,Tata Consultancy Services Limited,Technology,48553.0,23.54,47.36,0.1017,28.2,False,False,True,False
+SBIN,State Bank of India,Financial Services,77561.34,1.15,15.68,0.0,44.27,True,True,True,True
+ONGC,Oil and Natural Gas Corporation Limited,Energy,36225.62,5.08,10.98,0.438,30.77,False,False,True,False
+HDFCBANK,HDFC Bank Limited,Financial Services,67350.83,1.65,10.84,0.0,99.43,True,False,False,False
+ICICIBANK,ICICI Bank Limited,Financial Services,51029.2,2.19,17.6,0.0,99.53,True,False,True,True
+NTPC,NTPC Limited,Utilities,23422.46,4.42,13.1,1.2775,44.78,False,True,False,False
+INFY,Infosys Limited,Technology,315.8,14.86,29.03,0.0844,87.22,False,False,True,False

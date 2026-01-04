@@ -16,7 +16,6 @@ GITHUB_REPOSITORY = "stock_dashboard_project"
 
 # --- Configuration ---
 SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
-MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_data_{date_str}.csv"
 
 # --- Global In-Memory Cache ---
 v20_signals_cache = pd.DataFrame()
@@ -32,7 +31,6 @@ ACTIVE_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 # --- Global DataFrames (Data Cache) ---
 signals_df = pd.DataFrame()
 v20_signals_df = pd.DataFrame()  # Added missing global variable
-ma_signals_df = pd.DataFrame()
 growth_df = pd.DataFrame()
 all_available_symbols = []
 v20_processed_df = pd.DataFrame() # This is our cache
@@ -161,7 +159,7 @@ def process_ma_signals_for_ui(ma_events_df):
 #     all_available_symbols = sorted(list(set(symbols_s + symbols_m)))
 
 def load_and_process_data_on_startup():
-    global v20_signals_df, ma_signals_df, all_available_symbols, v20_processed_df
+    global v20_signals_df, all_available_symbols, v20_processed_df
     today_str = datetime.now().strftime("%Y%m%d")
     
     # Load V20 from GitHub
@@ -170,16 +168,6 @@ def load_and_process_data_on_startup():
         v20_signals_df = pd.read_csv(v20_url, parse_dates=['Buy_Date', 'Sell_Date'])
         # Initial slow processing
         v20_processed_df = process_v20_signals(v20_signals_df)
-        print(f"STARTUP: Loaded and processed {len(v20_processed_df)} active V20 signals.")
+        print(f"STARTUP: Loaded and processed {len(v20_processed_df)} active V20 signals from dynamic stock list.")
     except Exception as e:
         print(f"STARTUP ERROR: Failed to load V20 data: {e}")
-
-    # Load MA from GitHub
-    ma_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{MA_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)}"
-    try:
-        ma_signals_df = pd.read_csv(ma_url, parse_dates=['Date'])
-        print(f"STARTUP: Loaded {len(ma_signals_df)} MA events.")
-    except Exception as e:
-        print(f"STARTUP ERROR: Failed to load MA data: {e}")
-
-    # (This part for dropdowns was removed as per your request)

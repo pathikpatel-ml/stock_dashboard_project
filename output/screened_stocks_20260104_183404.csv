@@ -1,0 +1,3 @@
+Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Screening Date
+ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,9692022571008,51029.2,2.19,17.6,0,13357.06,99.53,True,False,2026-01-04
+SBIN,State Bank of India,Financial Services,Banks - Regional,9220925685760,77561.34,1.15,15.68,0,21201.47,44.27,True,True,2026-01-04

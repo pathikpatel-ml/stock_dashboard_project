@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-01-04T18:34:44.739165",
+  "tests": {
+    "nse_stock_list": {
+      "status": "PASS",
+      "count": 2223,
+      "sample_stocks": [
+        "20MICRONS",
+        "21STCENMGM",
+        "360ONE",
+        "3IINFOLTD",
+        "3MINDIA",
+        "3PLAND",
+        "5PAISA",
+        "63MOONS",
+        "A2ZINFRA",
+        "AAATECH"
+      ]
+    },
+    "financial_data": {
+      "RELIANCE": {
+        "status": "SUCCESS",
+        "company_name": "Reliance Industries Limited",
+        "sector": "Energy",
+        "net_profit": 69648.0,
+        "is_bank_finance": false,
+        "is_psu": false
+      },
+      "TCS": {
+        "status": "SUCCESS",
+        "company_name": "Tata Consultancy Services Limited",
+        "sector": "Technology",
+        "net_profit": 48553.0,
+        "is_bank_finance": false,
+        "is_psu": false
+      },
+      "SBIN": {
+        "status": "SUCCESS",
+        "company_name": "State Bank of India",
+        "sector": "Financial Services",
+        "net_profit": 77561.3371,
+        "is_bank_finance": true,
+        "is_psu": true
+      },
+      "HDFCBANK": {
+        "status": "SUCCESS",
+        "company_name": "HDFC Bank Limited",
+        "sector": "Financial Services",
+        "net_profit": 67350.83,
+        "is_bank_finance": true,
+        "is_psu": false
+      }
+    },
+    "sector_classification": {
+      "bank_classification": true,
+      "psu_classification": {
+        "State Bank of India": true,
+        "Oil and Natural Gas Corporation": false,
+        "NTPC Limited": true
+      }
+    },
+    "screening_criteria": {
+      "Private Sector Pass": {
+        "expected": true,
+        "actual": true,
+        "success": true
+      },
+      "Private Sector Fail - Low Public Holding": {
+        "expected": false,
+        "actual": false,
+        "success": true
+      },
+      "PSU Pass - No Public Holding Requirement": {
+        "expected": true,
+        "actual": true,
+        "success": true
+      },
+      "Bank Pass": {
+        "expected": true,
+        "actual": true,
+        "success": true
+      },
+      "Fail - Not Highest Quarter": {
+        "expected": false,
+        "actual": false,
+        "success": true
+      }
+    },
+    "screening_process": {
+      "total_tested": 5,
+      "results_found": 2,
+      "success": true,
+      "columns_valid": true
+    },
+    "data_validation": {
+      "invalid_data_handled": true,
+      "valid_data_accepted": true
+    },
+    "export_functionality": {
+      "export_successful": true,
+      "data_integrity": true
+    }
+  },
+  "summary": {
+    "total_tests": 7,
+    "passed_tests": 7,
+    "failed_tests": 0,
+    "success_rate": "100.0%"
+  }
+}
