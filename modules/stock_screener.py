@@ -182,7 +182,7 @@ class StockScreener:
                 # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25% (no public holding requirement)
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and 
-                               stock_data['debt_to_equity'] < 0.0025)
+                               stock_data['debt_to_equity'] < 0.25)
                 
                 if stock_data['is_psu']:
                     return base_criteria
