@@ -19,10 +19,10 @@ jobs:
       with:
         python-version: '3.10'
         
-    - name: Configure Git
+    - name: Configure Git User
       run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
         
     - name: Install dependencies
       run: |
