@@ -178,17 +178,17 @@ class StockScreener:
                 return (stock_data['net_profit'] > 1000 and 
                        stock_data['roe'] > 10)
             else:
-                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25%, Public holding > 30%
+                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25%, Public holding < 30%
                 # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25% (no public holding requirement)
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and 
-                               stock_data['debt_to_equity'] < 0.25)
+                               stock_data['debt_to_equity'] < 0.0025)
                 
                 if stock_data['is_psu']:
                     return base_criteria
                 else:
                     # Private sector - additional public holding criteria
-                    return base_criteria and stock_data['public_holding'] > 30
+                    return base_criteria and stock_data['public_holding'] < 30
                        
         except Exception as e:
             print(f"Error applying criteria: {e}")
