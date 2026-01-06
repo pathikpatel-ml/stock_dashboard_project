@@ -1,0 +1,6 @@
+Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Is Highest Quarter,Passes Criteria,Screening Date
+RELIANCE,Reliance Industries Limited,Energy,Oil & Gas Refining & Marketing,20402306809856,69648.0,3.94,9.72,0.3565,26994.0,48.84,False,False,True,False,2026-01-06
+HDFCBANK,HDFC Bank Limited,Unknown,Unknown,14803003244544,67350.83,0.0,0.0,0.0,16257.91,0.0,False,False,False,False,2026-01-06
+TCS,Tata Consultancy Services Limited,Technology,Information Technology Services,11779768844288,0.0,23.54,47.36,0.1017,0.0,28.2,False,False,False,False,2026-01-06
+ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,10091253202944,51029.2,2.19,17.6,0.0,13357.06,99.53,True,False,True,True,2026-01-06
+INFY,Infosys Limited,Technology,Information Technology Services,6522277986304,315.8,14.86,29.03,0.0844,83.9,87.22,False,False,True,False,2026-01-06

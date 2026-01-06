@@ -367,6 +367,36 @@ class StockScreener:
         
         return df
     
+    def analyze_comprehensive_data(self, csv_file_path):
+        """Analyze comprehensive stock data from CSV file"""
+        try:
+            df = pd.read_csv(csv_file_path)
+            
+            print(f"\n=== COMPREHENSIVE DATA ANALYSIS ===")
+            print(f"Total stocks analyzed: {len(df)}")
+            print(f"Stocks passing criteria: {df['Passes Criteria'].sum()}")
+            print(f"Success rate: {(df['Passes Criteria'].sum()/len(df))*100:.2f}%")
+            
+            # Sector analysis
+            print("\nSector breakdown:")
+            sector_counts = df['Sector'].value_counts()
+            for sector, count in sector_counts.head(10).items():
+                passed = df[(df['Sector'] == sector) & (df['Passes Criteria'])].shape[0]
+                print(f"  {sector}: {count} total, {passed} passed ({(passed/count)*100:.1f}%)")
+            
+            # Top performers
+            passed_stocks = df[df['Passes Criteria']].sort_values('Market Cap', ascending=False)
+            if not passed_stocks.empty:
+                print(f"\nTop 10 stocks that passed criteria:")
+                for idx, row in passed_stocks.head(10).iterrows():
+                    print(f"  {row['Symbol']} - {row['Company Name']} (Market Cap: {row['Market Cap']:,.0f})")
+            
+            return df
+            
+        except Exception as e:
+            print(f"Error analyzing data: {e}")
+            return None
+    
     def get_stock_recommendations(self, max_stocks=20):
         """Get stock recommendations based on screening criteria"""
         df = self.screen_stocks()
