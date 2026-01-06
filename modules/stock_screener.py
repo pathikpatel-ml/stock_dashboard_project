@@ -14,6 +14,10 @@ import numpy as np
 from datetime import datetime, timedelta
 import sys
 import os
+import warnings
+
+# Suppress yfinance warnings
+warnings.filterwarnings('ignore')
 
 # Fix Windows console encoding issues
 if sys.platform.startswith('win'):
@@ -88,79 +92,114 @@ class StockScreener:
             print(f"Error: {e}. Using minimal list.")
             return ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
     
-    def get_financial_data(self, symbol):
-        """Get financial data for a stock using yfinance"""
-        try:
-            ticker = yf.Ticker(f"{symbol}.NS")
+    def get_financial_data(self, symbol, max_retries=2):
+        """Get financial data for a stock using yfinance with retry logic"""
+        for attempt in range(max_retries + 1):
+            try:
+                # Configure yfinance session with timeout
+                ticker = yf.Ticker(f"{symbol}.NS")
+                ticker.session.timeout = 15  # Set timeout to 15 seconds
+                
+                # Get financial data with timeout handling
+                info = ticker.info
+                financials = ticker.financials
+                quarterly_financials = ticker.quarterly_financials
             
-            # Get financial data
-            info = ticker.info
-            financials = ticker.financials
-            quarterly_financials = ticker.quarterly_financials
+                # Extract key metrics
+                data = {
+                    'symbol': symbol,
+                    'company_name': info.get('longName', symbol),
+                    'sector': info.get('sector', 'Unknown'),
+                    'industry': info.get('industry', 'Unknown'),
+                    'market_cap': info.get('marketCap', 0),
+                    'net_profit': 0,
+                    'roce': 0,
+                    'roe': 0,
+                    'debt_to_equity': 0,
+                    'latest_quarter_profit': 0,
+                    'public_holding': info.get('floatShares', 0) / info.get('sharesOutstanding', 1) * 100 if info.get('sharesOutstanding') else 0,
+                    'is_bank_finance': False,
+                    'is_psu': False
+                }
+                
+                # Determine if it's a bank/finance company
+                sector = data['sector'].lower()
+                industry = data['industry'].lower()
+                company_name = data['company_name'].lower()
+                
+                data['is_bank_finance'] = any(keyword in sector + industry for keyword in 
+                                            ['bank', 'finance', 'financial', 'insurance', 'mutual fund'])
+                
+                # Determine if it's a PSU (Public Sector Undertaking)
+                psu_keywords = ['bharat', 'indian', 'national', 'state bank', 'oil india', 'coal india', 
+                            'ntpc', 'ongc', 'sail', 'bhel', 'gail', 'ioc', 'bpcl', 'hpcl']
+                data['is_psu'] = any(keyword in company_name for keyword in psu_keywords) or \
+                                any(keyword in symbol.lower() for keyword in ['sbi', 'pnb', 'boi', 'canara'])
+                
+                # Get net profit (annual) - try multiple possible row names
+                net_profit_rows = ['Net Income', 'Net Income From Continuing Operation Net Minority Interest', 'Normalized Income']
+                for row_name in net_profit_rows:
+                    if not financials.empty and row_name in financials.index:
+                        net_profit_series = financials.loc[row_name]
+                        if not net_profit_series.empty and not pd.isna(net_profit_series.iloc[0]):
+                            data['net_profit'] = abs(net_profit_series.iloc[0]) / 10000000  # Convert to crores
+                            break
+                
+                # Get latest quarter profit - try multiple possible row names
+                quarterly_profit_rows = ['Net Income', 'Net Income From Continuing Operation Net Minority Interest', 'Normalized Income']
+                for row_name in quarterly_profit_rows:
+                    if not quarterly_financials.empty and row_name in quarterly_financials.index:
+                        quarterly_profit_series = quarterly_financials.loc[row_name]
+                        if not quarterly_profit_series.empty and not pd.isna(quarterly_profit_series.iloc[0]):
+                            data['latest_quarter_profit'] = abs(quarterly_profit_series.iloc[0]) / 10000000  # Convert to crores
+                            
+                            # Check if latest quarter is highest in last 12 quarters
+                            if len(quarterly_profit_series) >= 4:
+                                last_12_quarters = quarterly_profit_series.head(min(12, len(quarterly_profit_series)))
+                                # Filter out NaN values
+                                valid_quarters = [abs(x) / 10000000 for x in last_12_quarters if not pd.isna(x)]
+                                if valid_quarters:
+                                    max_quarter = max(valid_quarters)
+                                    data['is_highest_quarter'] = data['latest_quarter_profit'] >= max_quarter * 0.95
+                                else:
+                                    data['is_highest_quarter'] = False
+                            else:
+                                data['is_highest_quarter'] = False
+                            break
+                
+                # Calculate ROCE and ROE from info
+                data['roe'] = info.get('returnOnEquity', 0) * 100
+                # Use ROA as ROCE approximation, but also try to calculate better ROCE if possible
+                roa = info.get('returnOnAssets', 0) * 100
+                data['roce'] = roa  # Basic approximation
+                
+                # Try to get better ROCE calculation if we have the data
+                if data['net_profit'] > 0 and info.get('totalAssets', 0) > 0:
+                    # ROCE = EBIT / Capital Employed (approximated as total assets)
+                    # Since we don't have EBIT directly, use net profit as approximation
+                    capital_employed = info.get('totalAssets', 0) / 10000000  # Convert to crores
+                    if capital_employed > 0:
+                        data['roce'] = (data['net_profit'] / capital_employed) * 100
+                
+                # Get debt to equity ratio
+                data['debt_to_equity'] = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0
+                
+                # Set default value if not calculated above
+                if 'is_highest_quarter' not in data:
+                    data['is_highest_quarter'] = False
+                
+                return data
             
-            # Extract key metrics
-            data = {
-                'symbol': symbol,
-                'company_name': info.get('longName', symbol),
-                'sector': info.get('sector', 'Unknown'),
-                'industry': info.get('industry', 'Unknown'),
-                'market_cap': info.get('marketCap', 0),
-                'net_profit': 0,
-                'roce': 0,
-                'roe': 0,
-                'debt_to_equity': 0,
-                'latest_quarter_profit': 0,
-                'public_holding': info.get('floatShares', 0) / info.get('sharesOutstanding', 1) * 100 if info.get('sharesOutstanding') else 0,
-                'is_bank_finance': False,
-                'is_psu': False
-            }
-            
-            # Determine if it's a bank/finance company
-            sector = data['sector'].lower()
-            industry = data['industry'].lower()
-            company_name = data['company_name'].lower()
-            
-            data['is_bank_finance'] = any(keyword in sector + industry for keyword in 
-                                        ['bank', 'finance', 'financial', 'insurance', 'mutual fund'])
-            
-            # Determine if it's a PSU (Public Sector Undertaking)
-            psu_keywords = ['bharat', 'indian', 'national', 'state bank', 'oil india', 'coal india', 
-                           'ntpc', 'ongc', 'sail', 'bhel', 'gail', 'ioc', 'bpcl', 'hpcl']
-            data['is_psu'] = any(keyword in company_name for keyword in psu_keywords) or \
-                            any(keyword in symbol.lower() for keyword in ['sbi', 'pnb', 'boi', 'canara'])
-            
-            # Get net profit (annual)
-            if not financials.empty and 'Net Income' in financials.index:
-                net_profit_series = financials.loc['Net Income']
-                if not net_profit_series.empty:
-                    data['net_profit'] = abs(net_profit_series.iloc[0]) / 10000000  # Convert to crores
-            
-            # Get latest quarter profit
-            if not quarterly_financials.empty and 'Net Income' in quarterly_financials.index:
-                quarterly_profit_series = quarterly_financials.loc['Net Income']
-                if not quarterly_profit_series.empty:
-                    data['latest_quarter_profit'] = abs(quarterly_profit_series.iloc[0]) / 10000000  # Convert to crores
-                    
-                    # Check if latest quarter is highest in last 12 quarters
-                    if len(quarterly_profit_series) >= 4:
-                        last_12_quarters = quarterly_profit_series.head(min(12, len(quarterly_profit_series)))
-                        max_quarter = max(abs(x) / 10000000 for x in last_12_quarters)
-                        data['is_highest_quarter'] = data['latest_quarter_profit'] >= max_quarter * 0.95
-                    else:
-                        data['is_highest_quarter'] = False
-            
-            # Calculate ROCE and ROE from info
-            data['roce'] = info.get('returnOnAssets', 0) * 100  # Approximate ROCE with ROA
-            data['roe'] = info.get('returnOnEquity', 0) * 100
-            
-            # Get debt to equity ratio
-            data['debt_to_equity'] = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0
-            
-            return data
-            
-        except Exception as e:
-            print(f"Error getting financial data for {symbol}: {e}")
-            return None
+            except Exception as e:
+                if attempt < max_retries:
+                    print(f"Attempt {attempt + 1} failed for {symbol}, retrying...")
+                    time.sleep(2)  # Wait before retry
+                    continue
+                else:
+                    print(f"Error getting financial data for {symbol}: {e}")
+                    return None
+        
+        return None
     
     def apply_screening_criteria(self, stock_data):
         """Apply screening criteria based on sector"""
@@ -178,11 +217,11 @@ class StockScreener:
                 return (stock_data['net_profit'] > 1000 and 
                        stock_data['roe'] > 10)
             else:
-                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25%, Public holding < 30%
-                # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25% (no public holding requirement)
+                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, Public holding > 30%
+                # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25 (no public holding requirement)
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and 
-                               stock_data['debt_to_equity'] < 0.0025)
+                               stock_data['debt_to_equity'] < 0.25)
                 
                 if stock_data['is_psu']:
                     return base_criteria
@@ -263,7 +302,7 @@ class StockScreener:
                         })
                 
                 # Rate limiting to avoid overwhelming the API
-                time.sleep(0.1)
+                time.sleep(0.2)  # Increased delay to reduce API stress
                 
             except Exception as e:
                 print(f"\nError processing {symbol}: {e}")
