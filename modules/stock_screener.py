@@ -153,11 +153,11 @@ class StockScreener:
                         if not quarterly_profit_series.empty and not pd.isna(quarterly_profit_series.iloc[0]):
                             data['latest_quarter_profit'] = abs(quarterly_profit_series.iloc[0]) / 10000000  # Convert to crores
                             
-                            # Check if latest quarter is highest in last 12 quarters
-                            if len(quarterly_profit_series) >= 4:
-                                last_12_quarters = quarterly_profit_series.head(min(12, len(quarterly_profit_series)))
+                            # Check if latest quarter is highest in last 3 quarters
+                            if len(quarterly_profit_series) >= 3:
+                                last_3_quarters = quarterly_profit_series.head(3)
                                 # Filter out NaN values
-                                valid_quarters = [abs(x) / 10000000 for x in last_12_quarters if not pd.isna(x)]
+                                valid_quarters = [abs(x) / 10000000 for x in last_3_quarters if not pd.isna(x)]
                                 if valid_quarters:
                                     max_quarter = max(valid_quarters)
                                     data['is_highest_quarter'] = data['latest_quarter_profit'] >= max_quarter * 0.95
@@ -207,7 +207,7 @@ class StockScreener:
             return False
         
         try:
-            # Check if latest quarter profit is highest in last 12 quarters
+            # Check if latest quarter profit is highest in last 3 quarters
             if not stock_data.get('is_highest_quarter', False):
                 return False
             
@@ -430,7 +430,7 @@ def main():
     print("Stock Screener - Dynamic Stock Selection")
     print("=======================================")
     print("\nCriteria:")
-    print("- Latest quarter profit should be highest in last 12 quarters")
+    print("- Latest quarter profit should be highest in last 3 quarters")
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
     print("- Private Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Public holding > 30%")
     print("- PSU: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25")
