@@ -152,19 +152,6 @@ class StockScreener:
                         quarterly_profit_series = quarterly_financials.loc[row_name]
                         if not quarterly_profit_series.empty and not pd.isna(quarterly_profit_series.iloc[0]):
                             data['latest_quarter_profit'] = abs(quarterly_profit_series.iloc[0]) / 10000000  # Convert to crores
-                            
-                            # Check if latest quarter is highest in last 3 quarters
-                            if len(quarterly_profit_series) >= 3:
-                                last_3_quarters = quarterly_profit_series.head(3)
-                                # Filter out NaN values
-                                valid_quarters = [abs(x) / 10000000 for x in last_3_quarters if not pd.isna(x)]
-                                if valid_quarters:
-                                    max_quarter = max(valid_quarters)
-                                    data['is_highest_quarter'] = data['latest_quarter_profit'] >= max_quarter * 0.95
-                                else:
-                                    data['is_highest_quarter'] = False
-                            else:
-                                data['is_highest_quarter'] = False
                             break
                 
                 # Calculate ROCE and ROE from info
@@ -183,10 +170,6 @@ class StockScreener:
                 
                 # Get debt to equity ratio
                 data['debt_to_equity'] = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0
-                
-                # Set default value if not calculated above
-                if 'is_highest_quarter' not in data:
-                    data['is_highest_quarter'] = False
                 
                 return data
             
@@ -207,10 +190,6 @@ class StockScreener:
             return False
         
         try:
-            # Check if latest quarter profit is highest in last 3 quarters
-            if not stock_data.get('is_highest_quarter', False):
-                return False
-            
             if stock_data['is_bank_finance']:
                 # Bank and Finance criteria
                 # Net profit > 1000 cr, ROE > 10%
@@ -276,7 +255,6 @@ class StockScreener:
                         'Public Holding (%)': round(stock_data['public_holding'], 2),
                         'Is Bank/Finance': stock_data['is_bank_finance'],
                         'Is PSU': stock_data['is_psu'],
-                        'Is Highest Quarter': stock_data.get('is_highest_quarter', False),
                         'Passes Criteria': passes_criteria,
                         'Screening Date': datetime.now().strftime('%Y-%m-%d')
                     }
@@ -430,7 +408,6 @@ def main():
     print("Stock Screener - Dynamic Stock Selection")
     print("=======================================")
     print("\nCriteria:")
-    print("- Latest quarter profit should be highest in last 3 quarters")
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
     print("- Private Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Public holding > 30%")
     print("- PSU: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25")
