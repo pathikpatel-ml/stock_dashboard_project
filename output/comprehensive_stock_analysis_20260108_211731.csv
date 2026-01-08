@@ -1,0 +1,14 @@
+Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Passes Criteria,Screening Date
+360ONE,360 One Wam Limited,Financial Services,Asset Management,479394332672,1015.3,7.48,16.99,1.4724,284.67,63.64,True,False,True,2026-01-08
+3MINDIA,3M India Limited,Industrials,Conglomerates,392362393600,476.07,19.19,33.83,0.0642,177.69,23.52,False,False,False,2026-01-08
+AADHARHFC,AADHARHFC,Financial Services,Mortgage Finance,211692601344,911.83,4.28,15.48,2.5535,266.47,24.42,True,False,False,2026-01-08
+63MOONS,63 moons technologies limited,Technology,Software - Application,31319148544,33.17,-4.56,-1.77,0.0015,3.01,39.28,False,False,False,2026-01-08
+5PAISA,5paisa Capital Limited,Financial Services,Capital Markets,11674140672,68.23,2.55,7.87,0.4639,11.55,34.58,True,False,False,2026-01-08
+20MICRONS,20 Microns Limited,Basic Materials,Other Industrial Metals & Mining,7114852352,62.38,9.02,14.79,0.3564,17.4,42.55,False,False,False,2026-01-08
+3IINFOLTD,3i Infotech Limited,Technology,Information Technology Services,3365357824,25.35,-1.7,23.16,0.1076,18.43,77.91,False,False,False,2026-01-08
+A2ZINFRA,A2Z Infra Engineering Limited,Industrials,Engineering & Construction,2624907008,8.97,1.58,-1.86,3.5389,1.73,60.07,False,False,False,2026-01-08
+AAREYDRUGS,Aarey Drugs & Pharmaceuticals Limited,Healthcare,Drug Manufacturers - Specialty & Generic,1923839488,4.02,0.95,2.52,0.3827,1.02,45.71,False,False,False,2026-01-08
+AAATECH,AAA Technologies Limited,Technology,Information Technology Services,1262028800,3.51,5.82,11.72,0.0,0.81,57.81,False,False,False,2026-01-08
+AAKASH,Aakash Exploration Services Limited,Energy,Oil & Gas Equipment & Services,872774976,1.84,1.76,2.23,0.5368,0.28,30.45,False,False,False,2026-01-08
+21STCENMGM,Twentyfirst Century Management Services Limited,Financial Services,Capital Markets,497384992,12.34,-13.92,-28.15,0.0,7.89,28.52,True,False,False,2026-01-08
+3PLAND,3P Land Holdings Ltd,Unknown,Unknown,0,2.09,0.0,0.0,0.0,0.37,0.0,False,False,False,2026-01-08
