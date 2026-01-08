@@ -118,6 +118,7 @@ class StockScreener:
                     'roe': 0,
                     'debt_to_equity': 0,
                     'latest_quarter_profit': 0,
+                    'last_3q_avg_profit': 0,
                     'public_holding': info.get('floatShares', 0) / info.get('sharesOutstanding', 1) * 100 if info.get('sharesOutstanding') else 0,
                     'is_bank_finance': False,
                     'is_psu': False
@@ -146,14 +147,29 @@ class StockScreener:
                             data['net_profit'] = abs(net_profit_series.iloc[0]) / 10000000  # Convert to crores
                             break
                 
-                # Get latest quarter profit - try multiple possible row names
+                # Get latest quarter profit and last 3 quarters average
                 quarterly_profit_rows = ['Net Income', 'Net Income From Continuing Operation Net Minority Interest', 'Normalized Income']
+                quarterly_profits = []
+                
                 for row_name in quarterly_profit_rows:
                     if not quarterly_financials.empty and row_name in quarterly_financials.index:
                         quarterly_profit_series = quarterly_financials.loc[row_name]
-                        if not quarterly_profit_series.empty and not pd.isna(quarterly_profit_series.iloc[0]):
-                            data['latest_quarter_profit'] = abs(quarterly_profit_series.iloc[0]) / 10000000  # Convert to crores
+                        if not quarterly_profit_series.empty:
+                            # Get up to 4 quarters (current + last 3)
+                            for i in range(min(4, len(quarterly_profit_series))):
+                                if not pd.isna(quarterly_profit_series.iloc[i]):
+                                    quarterly_profits.append(abs(quarterly_profit_series.iloc[i]) / 10000000)
                             break
+                
+                # Set latest quarter profit and calculate last 3 quarters average
+                if quarterly_profits:
+                    data['latest_quarter_profit'] = quarterly_profits[0]  # Most recent quarter
+                    if len(quarterly_profits) >= 4:
+                        # Average of quarters 1, 2, 3 (excluding current quarter 0)
+                        data['last_3q_avg_profit'] = sum(quarterly_profits[1:4]) / 3
+                    else:
+                        # If less than 4 quarters available, use available data
+                        data['last_3q_avg_profit'] = sum(quarterly_profits[1:]) / max(1, len(quarterly_profits) - 1) if len(quarterly_profits) > 1 else 0
                 
                 # Calculate ROCE and ROE from info
                 data['roe'] = info.get('returnOnEquity', 0) * 100
@@ -185,7 +201,48 @@ class StockScreener:
         
         return None
     
-    def _save_checkpoint(self, all_processed_stocks, processed_count, final=False):
+    def check_existing_comprehensive_data(self):
+        """Check if there's a recent comprehensive CSV file (within 1 week)"""
+        try:
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
+            if not os.path.exists(output_dir):
+                return None
+            
+            # Find all comprehensive CSV files
+            csv_files = [f for f in os.listdir(output_dir) if f.startswith('comprehensive_stock_analysis_') and f.endswith('.csv')]
+            
+            if not csv_files:
+                return None
+            
+            # Get the most recent file
+            latest_file = sorted(csv_files)[-1]
+            file_path = os.path.join(output_dir, latest_file)
+            
+            # Check file age
+            file_time = os.path.getmtime(file_path)
+            current_time = time.time()
+            age_days = (current_time - file_time) / (24 * 3600)
+            
+            if age_days <= 7:  # Within 1 week
+                print(f"Found recent comprehensive data: {latest_file} (Age: {age_days:.1f} days)")
+                return file_path
+            else:
+                print(f"Existing comprehensive data is too old: {age_days:.1f} days")
+                return None
+                
+        except Exception as e:
+            print(f"Error checking existing data: {e}")
+            return None
+    
+    def load_existing_comprehensive_data(self, file_path):
+        """Load existing comprehensive CSV data"""
+        try:
+            df = pd.read_csv(file_path)
+            print(f"Loaded {len(df)} stocks from existing comprehensive data")
+            return df
+        except Exception as e:
+            print(f"Error loading existing data: {e}")
+            return None
         """Save checkpoint data"""
         try:
             if all_processed_stocks:
@@ -223,17 +280,16 @@ class StockScreener:
                 return (stock_data['net_profit'] > 1000 and 
                        stock_data['roe'] > 10)
             else:
-                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, Public holding > 30%
-                # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25 (no public holding requirement)
+                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
+                # Net profit > last 3 quarters average
+                # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
+                # Net profit > last 3 quarters average
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and 
-                               stock_data['debt_to_equity'] < 0.25)
+                               stock_data['debt_to_equity'] < 0.25 and
+                               stock_data['net_profit'] > stock_data.get('last_3q_avg_profit', 0))
                 
-                if stock_data['is_psu']:
-                    return base_criteria
-                else:
-                    # Private sector - additional public holding criteria
-                    return base_criteria and stock_data['public_holding'] < 30
+                return base_criteria
                        
         except Exception as e:
             print(f"Error applying criteria: {e}")
@@ -242,6 +298,56 @@ class StockScreener:
     def screen_stocks(self, checkpoint_interval=50):
         """Main screening function with checkpoint system"""
         print("Starting stock screening process...")
+        
+        # Check for existing comprehensive data first
+        existing_data_path = self.check_existing_comprehensive_data()
+        if existing_data_path:
+            print("Using existing comprehensive data...")
+            all_df = self.load_existing_comprehensive_data(existing_data_path)
+            if all_df is not None:
+                # Re-apply screening criteria to existing data
+                screened_stocks = []
+                for _, row in all_df.iterrows():
+                    stock_data = {
+                        'symbol': row['Symbol'],
+                        'company_name': row['Company Name'],
+                        'sector': row['Sector'],
+                        'industry': row['Industry'],
+                        'market_cap': row['Market Cap'],
+                        'net_profit': row['Net Profit (Cr)'],
+                        'roce': row['ROCE (%)'],
+                        'roe': row['ROE (%)'],
+                        'debt_to_equity': row['Debt to Equity'],
+                        'latest_quarter_profit': row['Latest Quarter Profit (Cr)'],
+                        'last_3q_avg_profit': row.get('Last 3Q Avg Profit (Cr)', 0),
+                        'public_holding': row['Public Holding (%)'],
+                        'is_bank_finance': row['Is Bank/Finance'],
+                        'is_psu': row['Is PSU']
+                    }
+                    
+                    if self.apply_screening_criteria(stock_data):
+                        screened_stocks.append({
+                            'Symbol': stock_data['symbol'],
+                            'Company Name': stock_data['company_name'],
+                            'Sector': stock_data['sector'],
+                            'Industry': stock_data['industry'],
+                            'Market Cap': stock_data['market_cap'],
+                            'Net Profit (Cr)': stock_data['net_profit'],
+                            'ROCE (%)': stock_data['roce'],
+                            'ROE (%)': stock_data['roe'],
+                            'Debt to Equity': stock_data['debt_to_equity'],
+                            'Latest Quarter Profit (Cr)': stock_data['latest_quarter_profit'],
+                            'Last 3Q Avg Profit (Cr)': stock_data['last_3q_avg_profit'],
+                            'Public Holding (%)': stock_data['public_holding'],
+                            'Is Bank/Finance': stock_data['is_bank_finance'],
+                            'Is PSU': stock_data['is_psu'],
+                            'Screening Date': datetime.now().strftime('%Y-%m-%d')
+                        })
+                
+                print(f"Found {len(screened_stocks)} stocks meeting updated criteria from existing data.")
+                return pd.DataFrame(screened_stocks)
+        
+        # If no existing data or loading failed, proceed with fresh screening
         
         # Get NSE stock list
         nse_symbols = self.get_nse_stock_list()
@@ -280,6 +386,7 @@ class StockScreener:
                         'ROE (%)': round(stock_data['roe'], 2),
                         'Debt to Equity': round(stock_data['debt_to_equity'], 4),
                         'Latest Quarter Profit (Cr)': round(stock_data['latest_quarter_profit'], 2),
+                        'Last 3Q Avg Profit (Cr)': round(stock_data['last_3q_avg_profit'], 2),
                         'Public Holding (%)': round(stock_data['public_holding'], 2),
                         'Is Bank/Finance': stock_data['is_bank_finance'],
                         'Is PSU': stock_data['is_psu'],
@@ -301,6 +408,7 @@ class StockScreener:
                             'ROE (%)': round(stock_data['roe'], 2),
                             'Debt to Equity': round(stock_data['debt_to_equity'], 4),
                             'Latest Quarter Profit (Cr)': round(stock_data['latest_quarter_profit'], 2),
+                            'Last 3Q Avg Profit (Cr)': round(stock_data['last_3q_avg_profit'], 2),
                             'Public Holding (%)': round(stock_data['public_holding'], 2),
                             'Is Bank/Finance': stock_data['is_bank_finance'],
                             'Is PSU': stock_data['is_psu'],
@@ -447,8 +555,7 @@ def main():
     print("=======================================")
     print("\nCriteria:")
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
-    print("- Private Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Public holding > 30%")
-    print("- PSU: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25")
+    print("- Private/PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Net profit > Last 3Q Avg")
     print("\nStarting screening process...\n")
     
     try:
