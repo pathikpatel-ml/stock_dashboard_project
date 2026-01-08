@@ -22,8 +22,8 @@ warnings.filterwarnings('ignore')
 # Fix Windows console encoding issues
 if sys.platform.startswith('win'):
     import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'replace')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'replace')
 
 class StockScreener:
     def __init__(self):
@@ -92,13 +92,14 @@ class StockScreener:
             print(f"Error: {e}. Using minimal list.")
             return ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
     
-    def get_financial_data(self, symbol, max_retries=2):
+    def get_financial_data(self, symbol, max_retries=3):
         """Get financial data for a stock using yfinance with retry logic"""
         for attempt in range(max_retries + 1):
             try:
                 # Configure yfinance session with timeout
                 ticker = yf.Ticker(f"{symbol}.NS")
-                ticker.session.timeout = 15  # Set timeout to 15 seconds
+                if hasattr(ticker, 'session'):
+                    ticker.session.timeout = 10  # Reduced timeout to 10 seconds
                 
                 # Get financial data with timeout handling
                 info = ticker.info
@@ -175,14 +176,40 @@ class StockScreener:
             
             except Exception as e:
                 if attempt < max_retries:
-                    print(f"Attempt {attempt + 1} failed for {symbol}, retrying...")
-                    time.sleep(2)  # Wait before retry
+                    print(f"\nAttempt {attempt + 1} failed for {symbol}, retrying in 3 seconds...")
+                    time.sleep(3)  # Increased wait before retry
                     continue
                 else:
-                    print(f"Error getting financial data for {symbol}: {e}")
+                    print(f"\nSkipping {symbol} after {max_retries + 1} attempts: {str(e)[:100]}")
                     return None
         
         return None
+    
+    def _save_checkpoint(self, all_processed_stocks, processed_count, final=False):
+        """Save checkpoint data"""
+        try:
+            if all_processed_stocks:
+                all_df = pd.DataFrame(all_processed_stocks)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                
+                if final:
+                    filename = f'interrupted_stock_analysis_{timestamp}.csv'
+                    print(f"\nSaving interrupted progress...")
+                else:
+                    filename = f'checkpoint_stock_analysis_{processed_count}_{timestamp}.csv'
+                    print(f"\nCheckpoint: Saved progress for {processed_count} stocks")
+                
+                output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
+                os.makedirs(output_dir, exist_ok=True)
+                
+                filepath = os.path.join(output_dir, filename)
+                all_df.to_csv(filepath, index=False)
+                
+                if final:
+                    print(f"Progress saved to: {filepath}")
+                    
+        except Exception as e:
+            print(f"Error saving checkpoint: {e}")
     
     def apply_screening_criteria(self, stock_data):
         """Apply screening criteria based on sector"""
@@ -212,8 +239,8 @@ class StockScreener:
             print(f"Error applying criteria: {e}")
             return False
     
-    def screen_stocks(self):
-        """Main screening function"""
+    def screen_stocks(self, checkpoint_interval=50):
+        """Main screening function with checkpoint system"""
         print("Starting stock screening process...")
         
         # Get NSE stock list
@@ -227,6 +254,7 @@ class StockScreener:
         total_stocks = len(nse_symbols)
         
         print(f"Screening {total_stocks} stocks...")
+        print(f"Progress will be saved every {checkpoint_interval} stocks")
         
         for i, symbol in enumerate(nse_symbols):
             try:
@@ -279,11 +307,21 @@ class StockScreener:
                             'Screening Date': datetime.now().strftime('%Y-%m-%d')
                         })
                 
-                # Rate limiting to avoid overwhelming the API
-                time.sleep(0.2)  # Increased delay to reduce API stress
+                # Save checkpoint every N stocks
+                if (i + 1) % checkpoint_interval == 0 and all_processed_stocks:
+                    self._save_checkpoint(all_processed_stocks, i + 1)
                 
+                # Rate limiting to avoid overwhelming the API
+                time.sleep(0.5)  # Increased delay to reduce API stress and prevent timeouts
+                
+            except KeyboardInterrupt:
+                print(f"\n\nScript interrupted by user at {symbol}")
+                print(f"Processed {len(all_processed_stocks)} stocks so far")
+                if all_processed_stocks:
+                    self._save_checkpoint(all_processed_stocks, i + 1, final=True)
+                break
             except Exception as e:
-                print(f"\nError processing {symbol}: {e}")
+                print(f"\nError processing {symbol}: {str(e)[:100]}")
                 continue
         
         print(f"\n\nScreening completed. Found {len(screened_stocks)} stocks meeting criteria.")
