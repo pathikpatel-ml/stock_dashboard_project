@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 
 """
-Test script for Stock Screener Module
+Test script for stock screener with limited stocks
 """
 
 import sys
@@ -11,47 +11,52 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
 
 from stock_screener import StockScreener
 
-def test_screener():
-    """Test the stock screener with a small sample"""
-    print("Testing Stock Screener...")
-    
+def test_small_batch():
+    """Test with a small batch of stocks"""
     screener = StockScreener()
     
-    # Test with a few stocks first
+    # Override the stock list with just a few stocks for testing
     test_symbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
     
-    print(f"Testing with {len(test_symbols)} stocks: {', '.join(test_symbols)}")
+    print("Testing stock screener with 5 stocks...")
+    print("="*50)
     
     screened_stocks = []
     
-    for symbol in test_symbols:
-        print(f"\nTesting {symbol}...")
-        stock_data = screener.get_financial_data(symbol)
-        
-        if stock_data:
-            print(f"  Company: {stock_data['company_name']}")
-            print(f"  Sector: {stock_data['sector']}")
-            print(f"  Net Profit: ₹{stock_data['net_profit']:.2f} Cr")
-            print(f"  ROCE: {stock_data['roce']:.2f}%")
-            print(f"  ROE: {stock_data['roe']:.2f}%")
-            print(f"  Debt/Equity: {stock_data['debt_to_equity']:.4f}")
-            print(f"  Is Bank/Finance: {stock_data['is_bank_finance']}")
+    for i, symbol in enumerate(test_symbols):
+        try:
+            print(f"Processing [{i+1}/5] {symbol}")
             
-            if screener.apply_screening_criteria(stock_data):
-                print(f"  ✅ {symbol} PASSES screening criteria")
-                screened_stocks.append(stock_data)
+            # Get financial data
+            stock_data = screener.get_financial_data(symbol)
+            
+            if stock_data:
+                passes_criteria = screener.apply_screening_criteria(stock_data)
+                
+                print(f"  Company: {stock_data['company_name']}")
+                print(f"  Sector: {stock_data['sector']}")
+                print(f"  Net Profit: {stock_data['net_profit']:.2f} Cr")
+                print(f"  ROCE: {stock_data['roce']:.2f}%")
+                print(f"  ROE: {stock_data['roe']:.2f}%")
+                print(f"  Passes Criteria: {passes_criteria}")
+                print("-" * 30)
+                
+                if passes_criteria:
+                    screened_stocks.append(stock_data)
             else:
-                print(f"  ❌ {symbol} does not meet criteria")
-        else:
-            print(f"  ❌ Failed to get data for {symbol}")
+                print(f"  Failed to get data for {symbol}")
+                print("-" * 30)
+                
+        except Exception as e:
+            print(f"  Error processing {symbol}: {e}")
+            print("-" * 30)
     
-    print(f"\n{'='*50}")
-    print(f"Test Results: {len(screened_stocks)} out of {len(test_symbols)} stocks passed screening")
-    
-    if screened_stocks:
-        print("\nStocks that passed:")
-        for stock in screened_stocks:
-            print(f"  - {stock['symbol']}: {stock['company_name']}")
+    print(f"\nTest completed. Found {len(screened_stocks)} stocks meeting criteria.")
+    return len(screened_stocks) > 0
 
 if __name__ == "__main__":
-    test_screener()
+    success = test_small_batch()
+    if success:
+        print("\nTest successful! You can now run the full screener.")
+    else:
+        print("\nTest failed. Check your internet connection and dependencies.")

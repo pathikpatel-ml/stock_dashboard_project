@@ -27,13 +27,22 @@ def generate_weekly_stock_list(output_path):
             # Save to the specified output path
             df.to_csv(output_path, index=False)
             print(f"Stock list saved to: {output_path}")
-            return True, len(df)
+            
+            # Find the latest comprehensive CSV file
+            output_dir = os.path.join(REPO_BASE_PATH, 'output')
+            if os.path.exists(output_dir):
+                csv_files = [f for f in os.listdir(output_dir) if f.startswith('comprehensive_stock_analysis')]
+                if csv_files:
+                    latest_comprehensive = sorted(csv_files)[-1]
+                    return True, len(df), latest_comprehensive
+            
+            return True, len(df), None
         else:
             print("No stocks found meeting criteria")
-            return False, 0
+            return False, 0, None
     except Exception as e:
         print(f"Error generating stock list: {e}")
-        return False, 0
+        return False, 0, None
 def run_git_command(command_list, working_dir="."):
     try:
         process = subprocess.Popen(command_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -53,18 +62,29 @@ def run_git_command(command_list, working_dir="."):
         print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}")
         return False
 
-def commit_and_push_stock_list(file_to_add, commit_message):
+def commit_and_push_stock_list(file_to_add, commit_message, comprehensive_file=None):
     print(f"\n--- GIT OPS: Starting Git Operations for stock list ---")
     
-    if not os.path.exists(os.path.join(REPO_BASE_PATH, file_to_add)):
-        print(f"GIT OPS WARNING: File '{file_to_add}' not found. Skipping add.")
-        return False
+    files_to_add = [file_to_add]
     
-    if not run_git_command(["git", "add", file_to_add], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git add {file_to_add}'.")
-        return False
-    else:
-        print(f"GIT OPS: Successfully added '{file_to_add}' to staging.")
+    # Add comprehensive file if provided
+    if comprehensive_file:
+        comprehensive_path = os.path.join('output', comprehensive_file)
+        if os.path.exists(os.path.join(REPO_BASE_PATH, comprehensive_path)):
+            files_to_add.append(comprehensive_path)
+            print(f"GIT OPS: Will also add comprehensive file: {comprehensive_path}")
+    
+    # Add all files
+    for file_path in files_to_add:
+        if not os.path.exists(os.path.join(REPO_BASE_PATH, file_path)):
+            print(f"GIT OPS WARNING: File '{file_path}' not found. Skipping.")
+            continue
+        
+        if not run_git_command(["git", "add", file_path], working_dir=REPO_BASE_PATH):
+            print(f"GIT OPS ERROR: Failed to 'git add {file_path}'.")
+            return False
+        else:
+            print(f"GIT OPS: Successfully added '{file_path}' to staging.")
     
     # Check if there are changes to commit
     status_check_process = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=REPO_BASE_PATH)
@@ -88,7 +108,7 @@ if __name__ == "__main__":
     print(f"WEEKLY STOCK LIST GENERATION: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Generate the stock list using screening criteria
-    success, stock_count = generate_weekly_stock_list(OUTPUT_STOCK_LIST_PATH)
+    success, stock_count, comprehensive_file = generate_weekly_stock_list(OUTPUT_STOCK_LIST_PATH)
     
     if success:
         print(f"WEEKLY: Successfully generated stock list with {stock_count} stocks")
@@ -97,7 +117,7 @@ if __name__ == "__main__":
         today_str = datetime.now().strftime("%Y%m%d")
         commit_message = f"Weekly stock list update {today_str} - {stock_count} stocks screened"
         
-        if commit_and_push_stock_list(STOCK_LIST_FILENAME, commit_message):
+        if commit_and_push_stock_list(STOCK_LIST_FILENAME, commit_message, comprehensive_file):
             print("WEEKLY: Successfully committed and pushed stock list to GitHub.")
         else:
             print("WEEKLY ERROR: Failed to commit and push stock list to GitHub.")
