@@ -204,7 +204,7 @@ class StockScreener:
         return None
     
     def check_existing_comprehensive_data(self):
-        """Check if there's a recent comprehensive CSV file (within 1 week)"""
+        """Check if there's a recent comprehensive CSV file (within 1 week) with correct format"""
         try:
             output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
             if not os.path.exists(output_dir):
@@ -226,8 +226,17 @@ class StockScreener:
             age_days = (current_time - file_time) / (24 * 3600)
             
             if age_days <= 7:  # Within 1 week
-                print(f"Found recent comprehensive data: {latest_file} (Age: {age_days:.1f} days)")
-                return file_path
+                # Verify the CSV has the correct format (new column structure)
+                try:
+                    df_check = pd.read_csv(file_path, nrows=1)
+                    if 'Last 3Q Profits (Cr)' in df_check.columns:
+                        print(f"Found recent comprehensive data: {latest_file} (Age: {age_days:.1f} days)")
+                        return file_path
+                    else:
+                        print(f"Existing data has old format. Will fetch fresh data.")
+                        return None
+                except:
+                    return None
             else:
                 print(f"Existing comprehensive data is too old: {age_days:.1f} days")
                 return None
@@ -324,7 +333,7 @@ class StockScreener:
                         'roe': row['ROE (%)'],
                         'debt_to_equity': row['Debt to Equity'],
                         'latest_quarter_profit': row['Latest Quarter Profit (Cr)'],
-                        'last_3q_profits': [],
+                        'last_3q_profits': [float(x.strip()) for x in row['Last 3Q Profits (Cr)'].split(',') if x.strip()] if row['Last 3Q Profits (Cr)'] != 'N/A' else [],
                         'public_holding': row['Public Holding (%)'],
                         'is_bank_finance': row['Is Bank/Finance'],
                         'is_psu': row['Is PSU']
@@ -342,7 +351,7 @@ class StockScreener:
                             'ROE (%)': stock_data['roe'],
                             'Debt to Equity': stock_data['debt_to_equity'],
                             'Latest Quarter Profit (Cr)': stock_data['latest_quarter_profit'],
-                            'Last 3Q Avg Profit (Cr)': stock_data['last_3q_avg_profit'],
+                            'Last 3Q Profits (Cr)': ', '.join([str(round(q, 2)) for q in stock_data.get('last_3q_profits', [])]) if stock_data.get('last_3q_profits') else 'N/A',
                             'Public Holding (%)': stock_data['public_holding'],
                             'Is Bank/Finance': stock_data['is_bank_finance'],
                             'Is PSU': stock_data['is_psu'],
