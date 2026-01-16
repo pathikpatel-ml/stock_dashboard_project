@@ -254,6 +254,8 @@ class StockScreener:
         except Exception as e:
             print(f"Error loading existing data: {e}")
             return None
+    
+    def _save_checkpoint(self, all_processed_stocks, processed_count, final=False):
         """Save checkpoint data"""
         try:
             if all_processed_stocks:
