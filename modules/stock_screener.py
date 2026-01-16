@@ -118,7 +118,7 @@ class StockScreener:
                     'roe': 0,
                     'debt_to_equity': 0,
                     'latest_quarter_profit': 0,
-                    'last_3q_avg_profit': 0,
+                    'last_3q_profits': [],
                     'public_holding': info.get('floatShares', 0) / info.get('sharesOutstanding', 1) * 100 if info.get('sharesOutstanding') else 0,
                     'is_bank_finance': False,
                     'is_psu': False
@@ -147,7 +147,7 @@ class StockScreener:
                             data['net_profit'] = abs(net_profit_series.iloc[0]) / 10000000  # Convert to crores
                             break
                 
-                # Get latest quarter profit and last 3 quarters average
+                # Get latest quarter profit and last 3 quarters individual profits
                 quarterly_profit_rows = ['Net Income', 'Net Income From Continuing Operation Net Minority Interest', 'Normalized Income']
                 quarterly_profits = []
                 
@@ -161,15 +161,17 @@ class StockScreener:
                                     quarterly_profits.append(abs(quarterly_profit_series.iloc[i]) / 10000000)
                             break
                 
-                # Set latest quarter profit and calculate last 3 quarters average
+                # Set latest quarter profit and store last 3 quarters as list
                 if quarterly_profits:
                     data['latest_quarter_profit'] = quarterly_profits[0]  # Most recent quarter
                     if len(quarterly_profits) >= 4:
-                        # Average of quarters 1, 2, 3 (excluding current quarter 0)
-                        data['last_3q_avg_profit'] = sum(quarterly_profits[1:4]) / 3
+                        # Store last 3 quarters (excluding current quarter 0)
+                        data['last_3q_profits'] = quarterly_profits[1:4]
                     else:
                         # If less than 4 quarters available, use available data
-                        data['last_3q_avg_profit'] = sum(quarterly_profits[1:]) / max(1, len(quarterly_profits) - 1) if len(quarterly_profits) > 1 else 0
+                        data['last_3q_profits'] = quarterly_profits[1:] if len(quarterly_profits) > 1 else []
+                else:
+                    data['last_3q_profits'] = []
                 
                 # Calculate ROCE and ROE from info
                 data['roe'] = info.get('returnOnEquity', 0) * 100
@@ -281,13 +283,16 @@ class StockScreener:
                        stock_data['roe'] > 10)
             else:
                 # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
-                # Net profit > last 3 quarters average
+                # Net profit > each of last 3 quarters individual profit
                 # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
-                # Net profit > last 3 quarters average
+                # Net profit > each of last 3 quarters individual profit
+                last_3q = stock_data.get('last_3q_profits', [])
+                profit_exceeds_all_quarters = all(stock_data['net_profit'] > q_profit for q_profit in last_3q) if last_3q else False
+                
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and 
                                stock_data['debt_to_equity'] < 0.25 and
-                               stock_data['net_profit'] > stock_data.get('last_3q_avg_profit', 0))
+                               profit_exceeds_all_quarters)
                 
                 return base_criteria
                        
@@ -319,7 +324,7 @@ class StockScreener:
                         'roe': row['ROE (%)'],
                         'debt_to_equity': row['Debt to Equity'],
                         'latest_quarter_profit': row['Latest Quarter Profit (Cr)'],
-                        'last_3q_avg_profit': row.get('Last 3Q Avg Profit (Cr)', 0),
+                        'last_3q_profits': [],
                         'public_holding': row['Public Holding (%)'],
                         'is_bank_finance': row['Is Bank/Finance'],
                         'is_psu': row['Is PSU']
@@ -386,7 +391,7 @@ class StockScreener:
                         'ROE (%)': round(stock_data['roe'], 2),
                         'Debt to Equity': round(stock_data['debt_to_equity'], 4),
                         'Latest Quarter Profit (Cr)': round(stock_data['latest_quarter_profit'], 2),
-                        'Last 3Q Avg Profit (Cr)': round(stock_data['last_3q_avg_profit'], 2),
+                        'Last 3Q Profits (Cr)': ', '.join([str(round(q, 2)) for q in stock_data.get('last_3q_profits', [])]) if stock_data.get('last_3q_profits') else 'N/A',
                         'Public Holding (%)': round(stock_data['public_holding'], 2),
                         'Is Bank/Finance': stock_data['is_bank_finance'],
                         'Is PSU': stock_data['is_psu'],
@@ -408,7 +413,7 @@ class StockScreener:
                             'ROE (%)': round(stock_data['roe'], 2),
                             'Debt to Equity': round(stock_data['debt_to_equity'], 4),
                             'Latest Quarter Profit (Cr)': round(stock_data['latest_quarter_profit'], 2),
-                            'Last 3Q Avg Profit (Cr)': round(stock_data['last_3q_avg_profit'], 2),
+                            'Last 3Q Profits (Cr)': ', '.join([str(round(q, 2)) for q in stock_data.get('last_3q_profits', [])]) if stock_data.get('last_3q_profits') else 'N/A',
                             'Public Holding (%)': round(stock_data['public_holding'], 2),
                             'Is Bank/Finance': stock_data['is_bank_finance'],
                             'Is PSU': stock_data['is_psu'],
@@ -555,7 +560,7 @@ def main():
     print("=======================================")
     print("\nCriteria:")
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
-    print("- Private/PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Net profit > Last 3Q Avg")
+    print("- Private/PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Net profit > Each of Last 3Q")
     print("\nStarting screening process...\n")
     
     try:
