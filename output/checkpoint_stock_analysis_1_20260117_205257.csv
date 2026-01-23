@@ -1,0 +1,2 @@
+Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Last 3Q Profits (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Passes Criteria,Screening Date
+TEST1,Test Company 1,Technology,Software,1000000000,250,22,18,0.3,65,"60, 58, 62",75,False,False,True,2026-01-17

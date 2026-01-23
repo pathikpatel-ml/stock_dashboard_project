@@ -293,16 +293,15 @@ class StockScreener:
                 return (stock_data['net_profit'] > 1000 and 
                        stock_data['roe'] > 10)
             else:
-                # Private sector criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
+                # Private sector criteria: Net profit > 200 cr, ROCE > 20%,
                 # Net profit > each of last 3 quarters individual profit
-                # PSU criteria: Net profit > 200 cr, ROCE > 20%, Debt to Equity < 0.25, 
+                # PSU criteria: Net profit > 200 cr, ROCE > 20%,
                 # Net profit > each of last 3 quarters individual profit
                 last_3q = stock_data.get('last_3q_profits', [])
                 profit_exceeds_all_quarters = all(stock_data['net_profit'] > q_profit for q_profit in last_3q) if last_3q else False
                 
                 base_criteria = (stock_data['net_profit'] > 200 and 
-                               stock_data['roce'] > 20 and 
-                               stock_data['debt_to_equity'] < 0.25 and
+                               stock_data['roce'] > 20 and
                                profit_exceeds_all_quarters)
                 
                 return base_criteria
@@ -571,7 +570,7 @@ def main():
     print("=======================================")
     print("\nCriteria:")
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
-    print("- Private/PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Debt/Equity < 0.25, Net profit > Each of Last 3Q")
+    print("- Private/PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Net profit > Each of Last 3Q")
     print("\nStarting screening process...\n")
     
     try:
