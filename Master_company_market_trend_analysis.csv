@@ -1,69 +1,64 @@
 Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Last 3Q Profits (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Screening Date
-HDFCBANK,HDFC Bank Limited,Financial Services,Banks - Regional,14324514947072,67350.83,1.65,10.84,0.0,16257.91,"15393.46, 17656.61, 17381.05",99.43,True,False,2026-01-16
-TCS,Tata Consultancy Services Limited,Technology,Information Technology Services,11602121195520,48553.0,22.51,42.63,0.0944,10657.0,"12760.0, 12224.0, 12380.0",28.2,False,False,2026-01-16
-ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,10090297950208,51029.2,2.19,17.6,0.0,13357.06,"13557.6, 13502.22, 12883.37",99.51,True,False,2026-01-16
-SBIN,State Bank of India,Financial Services,Banks - Regional,9621072773120,77561.34,1.15,15.68,0.0,21201.47,"19600.46, 18853.16, 19782.76",44.27,True,True,2026-01-16
-BAJFINANCE,Bajaj Finance Limited,Financial Services,Credit Services,5905931829248,16637.82,3.99,19.09,3.1029,4875.36,"4699.61, 4479.57, 4246.54",42.51,True,False,2026-01-16
-LICI,Life Insurance Corporation of India,Financial Services,Insurance - Life,5189028282368,48320.33,0.75,44.62,-0.0026,10957.05,"19038.67, 11008.65, 7728.68",4.08,True,False,2026-01-16
-KOTAKBANK,Kotak Mahindra Bank Limited,Financial Services,Banks - Regional,4158482546688,22125.99,2.16,11.78,0.0,4472.18,"4932.76, 4701.02, 5044.05",73.48,True,False,2026-01-16
-AXISBANK,Axis Bank Limited,Financial Services,Banks - Regional,4018889555968,28055.11,1.59,14.0,0.0,6243.72,"7475.13, 6742.29, 7401.26",90.1,True,False,2026-01-16
-BAJAJFINSV,Bajaj Finserv Ltd.,Financial Services,Financial Conglomerates,3197280714752,8872.31,4.99,15.1,2.3754,2244.1,"2789.05, 2416.64, 2231.0",35.1,True,False,2026-01-16
-NESTLEIND,Nestlé India Limited,Consumer Defensive,Packaged Foods,2537468985344,3207.59,22.59,70.79,0.1075,646.59,"873.49, 688.01, 899.49",36.43,False,False,2026-01-16
-SBILIFE,SBI Life Insurance Company Limited,Financial Services,Insurance - Life,2086888800256,2413.3,0.36,14.2,0.0,594.37,"813.51, 550.82, 529.42",41.33,True,True,2026-01-16
-SHRIRAMFIN,Shriram Finance Limited,Financial Services,Credit Services,1872927653888,9553.82,3.43,17.32,2.7908,2159.4,"2143.77, 3246.85, 2140.4",68.45,True,False,2026-01-16
-IRFC,Indian Railway Finance Corporation Limited,Financial Services,Credit Services,1596840738816,6502.0,1.37,12.7,7.3014,1745.69,"1681.87, 1630.66, 1612.65",13.59,True,True,2026-01-16
-BANKBARODA,Bank of Baroda Limited,Financial Services,Banks - Regional,1594442383360,20716.33,1.07,13.08,0.0,3469.16,"5419.7, 5213.72, 5355.1",35.85,True,False,2026-01-16
-MUTHOOTFIN,Muthoot Finance Limited,Financial Services,Credit Services,1580220153856,5332.9,5.28,23.81,3.6744,2420.63,"2016.2, 1477.68, 1389.18",21.1,True,False,2026-01-16
-HDFCLIFE,HDFC Life Insurance Company Limited,Financial Services,Insurance - Life,1580166021120,1810.82,0.35,11.32,0.1761,548.35,"475.36, 421.31, 435.18",44.33,True,False,2026-01-16
-PNB,Punjab National Bank,Financial Services,Banks - Regional,1522149752832,18480.29,0.94,12.67,0.0,2119.88,"4989.29, 4801.0, 4714.14",29.92,True,True,2026-01-16
-CHOLAFIN,Cholamandalam Investment and Finance Company Limited,Financial Services,Credit Services,1447121649664,4262.72,2.33,19.62,7.2431,1137.83,"1259.56, 1088.21, 967.8",50.0,True,False,2026-01-16
-CANBK,Canara Bank,Financial Services,Banks - Regional,1425271554048,17539.62,1.13,17.57,0.0,3194.95,"5070.19, 4214.16, 4187.76",34.06,True,False,2026-01-16
-UNIONBANK,Union Bank of India,Financial Services,Banks - Regional,1344659521536,18026.95,1.3,15.56,0.0,5072.69,"4427.94, 5011.21, 4623.03",25.22,True,False,2026-01-16
-PFC,Power Finance Corporation Limited,Financial Services,Credit Services,1238693183488,22990.81,2.83,21.11,6.0334,5743.25,"6866.26, 6316.45, 5828.79",42.92,True,False,2026-01-16
-BAJAJHLDNG,Bajaj Holdings & Investment Limited,Financial Services,Asset Management,1190822412288,6520.67,0.7,11.79,0.0002,1559.02,"3486.51, 1725.49, 1748.36",38.42,True,False,2026-01-16
-INDIANB,Indian Bank,Financial Services,Banks - Regional,1148159262720,11261.47,1.3,15.75,0.0,2276.37,"2981.64, 2909.73, 2799.7",26.17,True,True,2026-01-16
-BSE,BSE Limited,Financial Services,Financial Data & Stock Exchanges,1140694712320,1325.89,16.42,31.45,0.0,558.43,"539.41, 494.42, 219.67",95.83,True,False,2026-01-16
-IDBI,IDBI Bank Limited,Financial Services,Banks - Regional,1124272832512,7630.68,2.36,15.13,0.0,2019.18,"2087.49, 1948.07, 1860.8",5.21,True,False,2026-01-16
-HDFCAMC,HDFC Asset Management Company Limited,Financial Services,Asset Management,1112599691264,2460.19,28.13,37.78,0.0,769.42,"747.55, 638.46",46.94,True,False,2026-01-16
-ICICIPRULI,ICICI Prudential Life Insurance Company Limited,Financial Services,Insurance - Life,980990164992,1185.52,0.38,10.91,0.1929,387.15,"300.99, 385.28, 324.91",25.12,True,False,2026-01-16
-RECLTD,REC Limited,Financial Services,Credit Services,977450172416,15884.23,2.79,22.0,6.6609,4465.71,"4309.98, 4076.35, 4037.72",45.5,True,False,2026-01-16
-ABCAPITAL,Aditya Birla Capital Limited,Financial Services,Financial Conglomerates,947499630592,3332.32,1.2,10.34,4.5978,835.08,"864.59, 708.0, 1000.9",31.41,True,False,2026-01-16
-ICICIGI,ICICI Lombard General Insurance Company Limited,Financial Services,Insurance - Diversified,931997286400,2508.29,3.23,17.27,0.0,658.76,"747.08, 509.59, 724.38",48.59,True,False,2026-01-16
-SBICARD,SBI Cards and Payment Services Limited,Financial Services,Credit Services,798991974400,1916.41,2.91,13.76,3.3284,555.96,"534.31, 383.23, 404.42",31.41,True,True,2026-01-16
-BAJAJHFL,BAJAJHFL,Financial Services,Mortgage Finance,769480130560,2162.9,2.25,11.81,4.4387,583.3,"586.68, 548.02, 545.6",11.28,True,False,2026-01-16
-AUBANK,AU Small Finance Bank Limited,Financial Services,Banks - Regional,764354560000,2105.93,1.43,12.65,0.0,580.86,"503.7, 528.45, 571.21",72.61,True,False,2026-01-16
-LTF,L&T Finance Limited,Financial Services,Credit Services,741882331136,2643.66,2.26,10.62,3.7075,701.1,"636.17, 626.4, 695.58",33.29,True,False,2026-01-16
-BANKINDIA,Bank of India Limited,Financial Services,Banks - Regional,716316737536,9548.28,0.92,12.23,0.0,1829.56,"2601.97, 2636.7, 2421.29",17.05,True,False,2026-01-16
-IOB,Indian Overseas Bank,Financial Services,Banks - Regional,695162437632,3395.5,1.09,14.13,0.0,1427.16,"1178.45, 1091.95, 875.27",7.28,True,True,2026-01-16
-OFSS,Oracle Financial Services Software Limited,Technology,Software - Infrastructure,692917370880,2379.6,20.43,32.89,0.0046,641.9,"643.9, 541.3, 577.7",27.28,False,False,2026-01-16
-FEDERALBNK,The Federal Bank Limited,Financial Services,Banks - Regional,664602345472,4158.85,1.13,11.45,0.0,918.32,"1090.94, 944.15, 1096.25",92.87,True,False,2026-01-16
-NATIONALUM,National Aluminium Company Limited,Basic Materials,Aluminum,664374476800,5267.94,21.42,34.46,0.0028,1429.94,"1049.48, 2067.23, 1566.32",48.66,False,True,2026-01-16
-HDBFS,HDBFS,Financial Services,Credit Services,634171293696,2175.92,1.99,12.58,4.6827,0.0,N/A,24.65,True,False,2026-01-16
-GICRE,General Insurance Corporation of India,Financial Services,Insurance - Reinsurance,631671685120,7431.85,3.39,10.28,0.0,2873.54,"2530.59, 2498.86, 1676.62",17.6,True,False,2026-01-16
-ABBOTINDIA,Abbott India Limited,Healthcare,Drug Manufacturers - Specialty & Generic,589774389248,1414.44,20.24,40.07,0.0455,415.27,"365.86, 367.04, 360.78",24.5,False,False,2026-01-16
-COLPAL,Colgate-Palmolive (India) Limited,Consumer Defensive,Household & Personal Products,572475375616,1436.81,33.48,81.97,0.0379,320.62,"355.0, 322.78, 395.05",48.57,False,False,2026-01-16
-NAM-INDIA,Nippon Life India Asset Management Limited,Financial Services,Asset Management,562761236480,1286.39,23.29,31.59,0.0194,396.12,"298.6, 295.36, 360.1",27.46,True,False,2026-01-16
-SUNDARMFIN,Sundaram Finance Limited,Financial Services,Credit Services,560157753344,1879.44,2.6,14.27,3.7704,475.21,"552.97, 455.47, 436.15",64.77,True,False,2026-01-16
-AIIL,Authum Investment & Infrastructure Limited,Financial Services,Capital Markets,536031133696,4241.41,23.56,27.51,0.2029,766.87,"942.99, 1762.6, 539.41",19.53,True,False,2026-01-16
-MAHABANK,Bank of Maharashtra,Financial Services,Banks - Regional,511719145472,5541.78,1.79,21.17,0.0,1798.99,"1504.37, 1502.32, 1411.6",26.4,True,False,2026-01-16
-MOTILALOFS,Motilal Oswal Financial Services Limited,Financial Services,Capital Markets,511679987712,2501.64,5.58,16.87,1.2104,1162.06,"64.81, 564.52, 1120.08",26.11,True,False,2026-01-16
-M&MFIN,Mahindra & Mahindra Financial Services Limited,Financial Services,Credit Services,494831992832,2261.87,1.75,10.99,4.3508,527.87,"457.22, 917.57, 389.42",45.92,True,False,2026-01-16
-360ONE,360 One Wam Limited,Financial Services,Asset Management,485392285696,1015.3,7.48,16.99,1.4724,284.67,"249.6, 276.47, 245.49",63.66,True,False,2026-01-16
-HUDCO,Housing and Urban Development Corporation Limited,Financial Services,Credit Services,430949040128,2709.14,2.13,15.94,7.0576,709.83,"630.23, 727.74, 735.03",24.97,True,False,2026-01-16
-PAGEIND,Page Industries Limited,Consumer Cyclical,Apparel Manufacturing,383322456064,729.14,22.87,52.72,0.1903,194.76,"200.8, 164.01, 204.66",51.53,False,False,2026-01-16
-CENTRALBK,Central Bank of India,Financial Services,Banks - Regional,349203070976,3934.21,0.96,12.72,0.0,1281.98,"1104.58, 963.38, 923.83",96.9,True,False,2026-01-16
-CHOLAHLDNG,Cholamandalam Financial Holdings Limited,Financial Services,Credit Services,334519369728,2173.66,2.22,18.28,6.3538,549.92,"578.5, 613.57, 486.19",52.3,True,False,2026-01-16
-LICHSGFIN,LIC Housing Finance Limited,Financial Services,Mortgage Finance,293541117952,5442.23,1.79,15.31,6.7925,1363.89,"1373.38, 1434.84, 1327.71",54.51,True,False,2026-01-16
-KARURVYSYA,The Karur Vysya Bank Limited,Financial Services,Banks - Regional,258570567680,1941.64,1.74,17.76,0.0,521.45,"513.36, 496.03, 473.6",94.57,True,False,2026-01-16
-PNBHOUSING,PNB Housing Finance Limited,Financial Services,Mortgage Finance,250478985216,1936.14,2.67,12.7,2.6191,533.5,"550.38, 483.27, 469.68",67.34,True,True,2026-01-16
-ANGELONE,Angel One Limited,Financial Services,Capital Markets,250164314112,1172.08,4.26,14.08,0.7635,114.47,"174.52, 281.47, 423.37",47.78,True,False,2026-01-16
-HBLENGINE,HBLENGINE,Industrials,Electrical Equipment & Parts,220661039104,276.92,23.88,38.13,0.044,387.27,"143.27, 44.96, 64.61",38.03,False,False,2026-01-16
-CUB,City Union Bank Limited,Financial Services,Banks - Regional,202592829440,1123.63,1.55,12.85,0.0,305.92,"287.96, 286.0, 285.18",93.68,True,False,2026-01-16
-CAMS,Computer Age Management Services Limited,Technology,Information Technology Services,180413087744,470.19,21.87,40.83,0.0639,109.09,"114.02, 125.49",96.24,False,False,2026-01-16
-FIVESTAR,Five-Star Business Finance Limited,Financial Services,Credit Services,151938662400,1072.49,7.83,17.64,1.2306,266.31,"279.12, 273.86, 267.94",69.91,True,False,2026-01-16
-SOUTHBANK,The South Indian Bank Limited,Financial Services,Banks - Regional,115158654976,1303.09,1.06,13.55,0.0,322.17,"342.4, 342.0, 324.79",95.31,True,True,2026-01-16
-J&KBANK,Jammu and Kashmir Bank Limited,Financial Services,Banks - Regional,113102446592,2081.79,1.25,14.8,0.0,484.53,"581.91, 528.6, 552.78",37.91,True,False,2026-01-16
-INGERRAND,Ingersoll-Rand (India) Limited,Industrials,Specialty Industrial Machinery,102280323072,267.52,23.01,41.05,0.0151,60.35,"58.98, 67.65, 77.66",23.09,False,False,2026-01-16
-TTML,Tata Teleservices (Maharashtra) Limited,Communication Services,Telecom Services,89926672384,1275.32,20.76,0.0,0.0,324.98,"306.42, 315.11, 330.39",45.25,False,False,2026-01-16
-TMB,Tamilnad Mercantile Bank Limited,Financial Services,Banks - Regional,89591595008,1182.61,1.84,13.59,0.0,304.89,"291.9, 300.24, 303.18",69.18,True,False,2026-01-16
-GANESHHOU,Ganesh Housing Limited,Real Estate,Real Estate - Development,61893488640,598.06,20.7,29.66,0.0348,93.06,"164.9, 160.84, 158.48",14.33,False,False,2026-01-16
+HDFCBANK,HDFC Bank Limited,Financial Services,Banks - Regional,14324514947072,67350.83,1.65,10.84,0.0,16257.91,"15393.46, 17656.61, 17381.05",99.43,True,False,2026-01-23
+TCS,Tata Consultancy Services Limited,Technology,Information Technology Services,11602121195520,48553.0,22.51,42.63,0.0944,10657.0,"12760.0, 12224.0, 12380.0",28.2,False,False,2026-01-23
+ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,10090297950208,51029.2,2.19,17.6,0.0,13357.06,"13557.6, 13502.22, 12883.37",99.51,True,False,2026-01-23
+SBIN,State Bank of India,Financial Services,Banks - Regional,9621072773120,77561.34,1.15,15.68,0.0,21201.47,"19600.46, 18853.16, 19782.76",44.27,True,True,2026-01-23
+BAJFINANCE,Bajaj Finance Limited,Financial Services,Credit Services,5905931829248,16637.82,3.99,19.09,3.1029,4875.36,"4699.61, 4479.57, 4246.54",42.51,True,False,2026-01-23
+LICI,Life Insurance Corporation of India,Financial Services,Insurance - Life,5189028282368,48320.33,0.75,44.62,-0.0026,10957.05,"19038.67, 11008.65, 7728.68",4.08,True,False,2026-01-23
+KOTAKBANK,Kotak Mahindra Bank Limited,Financial Services,Banks - Regional,4158482546688,22125.99,2.16,11.78,0.0,4472.18,"4932.76, 4701.02, 5044.05",73.48,True,False,2026-01-23
+AXISBANK,Axis Bank Limited,Financial Services,Banks - Regional,4018889555968,28055.11,1.59,14.0,0.0,6243.72,"7475.13, 6742.29, 7401.26",90.1,True,False,2026-01-23
+BAJAJFINSV,Bajaj Finserv Ltd.,Financial Services,Financial Conglomerates,3197280714752,8872.31,4.99,15.1,2.3754,2244.1,"2789.05, 2416.64, 2231.0",35.1,True,False,2026-01-23
+HINDZINC,Hindustan Zinc Limited,Basic Materials,Other Industrial Metals & Mining,2694697189376,10353.0,25.96,99.11,0.8817,2234.0,"3003.0, 2678.0, 2327.0",10.23,False,False,2026-01-23
+SBILIFE,SBI Life Insurance Company Limited,Financial Services,Insurance - Life,2086888800256,2413.3,0.36,14.2,0.0,594.37,"813.51, 550.82, 529.42",41.33,True,True,2026-01-23
+SHRIRAMFIN,Shriram Finance Limited,Financial Services,Credit Services,1872927653888,9553.82,3.43,17.32,2.7908,2159.4,"2143.77, 3246.85, 2140.4",68.45,True,False,2026-01-23
+IRFC,Indian Railway Finance Corporation Limited,Financial Services,Credit Services,1596840738816,6502.0,1.37,12.7,7.3014,1745.69,"1681.87, 1630.66, 1612.65",13.59,True,True,2026-01-23
+BANKBARODA,Bank of Baroda Limited,Financial Services,Banks - Regional,1594442383360,20716.33,1.07,13.08,0.0,3469.16,"5419.7, 5213.72, 5355.1",35.85,True,False,2026-01-23
+MUTHOOTFIN,Muthoot Finance Limited,Financial Services,Credit Services,1580220153856,5332.9,5.28,23.81,3.6744,2420.63,"2016.2, 1477.68, 1389.18",21.1,True,False,2026-01-23
+HDFCLIFE,HDFC Life Insurance Company Limited,Financial Services,Insurance - Life,1580166021120,1810.82,0.35,11.32,0.1761,548.35,"475.36, 421.31, 435.18",44.33,True,False,2026-01-23
+PNB,Punjab National Bank,Financial Services,Banks - Regional,1522149752832,18480.29,0.94,12.67,0.0,2119.88,"4989.29, 4801.0, 4714.14",29.92,True,True,2026-01-23
+CHOLAFIN,Cholamandalam Investment and Finance Company Limited,Financial Services,Credit Services,1447121649664,4262.72,2.33,19.62,7.2431,1137.83,"1259.56, 1088.21, 967.8",50.0,True,False,2026-01-23
+CANBK,Canara Bank,Financial Services,Banks - Regional,1425271554048,17539.62,1.13,17.57,0.0,3194.95,"5070.19, 4214.16, 4187.76",34.06,True,False,2026-01-23
+UNIONBANK,Union Bank of India,Financial Services,Banks - Regional,1344659521536,18026.95,1.3,15.56,0.0,5072.69,"4427.94, 5011.21, 4623.03",25.22,True,False,2026-01-23
+PFC,Power Finance Corporation Limited,Financial Services,Credit Services,1238693183488,22990.81,2.83,21.11,6.0334,5743.25,"6866.26, 6316.45, 5828.79",42.92,True,False,2026-01-23
+BAJAJHLDNG,Bajaj Holdings & Investment Limited,Financial Services,Asset Management,1190822412288,6520.67,0.7,11.79,0.0002,1559.02,"3486.51, 1725.49, 1748.36",38.42,True,False,2026-01-23
+INDIANB,Indian Bank,Financial Services,Banks - Regional,1148159262720,11261.47,1.3,15.75,0.0,2276.37,"2981.64, 2909.73, 2799.7",26.17,True,True,2026-01-23
+BSE,BSE Limited,Financial Services,Financial Data & Stock Exchanges,1140694712320,1325.89,16.42,31.45,0.0,558.43,"539.41, 494.42, 219.67",95.83,True,False,2026-01-23
+IDBI,IDBI Bank Limited,Financial Services,Banks - Regional,1124272832512,7630.68,2.36,15.13,0.0,2019.18,"2087.49, 1948.07, 1860.8",5.21,True,False,2026-01-23
+HDFCAMC,HDFC Asset Management Company Limited,Financial Services,Asset Management,1112599691264,2460.19,28.13,37.78,0.0,769.42,"747.55, 638.46",46.94,True,False,2026-01-23
+ICICIPRULI,ICICI Prudential Life Insurance Company Limited,Financial Services,Insurance - Life,980990164992,1185.52,0.38,10.91,0.1929,387.15,"300.99, 385.28, 324.91",25.12,True,False,2026-01-23
+RECLTD,REC Limited,Financial Services,Credit Services,977450172416,15884.23,2.79,22.0,6.6609,4465.71,"4309.98, 4076.35, 4037.72",45.5,True,False,2026-01-23
+ABCAPITAL,Aditya Birla Capital Limited,Financial Services,Financial Conglomerates,947499630592,3332.32,1.2,10.34,4.5978,835.08,"864.59, 708.0, 1000.9",31.41,True,False,2026-01-23
+ICICIGI,ICICI Lombard General Insurance Company Limited,Financial Services,Insurance - Diversified,931997286400,2508.29,3.23,17.27,0.0,658.76,"747.08, 509.59, 724.38",48.59,True,False,2026-01-23
+SBICARD,SBI Cards and Payment Services Limited,Financial Services,Credit Services,798991974400,1916.41,2.91,13.76,3.3284,555.96,"534.31, 383.23, 404.42",31.41,True,True,2026-01-23
+BAJAJHFL,BAJAJHFL,Financial Services,Mortgage Finance,769480130560,2162.9,2.25,11.81,4.4387,583.3,"586.68, 548.02, 545.6",11.28,True,False,2026-01-23
+AUBANK,AU Small Finance Bank Limited,Financial Services,Banks - Regional,764354560000,2105.93,1.43,12.65,0.0,580.86,"503.7, 528.45, 571.21",72.61,True,False,2026-01-23
+LTF,L&T Finance Limited,Financial Services,Credit Services,741882331136,2643.66,2.26,10.62,3.7075,701.1,"636.17, 626.4, 695.58",33.29,True,False,2026-01-23
+BANKINDIA,Bank of India Limited,Financial Services,Banks - Regional,716316737536,9548.28,0.92,12.23,0.0,1829.56,"2601.97, 2636.7, 2421.29",17.05,True,False,2026-01-23
+IOB,Indian Overseas Bank,Financial Services,Banks - Regional,695162437632,3395.5,1.09,14.13,0.0,1427.16,"1178.45, 1091.95, 875.27",7.28,True,True,2026-01-23
+OFSS,Oracle Financial Services Software Limited,Technology,Software - Infrastructure,692917370880,2379.6,20.43,32.89,0.0046,641.9,"643.9, 541.3, 577.7",27.28,False,False,2026-01-23
+FEDERALBNK,The Federal Bank Limited,Financial Services,Banks - Regional,664602345472,4158.85,1.13,11.45,0.0,918.32,"1090.94, 944.15, 1096.25",92.87,True,False,2026-01-23
+NATIONALUM,National Aluminium Company Limited,Basic Materials,Aluminum,664374476800,5267.94,21.42,34.46,0.0028,1429.94,"1049.48, 2067.23, 1566.32",48.66,False,True,2026-01-23
+HDBFS,HDBFS,Financial Services,Credit Services,634171293696,2175.92,1.99,12.58,4.6827,0.0,N/A,24.65,True,False,2026-01-23
+GICRE,General Insurance Corporation of India,Financial Services,Insurance - Reinsurance,631671685120,7431.85,3.39,10.28,0.0,2873.54,"2530.59, 2498.86, 1676.62",17.6,True,False,2026-01-23
+ABBOTINDIA,Abbott India Limited,Healthcare,Drug Manufacturers - Specialty & Generic,589774389248,1414.44,20.24,40.07,0.0455,415.27,"365.86, 367.04, 360.78",24.5,False,False,2026-01-23
+NAM-INDIA,Nippon Life India Asset Management Limited,Financial Services,Asset Management,562761236480,1286.39,23.29,31.59,0.0194,396.12,"298.6, 295.36, 360.1",27.46,True,False,2026-01-23
+SUNDARMFIN,Sundaram Finance Limited,Financial Services,Credit Services,560157753344,1879.44,2.6,14.27,3.7704,475.21,"552.97, 455.47, 436.15",64.77,True,False,2026-01-23
+AIIL,Authum Investment & Infrastructure Limited,Financial Services,Capital Markets,536031133696,4241.41,23.56,27.51,0.2029,766.87,"942.99, 1762.6, 539.41",19.53,True,False,2026-01-23
+MAHABANK,Bank of Maharashtra,Financial Services,Banks - Regional,511719145472,5541.78,1.79,21.17,0.0,1798.99,"1504.37, 1502.32, 1411.6",26.4,True,False,2026-01-23
+MOTILALOFS,Motilal Oswal Financial Services Limited,Financial Services,Capital Markets,511679987712,2501.64,5.58,16.87,1.2104,1162.06,"64.81, 564.52, 1120.08",26.11,True,False,2026-01-23
+M&MFIN,Mahindra & Mahindra Financial Services Limited,Financial Services,Credit Services,494831992832,2261.87,1.75,10.99,4.3508,527.87,"457.22, 917.57, 389.42",45.92,True,False,2026-01-23
+360ONE,360 One Wam Limited,Financial Services,Asset Management,485392285696,1015.3,7.48,16.99,1.4724,284.67,"249.6, 276.47, 245.49",63.66,True,False,2026-01-23
+HUDCO,Housing and Urban Development Corporation Limited,Financial Services,Credit Services,430949040128,2709.14,2.13,15.94,7.0576,709.83,"630.23, 727.74, 735.03",24.97,True,False,2026-01-23
+CENTRALBK,Central Bank of India,Financial Services,Banks - Regional,349203070976,3934.21,0.96,12.72,0.0,1281.98,"1104.58, 963.38, 923.83",96.9,True,False,2026-01-23
+CHOLAHLDNG,Cholamandalam Financial Holdings Limited,Financial Services,Credit Services,334519369728,2173.66,2.22,18.28,6.3538,549.92,"578.5, 613.57, 486.19",52.3,True,False,2026-01-23
+LICHSGFIN,LIC Housing Finance Limited,Financial Services,Mortgage Finance,293541117952,5442.23,1.79,15.31,6.7925,1363.89,"1373.38, 1434.84, 1327.71",54.51,True,False,2026-01-23
+KARURVYSYA,The Karur Vysya Bank Limited,Financial Services,Banks - Regional,258570567680,1941.64,1.74,17.76,0.0,521.45,"513.36, 496.03, 473.6",94.57,True,False,2026-01-23
+PNBHOUSING,PNB Housing Finance Limited,Financial Services,Mortgage Finance,250478985216,1936.14,2.67,12.7,2.6191,533.5,"550.38, 483.27, 469.68",67.34,True,True,2026-01-23
+ANGELONE,Angel One Limited,Financial Services,Capital Markets,250164314112,1172.08,4.26,14.08,0.7635,114.47,"174.52, 281.47, 423.37",47.78,True,False,2026-01-23
+CUB,City Union Bank Limited,Financial Services,Banks - Regional,202592829440,1123.63,1.55,12.85,0.0,305.92,"287.96, 286.0, 285.18",93.68,True,False,2026-01-23
+FIVESTAR,Five-Star Business Finance Limited,Financial Services,Credit Services,151938662400,1072.49,7.83,17.64,1.2306,266.31,"279.12, 273.86, 267.94",69.91,True,False,2026-01-23
+SOUTHBANK,The South Indian Bank Limited,Financial Services,Banks - Regional,115158654976,1303.09,1.06,13.55,0.0,322.17,"342.4, 342.0, 324.79",95.31,True,True,2026-01-23
+J&KBANK,Jammu and Kashmir Bank Limited,Financial Services,Banks - Regional,113102446592,2081.79,1.25,14.8,0.0,484.53,"581.91, 528.6, 552.78",37.91,True,False,2026-01-23
+INGERRAND,Ingersoll-Rand (India) Limited,Industrials,Specialty Industrial Machinery,102280323072,267.52,23.01,41.05,0.0151,60.35,"58.98, 67.65, 77.66",23.09,False,False,2026-01-23
+TMB,Tamilnad Mercantile Bank Limited,Financial Services,Banks - Regional,89591595008,1182.61,1.84,13.59,0.0,304.89,"291.9, 300.24, 303.18",69.18,True,False,2026-01-23
+GANESHHOU,Ganesh Housing Limited,Real Estate,Real Estate - Development,61893488640,598.06,20.7,29.66,0.0348,93.06,"164.9, 160.84, 158.48",14.33,False,False,2026-01-23
