@@ -65,14 +65,8 @@ def run_git_command(command_list, working_dir="."):
 def commit_and_push_stock_list(file_to_add, commit_message, comprehensive_file=None):
     print(f"\n--- GIT OPS: Starting Git Operations for stock list ---")
     
+    # Only add the main stock list file (comprehensive files are ignored by .gitignore)
     files_to_add = [file_to_add]
-    
-    # Add comprehensive file if provided
-    if comprehensive_file:
-        comprehensive_path = os.path.join('output', comprehensive_file)
-        if os.path.exists(os.path.join(REPO_BASE_PATH, comprehensive_path)):
-            files_to_add.append(comprehensive_path)
-            print(f"GIT OPS: Will also add comprehensive file: {comprehensive_path}")
     
     # Add all files
     for file_path in files_to_add:
@@ -117,7 +111,7 @@ if __name__ == "__main__":
         today_str = datetime.now().strftime("%Y%m%d")
         commit_message = f"Weekly stock list update {today_str} - {stock_count} stocks screened"
         
-        if commit_and_push_stock_list(STOCK_LIST_FILENAME, commit_message, comprehensive_file):
+        if commit_and_push_stock_list(STOCK_LIST_FILENAME, commit_message):
             print("WEEKLY: Successfully committed and pushed stock list to GitHub.")
         else:
             print("WEEKLY ERROR: Failed to commit and push stock list to GitHub.")
