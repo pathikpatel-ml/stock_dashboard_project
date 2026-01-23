@@ -533,58 +533,10 @@ class StockScreener:
             return False
     
     def screen_stocks(self, checkpoint_interval=50):
-        """Main screening function with checkpoint system"""
-        print("Starting stock screening process...")
+        """Main screening function with checkpoint system - always fetch fresh data"""
+        print("Starting stock screening process with fresh data fetch...")
         
-        # Check for existing comprehensive data first
-        existing_data_path = self.check_existing_comprehensive_data()
-        if existing_data_path:
-            print("Using existing comprehensive data...")
-            all_df = self.load_existing_comprehensive_data(existing_data_path)
-            if all_df is not None:
-                # Re-apply screening criteria to existing data
-                screened_stocks = []
-                for _, row in all_df.iterrows():
-                    stock_data = {
-                        'symbol': row['Symbol'],
-                        'company_name': row['Company Name'],
-                        'sector': row['Sector'],
-                        'industry': row['Industry'],
-                        'market_cap': row['Market Cap'],
-                        'net_profit': row['Net Profit (Cr)'],
-                        'roce': row['ROCE (%)'],
-                        'roe': row['ROE (%)'],
-                        'debt_to_equity': row['Debt to Equity'],
-                        'latest_quarter_profit': row['Latest Quarter Profit (Cr)'],
-                        'last_3q_profits': [float(x.strip()) for x in str(row['Last 3Q Profits (Cr)']).split(',') if x.strip() and x.strip() != 'N/A'] if pd.notna(row['Last 3Q Profits (Cr)']) and str(row['Last 3Q Profits (Cr)']) != 'N/A' else [],
-                        'public_holding': row['Public Holding (%)'],
-                        'is_bank_finance': row['Is Bank/Finance'],
-                        'is_psu': row['Is PSU']
-                    }
-                    
-                    if self.apply_screening_criteria(stock_data):
-                        screened_stocks.append({
-                            'Symbol': stock_data['symbol'],
-                            'Company Name': stock_data['company_name'],
-                            'Sector': stock_data['sector'],
-                            'Industry': stock_data['industry'],
-                            'Market Cap': stock_data['market_cap'],
-                            'Net Profit (Cr)': stock_data['net_profit'],
-                            'ROCE (%)': stock_data['roce'],
-                            'ROE (%)': stock_data['roe'],
-                            'Debt to Equity': stock_data['debt_to_equity'],
-                            'Latest Quarter Profit (Cr)': stock_data['latest_quarter_profit'],
-                            'Last 3Q Profits (Cr)': ', '.join([str(round(q, 2)) for q in stock_data.get('last_3q_profits', [])]) if stock_data.get('last_3q_profits') else 'N/A',
-                            'Public Holding (%)': stock_data['public_holding'],
-                            'Is Bank/Finance': stock_data['is_bank_finance'],
-                            'Is PSU': stock_data['is_psu'],
-                            'Screening Date': datetime.now().strftime('%Y-%m-%d')
-                        })
-                
-                print(f"Found {len(screened_stocks)} stocks meeting updated criteria from existing data.")
-                return pd.DataFrame(screened_stocks)
-        
-        # If no existing data or loading failed, proceed with fresh screening
+        # Always proceed with fresh screening (removed existing data check)
         
         # Get NSE stock list
         nse_symbols = self.get_nse_stock_list()

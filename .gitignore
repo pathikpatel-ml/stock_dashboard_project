@@ -1,0 +1,27 @@
+# Comprehensive analysis files - always fetch fresh data
+output/comprehensive_stock_analysis_*.csv
+
+# Other output files to ignore
+output/checkpoint_stock_analysis_*.csv
+output/interrupted_stock_analysis_*.csv
+
+# Cache files
+http_cache.sqlite
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment files
+.env
+.venv/
+venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
