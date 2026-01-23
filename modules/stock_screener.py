@@ -556,7 +556,7 @@ class StockScreener:
                         'roe': row['ROE (%)'],
                         'debt_to_equity': row['Debt to Equity'],
                         'latest_quarter_profit': row['Latest Quarter Profit (Cr)'],
-                        'last_3q_profits': [float(x.strip()) for x in row['Last 3Q Profits (Cr)'].split(',') if x.strip()] if row['Last 3Q Profits (Cr)'] != 'N/A' else [],
+                        'last_3q_profits': [float(x.strip()) for x in str(row['Last 3Q Profits (Cr)']).split(',') if x.strip() and x.strip() != 'N/A'] if pd.notna(row['Last 3Q Profits (Cr)']) and str(row['Last 3Q Profits (Cr)']) != 'N/A' else [],
                         'public_holding': row['Public Holding (%)'],
                         'is_bank_finance': row['Is Bank/Finance'],
                         'is_psu': row['Is PSU']
