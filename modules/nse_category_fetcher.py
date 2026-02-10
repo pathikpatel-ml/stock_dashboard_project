@@ -66,6 +66,14 @@ def create_stock_category_mapping(indices_data):
     
     return stock_categories
 
+def get_nse_stock_categories():
+    """Get all NSE stock categories mapping"""
+    try:
+        indices_data = fetch_nse_indices()
+        return create_stock_category_mapping(indices_data)
+    except:
+        return {}
+
 def get_stock_categories(symbol):
     """Get categories for a specific stock"""
     try:
