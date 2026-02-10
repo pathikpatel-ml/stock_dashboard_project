@@ -7,6 +7,8 @@ from datetime import datetime
 import data_manager
 from modules import v20_layout
 from modules import v20_callbacks
+from modules import screener_layout
+from modules import screener_callbacks
 
 # 1. Initialize the Dash App
 app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
@@ -24,6 +26,7 @@ app.index_string = '''
         {%css%}
         <link rel="stylesheet" href="/assets/enhanced_styles.css?v=3.0">
         <link rel="stylesheet" href="/assets/dashboard.css?v=3.0">
+        <link rel="stylesheet" href="/assets/screener_styles.css?v=1.0">
     </head>
     <body>
         {%app_entry%}
@@ -36,26 +39,40 @@ app.index_string = '''
 </html>
 '''
 
-# 2. LOAD AND PROCESS DATA ON STARTUP - THIS IS THE KEY
-# This populates the data_manager.v20_signals_df and ma_signals_df
-# It also does the initial slow processing for the V20 cache.
-data_manager.load_and_process_data_on_startup()
-
-# 3. Define the App Layout
+# 2. Define the App Layout with Tabs
 app.layout = html.Div(className="app-container", children=[
-    html.H1("Stock Signal Dashboard - V20 Strategy"),
+    html.H1("Stock Signal Dashboard", className="main-title"),
     
-    # This Div is the target for our status callback.
+    # Navigation Tabs
+    dcc.Tabs(id="main-tabs", value="v20-tab", children=[
+        dcc.Tab(label="V20 Strategy", value="v20-tab", className="custom-tab"),
+        dcc.Tab(label="Stock Screener", value="screener-tab", className="custom-tab")
+    ], className="custom-tabs"),
+    
+    # Tab Content
+    html.Div(id="tab-content"),
+    
+    # Status Display
     html.Div(id="app-subtitle"), 
     
-    # V20 layout only
-    v20_layout.create_v20_layout(),
-    
-    html.Footer("Stock Signal Dashboard © " + str(datetime.now().year))
+    html.Footer("Stock Signal Dashboard © " + str(datetime.now().year), className="footer")
 ])
 
-# 4. Register callbacks
+# 3. Register callbacks
 v20_callbacks.register_v20_callbacks(app)
+screener_callbacks.register_screener_callbacks(app)
+
+# Tab switching callback
+@app.callback(
+    Output('tab-content', 'children'),
+    [Input('main-tabs', 'value')]
+)
+def render_tab_content(active_tab):
+    if active_tab == 'v20-tab':
+        return v20_layout.create_v20_layout()
+    elif active_tab == 'screener-tab':
+        return screener_layout.create_screener_layout()
+    return html.Div("Select a tab")
 
 # --- START: CORRECTED STATUS DISPLAY CALLBACK ---
 # This callback will run after the main tables are rendered, ensuring it
@@ -81,7 +98,9 @@ def update_status_display(_):
 # --- END: CORRECTED STATUS DISPLAY CALLBACK ---
 
 
-# 5. Run the App
+# 4. Run the App
 if __name__ == '__main__':
+    # Load data before starting the server
+    data_manager.load_and_process_data_on_startup()
     print("DASH APP: Application ready. Starting server...")
     app.run_server(debug=True, host='0.0.0.0', port=8050)

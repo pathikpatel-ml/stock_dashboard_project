@@ -17,6 +17,8 @@ import os
 import warnings
 from bs4 import BeautifulSoup
 import re
+from modules.nse_category_fetcher import get_nse_stock_categories
+from modules.ma_calculator import calculate_moving_averages
 
 # Suppress yfinance warnings
 warnings.filterwarnings('ignore')
@@ -784,7 +786,72 @@ class StockScreener:
         return recommendations
 
 
-def main():
+def add_moving_averages_to_stocks(df):
+    """
+    Add moving averages to stock dataframe
+    """
+    if df.empty:
+        return df
+    
+    df_with_ma = df.copy()
+    ma_columns = ['MA_10', 'MA_50', 'MA_100', 'MA_200']
+    
+    # Initialize MA columns
+    for col in ma_columns:
+        df_with_ma[col] = np.nan
+    
+    print("Calculating moving averages for all stocks...")
+    
+    for idx, row in df_with_ma.iterrows():
+        symbol = row['Symbol']
+        try:
+            ma_data = calculate_moving_averages(symbol)
+            if ma_data:
+                df_with_ma.loc[idx, 'MA_10'] = ma_data.get('MA_10')
+                df_with_ma.loc[idx, 'MA_50'] = ma_data.get('MA_50')
+                df_with_ma.loc[idx, 'MA_100'] = ma_data.get('MA_100')
+                df_with_ma.loc[idx, 'MA_200'] = ma_data.get('MA_200')
+                df_with_ma.loc[idx, 'Current_Price'] = ma_data.get('Current_Price')
+        except Exception as e:
+            print(f"Error calculating MA for {symbol}: {e}")
+            continue
+    
+    return df_with_ma
+
+def add_nse_categories_to_stocks(df):
+    """
+    Add NSE category information to stocks
+    """
+    if df.empty:
+        return df
+    
+    try:
+        categories_data = get_nse_stock_categories()
+        df_with_categories = df.copy()
+        df_with_categories['NSE_Categories'] = ''
+        
+        for idx, row in df_with_categories.iterrows():
+            symbol = row['Symbol']
+            if symbol in categories_data:
+                df_with_categories.loc[idx, 'NSE_Categories'] = ','.join(categories_data[symbol])
+        
+        return df_with_categories
+    except Exception as e:
+        print(f"Error adding NSE categories: {e}")
+        return df
+
+def get_current_market_price(symbol):
+    """
+    Get current market price for a symbol
+    """
+    try:
+        ticker = yf.Ticker(f"{symbol}.NS")
+        data = ticker.history(period="2d")
+        if not data.empty:
+            return data['Close'].iloc[-1]
+    except Exception as e:
+        print(f"Error fetching price for {symbol}: {e}")
+    return None
     """Main function to run the stock screener"""
     screener = StockScreener()
     
