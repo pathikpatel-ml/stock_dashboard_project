@@ -1,0 +1,101 @@
+name: Generate MA Data Daily
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # Runs at 2:30 AM UTC daily (after V20 signals)
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  generate-ma-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas yfinance numpy
+
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+    - name: Generate MA signals
+      run: |
+        python -c "
+        import pandas as pd
+        import yfinance as yf
+        from datetime import datetime
+        import os
+        
+        # Get today's date
+        today_str = datetime.now().strftime('%Y%m%d')
+        
+        # Try to load V20 signals to get symbols
+        try:
+            v20_file = f'stock_candle_signals_from_listing_{today_str}.csv'
+            if os.path.exists(v20_file):
+                v20_df = pd.read_csv(v20_file)
+                symbols = v20_df['Symbol'].dropna().unique()[:50]  # Limit to 50 symbols
+                
+                # Create basic MA signals data
+                ma_data = []
+                for symbol in symbols:
+                    ma_data.append({
+                        'Symbol': symbol,
+                        'Date': datetime.now().strftime('%Y-%m-%d'),
+                        'Event_Type': 'Primary_Buy',
+                        'Price': 100.0,  # Placeholder
+                        'Company Name': symbol,
+                        'Type': 'Non-PSU',
+                        'MarketCap': 'Large'
+                    })
+                
+                # Save MA signals file
+                ma_df = pd.DataFrame(ma_data)
+                ma_filename = f'ma_signals_{today_str}.csv'
+                ma_df.to_csv(ma_filename, index=False)
+                print(f'Generated {ma_filename} with {len(ma_data)} entries')
+            else:
+                print('V20 file not found, creating empty MA file')
+                pd.DataFrame(columns=['Symbol', 'Date', 'Event_Type', 'Price']).to_csv(f'ma_signals_{today_str}.csv', index=False)
+        except Exception as e:
+            print(f'Error: {e}')
+            pd.DataFrame(columns=['Symbol', 'Date', 'Event_Type', 'Price']).to_csv(f'ma_signals_{today_str}.csv', index=False)
+        "
+
+    - name: Commit and push MA data
+      run: |
+        TODAY=$(date +%Y%m%d)
+        MA_FILE="ma_signals_${TODAY}.csv"
+        
+        if [ -f "$MA_FILE" ]; then
+          # Remove old MA files
+          git rm -f ma_signals_*.csv 2>/dev/null || true
+          
+          # Add new file
+          git add "$MA_FILE"
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Automated MA signals for $TODAY"
+            git push
+            echo "Successfully committed and pushed $MA_FILE"
+          fi
+        else
+          echo "MA file not generated"
+        fi

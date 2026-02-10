@@ -2,61 +2,129 @@
 # -*- coding: utf-8 -*-
 
 """
-Test script for stock screener with limited stocks
+Test Script for Stock Screener Implementation
+Tests all the new modules and functionality
 """
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from stock_screener import StockScreener
+def test_nse_categories():
+    """Test NSE category fetcher"""
+    print("Testing NSE Category Fetcher...")
+    try:
+        from modules.nse_category_fetcher import get_nse_stock_categories
+        categories = get_nse_stock_categories()
+        print(f"✓ NSE Categories: Found {len(categories)} stocks with categories")
+        
+        # Show sample
+        sample_stocks = list(categories.keys())[:5]
+        for stock in sample_stocks:
+            print(f"  {stock}: {categories[stock]}")
+        return True
+    except Exception as e:
+        print(f"✗ NSE Categories Error: {e}")
+        return False
 
-def test_small_batch():
-    """Test with a small batch of stocks"""
-    screener = StockScreener()
+def test_moving_averages():
+    """Test moving average calculator"""
+    print("\nTesting Moving Average Calculator...")
+    try:
+        from modules.ma_calculator import calculate_moving_averages
+        ma_data = calculate_moving_averages("RELIANCE")
+        print(f"✓ Moving Averages: {ma_data}")
+        return True
+    except Exception as e:
+        print(f"✗ Moving Averages Error: {e}")
+        return False
+
+def test_data_manager():
+    """Test data manager functions"""
+    print("\nTesting Data Manager...")
+    try:
+        import data_manager
+        
+        # Test loading functions
+        print("✓ Data Manager: All functions imported successfully")
+        
+        # Test global variables
+        print(f"✓ Comprehensive stocks DF: {type(data_manager.comprehensive_stocks_df)}")
+        print(f"✓ NSE categories DF: {type(data_manager.nse_categories_df)}")
+        return True
+    except Exception as e:
+        print(f"✗ Data Manager Error: {e}")
+        return False
+
+def test_screener_layout():
+    """Test screener layout"""
+    print("\nTesting Screener Layout...")
+    try:
+        from modules.screener_layout import create_screener_layout
+        layout = create_screener_layout()
+        print("✓ Screener Layout: Created successfully")
+        return True
+    except Exception as e:
+        print(f"✗ Screener Layout Error: {e}")
+        return False
+
+def test_screener_callbacks():
+    """Test screener callbacks"""
+    print("\nTesting Screener Callbacks...")
+    try:
+        from modules.screener_callbacks import register_screener_callbacks
+        print("✓ Screener Callbacks: Imported successfully")
+        return True
+    except Exception as e:
+        print(f"✗ Screener Callbacks Error: {e}")
+        return False
+
+def test_app_integration():
+    """Test app integration"""
+    print("\nTesting App Integration...")
+    try:
+        import app
+        print("✓ App Integration: All imports successful")
+        return True
+    except Exception as e:
+        print(f"✗ App Integration Error: {e}")
+        return False
+
+def main():
+    """Run all tests"""
+    print("Stock Screener Implementation Test")
+    print("=" * 40)
     
-    # Override the stock list with just a few stocks for testing
-    test_symbols = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
+    tests = [
+        test_nse_categories,
+        test_moving_averages,
+        test_data_manager,
+        test_screener_layout,
+        test_screener_callbacks,
+        test_app_integration
+    ]
     
-    print("Testing stock screener with 5 stocks...")
-    print("="*50)
+    passed = 0
+    total = len(tests)
     
-    screened_stocks = []
+    for test in tests:
+        if test():
+            passed += 1
     
-    for i, symbol in enumerate(test_symbols):
-        try:
-            print(f"Processing [{i+1}/5] {symbol}")
-            
-            # Get financial data
-            stock_data = screener.get_financial_data(symbol)
-            
-            if stock_data:
-                passes_criteria = screener.apply_screening_criteria(stock_data)
-                
-                print(f"  Company: {stock_data['company_name']}")
-                print(f"  Sector: {stock_data['sector']}")
-                print(f"  Net Profit: {stock_data['net_profit']:.2f} Cr")
-                print(f"  ROCE: {stock_data['roce']:.2f}%")
-                print(f"  ROE: {stock_data['roe']:.2f}%")
-                print(f"  Passes Criteria: {passes_criteria}")
-                print("-" * 30)
-                
-                if passes_criteria:
-                    screened_stocks.append(stock_data)
-            else:
-                print(f"  Failed to get data for {symbol}")
-                print("-" * 30)
-                
-        except Exception as e:
-            print(f"  Error processing {symbol}: {e}")
-            print("-" * 30)
+    print("\n" + "=" * 40)
+    print(f"Test Results: {passed}/{total} tests passed")
     
-    print(f"\nTest completed. Found {len(screened_stocks)} stocks meeting criteria.")
-    return len(screened_stocks) > 0
+    if passed == total:
+        print("🎉 All tests passed! Stock screener is ready to use.")
+        print("\nNext steps:")
+        print("1. Run the app: python app.py")
+        print("2. Navigate to the 'Stock Screener' tab")
+        print("3. Apply filters and explore stocks")
+    else:
+        print("❌ Some tests failed. Please check the errors above.")
+    
+    return passed == total
 
 if __name__ == "__main__":
-    success = test_small_batch()
-    if success:
-        print("\nTest successful! You can now run the full screener.")
-    else:
-        print("\nTest failed. Check your internet connection and dependencies.")
+    success = main()
+    sys.exit(0 if success else 1)

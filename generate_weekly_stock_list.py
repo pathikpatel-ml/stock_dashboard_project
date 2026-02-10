@@ -10,7 +10,9 @@ import os
 import sys
 import subprocess
 from datetime import datetime
-from modules.stock_screener import StockScreener
+from modules.stock_screener import StockScreener, add_moving_averages_to_stocks, add_nse_categories_to_stocks
+from modules.nse_category_fetcher import get_nse_stock_categories, save_nse_categories_to_csv
+import pandas as pd
 
 # --- Configuration ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -18,25 +20,58 @@ STOCK_LIST_FILENAME = "Master_company_market_trend_analysis.csv"
 OUTPUT_STOCK_LIST_PATH = os.path.join(REPO_BASE_PATH, STOCK_LIST_FILENAME)
 
 def generate_weekly_stock_list(output_path):
-    """Generate weekly stock list using the StockScreener"""
+    """Generate weekly stock list with moving averages and NSE categories"""
     try:
+        print("Starting comprehensive stock screening with enhancements...")
         screener = StockScreener()
         df = screener.screen_stocks()
         
         if not df.empty:
-            # Save to the specified output path
-            df.to_csv(output_path, index=False)
-            print(f"Stock list saved to: {output_path}")
-            
-            # Find the latest comprehensive CSV file
-            output_dir = os.path.join(REPO_BASE_PATH, 'output')
-            if os.path.exists(output_dir):
-                csv_files = [f for f in os.listdir(output_dir) if f.startswith('comprehensive_stock_analysis')]
+            # Load comprehensive data (all stocks, not just screened ones)
+            print("Loading comprehensive stock data...")
+            try:
+                output_dir = os.path.join(REPO_BASE_PATH, 'output')
+                csv_files = [f for f in os.listdir(output_dir) if f.startswith('comprehensive_stock_analysis_')]
                 if csv_files:
-                    latest_comprehensive = sorted(csv_files)[-1]
-                    return True, len(df), latest_comprehensive
+                    latest_file = sorted(csv_files)[-1]
+                    comprehensive_df = pd.read_csv(os.path.join(output_dir, latest_file))
+                    print(f"Loaded {len(comprehensive_df)} stocks from comprehensive analysis")
+                else:
+                    comprehensive_df = df
+            except Exception as e:
+                print(f"Error loading comprehensive data: {e}")
+                comprehensive_df = df
             
-            return True, len(df), None
+            # Add moving averages
+            print("Adding moving averages to stocks...")
+            comprehensive_df = add_moving_averages_to_stocks(comprehensive_df)
+            
+            # Add NSE categories
+            print("Adding NSE category information...")
+            comprehensive_df = add_nse_categories_to_stocks(comprehensive_df)
+            
+            # Save NSE categories separately
+            print("Saving NSE categories mapping...")
+            try:
+                categories_data = get_nse_stock_categories()
+                save_nse_categories_to_csv(categories_data)
+                print("NSE categories saved successfully")
+            except Exception as e:
+                print(f"Error saving NSE categories: {e}")
+            
+            # Save enhanced comprehensive data
+            timestamp = datetime.now().strftime('%Y%m%d')
+            enhanced_filename = f'comprehensive_stock_analysis_{timestamp}.csv'
+            enhanced_filepath = os.path.join(output_dir, enhanced_filename)
+            
+            comprehensive_df.to_csv(enhanced_filepath, index=False)
+            print(f"Enhanced comprehensive data saved to: {enhanced_filename}")
+            
+            # Save screened stocks to main output path
+            df.to_csv(output_path, index=False)
+            print(f"Screened stock list saved to: {output_path}")
+            
+            return True, len(df), enhanced_filename
         else:
             print("No stocks found meeting criteria")
             return False, 0, None
