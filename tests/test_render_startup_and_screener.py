@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 import sys
+from datetime import datetime
 
 import pandas as pd
 
@@ -8,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import data_manager
 import generate_daily_signals
-from modules import screener_callbacks, screener_layout
+from modules import screener_callbacks, screener_layout, v20_callbacks
 from modules.nse_category_fetcher import save_nse_categories_to_csv
 
 
@@ -244,3 +245,50 @@ def test_save_nse_categories_to_csv_writes_expected_format():
     finally:
         if output_path.exists():
             output_path.unlink()
+
+
+def test_v20_indicator_calculation_uses_completed_daily_candles_only(monkeypatch):
+    indicator_calc = v20_callbacks.AdvancedIndicatorCalculator(cache_enabled=False)
+
+    dates = pd.to_datetime(["2026-04-02", "2026-04-03", "2026-04-04"])
+    history = pd.DataFrame({"Close": [100.0, 101.0, 150.0]}, index=dates)
+
+    class DummyTicker:
+        def history(self, period="6mo", interval="1d", auto_adjust=False):
+            return history.copy()
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 4, 4, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(v20_callbacks.yf, "Ticker", lambda ticker: DummyTicker())
+    monkeypatch.setattr(v20_callbacks, "datetime", FixedDateTime)
+
+    rsi_val_1, macd_val_1 = v20_callbacks.calculate_eod_rsi_macd("TCS", indicator_calc)
+    rsi_val_2, macd_val_2 = v20_callbacks.calculate_eod_rsi_macd("TCS", indicator_calc)
+
+    assert pd.isna(rsi_val_1)
+    assert pd.isna(macd_val_1)
+    assert pd.isna(rsi_val_2)
+    assert pd.isna(macd_val_2)
+
+
+def test_v20_indicator_dataframe_is_deterministic_for_same_history(monkeypatch):
+    indicator_calc = v20_callbacks.AdvancedIndicatorCalculator(cache_enabled=False)
+    dates = pd.date_range("2025-10-01", periods=80, freq="B")
+    close_prices = pd.Series(range(100, 180), index=dates, dtype=float)
+    history = pd.DataFrame({"Close": close_prices}, index=dates)
+
+    class DummyTicker:
+        def history(self, period="6mo", interval="1d", auto_adjust=False):
+            return history.copy()
+
+    monkeypatch.setattr(v20_callbacks.yf, "Ticker", lambda ticker: DummyTicker())
+
+    df = pd.DataFrame([{"Symbol": "TCS", "Closeness (%)": 1.5}])
+    result_1 = v20_callbacks.add_technical_indicators_to_df(df, indicator_calc)
+    result_2 = v20_callbacks.add_technical_indicators_to_df(df, indicator_calc)
+
+    assert result_1["RSI"].iloc[0] == result_2["RSI"].iloc[0]
+    assert result_1["MACD Signal"].iloc[0] == result_2["MACD Signal"].iloc[0]

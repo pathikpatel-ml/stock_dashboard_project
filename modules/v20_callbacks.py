@@ -7,6 +7,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from src.indicators import AdvancedIndicatorCalculator, identify_signals
 from modules.news_sentiment_analyzer import SentimentAnalyzer
 from modules.signal_generator import SignalGenerator
@@ -238,27 +239,9 @@ def add_technical_indicators_to_df(df, indicator_calc):
         signal_strengths = []
         
         for _, row in df.iterrows():
-            current_price = row.get('Current Price', 0)
-            
-            # Create more realistic price data with proper historical variation
-            base_price = current_price * 0.95  # Start from 5% lower
-            price_trend = np.linspace(base_price, current_price, 50)
-            # Add realistic volatility (1-3% daily moves)
-            volatility = np.random.normal(0, 0.02, 50)
-            mock_prices = price_trend * (1 + volatility)
-            mock_prices = np.maximum(mock_prices, current_price * 0.8)  # Floor at 20% below current
-            
+            symbol = str(row.get('Symbol', '')).upper().strip()
             try:
-                indicators = indicator_calc.calculate_all(mock_prices)
-                
-                rsi_val = indicators.get('rsi', [np.nan])[-1] if 'rsi' in indicators else np.nan
-                macd_line = indicators.get('macd_line', [np.nan])[-1] if 'macd_line' in indicators else np.nan
-                
-                # Ensure we have valid values
-                if np.isnan(rsi_val) or rsi_val == 0:
-                    rsi_val = np.random.uniform(30, 70)  # Random but realistic RSI
-                if np.isnan(macd_line) or macd_line == 0:
-                    macd_line = np.random.uniform(-0.5, 0.5)  # Random but realistic MACD
+                rsi_val, macd_line = calculate_eod_rsi_macd(symbol, indicator_calc)
                 
                 # Determine signal strength based on all technical factors
                 closeness = row.get('Closeness (%)', 100)
@@ -300,6 +283,39 @@ def add_technical_indicators_to_df(df, indicator_calc):
     except Exception as e:
         print(f"Error enhancing dataframe: {e}")
         return df
+
+
+def calculate_eod_rsi_macd(symbol, indicator_calc):
+    """Calculate RSI and MACD using only completed daily candles."""
+    if not symbol:
+        return np.nan, np.nan
+
+    history = yf.Ticker(f"{symbol}.NS").history(period="6mo", interval="1d", auto_adjust=False)
+    if history is None or history.empty or 'Close' not in history.columns:
+        return np.nan, np.nan
+
+    close_series = pd.to_numeric(history['Close'], errors='coerce').dropna()
+    if close_series.empty:
+        return np.nan, np.nan
+
+    today_ist = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    if len(close_series) >= 2 and close_series.index[-1].date() >= today_ist:
+        close_series = close_series.iloc[:-1]
+
+    if len(close_series) < 35:
+        return np.nan, np.nan
+
+    indicators = indicator_calc.calculate_all(close_series.to_numpy(dtype=float))
+    rsi_values = indicators.get('rsi')
+    macd_line_values = indicators.get('macd_line')
+
+    rsi_val = rsi_values[-1] if rsi_values is not None and len(rsi_values) else np.nan
+    macd_line = macd_line_values[-1] if macd_line_values is not None and len(macd_line_values) else np.nan
+
+    return (
+        float(rsi_val) if not pd.isna(rsi_val) else np.nan,
+        float(macd_line) if not pd.isna(macd_line) else np.nan,
+    )
 
 def add_sell_price_guidance(df):
     """Add sell price suggestions based on market research"""
