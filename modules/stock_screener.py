@@ -840,22 +840,76 @@ def add_moving_averages_to_stocks(df):
     # Initialize MA columns
     for col in ma_columns:
         df_with_ma[col] = np.nan
+    if 'Current_Price' not in df_with_ma.columns:
+        df_with_ma['Current_Price'] = np.nan
     
-    print("Calculating moving averages for all stocks...")
-    
-    for idx, row in df_with_ma.iterrows():
-        symbol = row['Symbol']
+    symbols = df_with_ma['Symbol'].dropna().astype(str).str.upper().str.strip().tolist()
+    symbol_to_indices = {}
+    for idx, symbol in zip(df_with_ma.index, symbols):
+        symbol_to_indices.setdefault(symbol, []).append(idx)
+
+    batch_size = 100
+    total_batches = max(1, (len(symbol_to_indices) + batch_size - 1) // batch_size)
+    print(f"Calculating moving averages for all stocks in {total_batches} batches...")
+
+    unique_symbols = list(symbol_to_indices.keys())
+    for batch_num, start in enumerate(range(0, len(unique_symbols), batch_size), start=1):
+        batch_symbols = unique_symbols[start:start + batch_size]
+        print(
+            f"MA batch {batch_num}/{total_batches}: "
+            f"processing {len(batch_symbols)} symbols "
+            f"({start + 1}-{start + len(batch_symbols)} of {len(unique_symbols)})"
+        )
+        ticker_symbols = [f"{symbol}.NS" for symbol in batch_symbols]
+
         try:
-            ma_data = calculate_moving_averages(symbol)
-            if ma_data:
-                df_with_ma.loc[idx, 'MA10'] = ma_data.get('MA10')
-                df_with_ma.loc[idx, 'MA50'] = ma_data.get('MA50')
-                df_with_ma.loc[idx, 'MA100'] = ma_data.get('MA100')
-                df_with_ma.loc[idx, 'MA200'] = ma_data.get('MA200')
-                df_with_ma.loc[idx, 'Current_Price'] = ma_data.get('Current_Price')
+            batch_data = yf.download(
+                tickers=ticker_symbols,
+                period="1y",
+                auto_adjust=False,
+                progress=False,
+                group_by="ticker",
+                threads=True,
+            )
         except Exception as e:
-            print(f"Error calculating MA for {symbol}: {e}")
+            print(f"Error downloading MA batch {batch_num}: {e}")
             continue
+
+        if batch_data is None or batch_data.empty:
+            continue
+
+        for symbol in batch_symbols:
+            ticker_symbol = f"{symbol}.NS"
+            try:
+                price_frame = None
+                if isinstance(batch_data.columns, pd.MultiIndex):
+                    try:
+                        price_frame = batch_data[ticker_symbol]
+                    except KeyError:
+                        price_frame = None
+                elif len(batch_symbols) == 1:
+                    price_frame = batch_data
+
+                if price_frame is None or 'Close' not in price_frame.columns:
+                    continue
+
+                close_series = pd.to_numeric(price_frame['Close'], errors='coerce').dropna()
+                if close_series.empty:
+                    continue
+
+                ma_values = {
+                    'Current_Price': round(close_series.iloc[-1], 2),
+                }
+                for period in [10, 50, 100, 200]:
+                    if len(close_series) >= period:
+                        ma_values[f'MA{period}'] = round(close_series.rolling(window=period).mean().iloc[-1], 2)
+
+                for idx in symbol_to_indices.get(symbol, []):
+                    for key, value in ma_values.items():
+                        df_with_ma.loc[idx, key] = value
+            except Exception as e:
+                print(f"Error calculating MA for {symbol}: {e}")
+                continue
     
     return df_with_ma
 

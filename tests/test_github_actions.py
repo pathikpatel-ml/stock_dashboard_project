@@ -198,12 +198,14 @@ class TestStockScreenerIntegration:
         assert is_bank_finance is True
         assert is_psu is True
     
+    @patch.object(StockScreener, 'check_existing_comprehensive_data')
     @patch.object(StockScreener, 'get_nse_stock_list')
     @patch.object(StockScreener, 'get_financial_data')
-    def test_screen_stocks_integration(self, mock_get_financial, mock_get_nse, screener):
+    def test_screen_stocks_integration(self, mock_get_financial, mock_get_nse, mock_check_existing, screener):
         """Test complete stock screening integration"""
         # Mock NSE stock list
         mock_get_nse.return_value = ['TEST1', 'TEST2']
+        mock_check_existing.return_value = None
         
         # Mock financial data - one passes, one fails
         mock_get_financial.side_effect = [
