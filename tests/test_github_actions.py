@@ -32,7 +32,8 @@ class TestStockScreenerUnit:
             'roe': 15,
             'debt_to_equity': 0.2,
             'latest_quarter_profit': 150,
-            'public_holding': 50,
+            'last_3q_profits': [100, 120, 130],
+            'public_holding': 20,
             'is_bank_finance': False,
             'is_psu': False,
             'is_highest_quarter': True
@@ -63,23 +64,22 @@ class TestStockScreenerUnit:
         assert result is False
     
     def test_apply_screening_criteria_private_sector_fail_debt(self, screener, sample_stock_data):
-        """Test screening criteria fails for high debt"""
+        """Debt no longer affects private-sector screening."""
         sample_stock_data['debt_to_equity'] = 0.3  # Above 0.25 threshold
         result = screener.apply_screening_criteria(sample_stock_data)
-        assert result is False
-    
-    def test_apply_screening_criteria_private_sector_fail_public_holding(self, screener, sample_stock_data):
-        """Test screening criteria fails for low public holding"""
-        sample_stock_data['public_holding'] = 25  # Below 30% threshold
-        result = screener.apply_screening_criteria(sample_stock_data)
-        assert result is False
-    
-    def test_apply_screening_criteria_psu_pass(self, screener, sample_stock_data):
-        """Test screening criteria for PSU stocks that should pass"""
-        sample_stock_data['is_psu'] = True
-        sample_stock_data['public_holding'] = 20  # PSU doesn't need 30% public holding
-        result = screener.apply_screening_criteria(sample_stock_data)
         assert result is True
+
+    def test_apply_screening_criteria_private_sector_fail_public_holding(self, screener, sample_stock_data):
+        """Test screening criteria fails for high public holding"""
+        sample_stock_data['public_holding'] = 35  # Above 30% threshold
+        result = screener.apply_screening_criteria(sample_stock_data)
+        assert result is False
+
+    def test_apply_screening_criteria_psu_fail(self, screener, sample_stock_data):
+        """PSU stocks should be excluded from the shortlist."""
+        sample_stock_data['is_psu'] = True
+        result = screener.apply_screening_criteria(sample_stock_data)
+        assert result is False
     
     def test_apply_screening_criteria_bank_pass(self, screener, sample_stock_data):
         """Test screening criteria for bank stocks that should pass"""
@@ -96,11 +96,11 @@ class TestStockScreenerUnit:
         result = screener.apply_screening_criteria(sample_stock_data)
         assert result is False
     
-    def test_apply_screening_criteria_no_highest_quarter(self, screener, sample_stock_data):
-        """Test screening criteria fails when not highest quarter"""
+    def test_apply_screening_criteria_ignores_legacy_highest_quarter_flag(self, screener, sample_stock_data):
+        """Legacy highest-quarter flag should not affect current screening."""
         sample_stock_data['is_highest_quarter'] = False
         result = screener.apply_screening_criteria(sample_stock_data)
-        assert result is False
+        assert result is True
     
     def test_apply_screening_criteria_none_data(self, screener):
         """Test screening criteria with None data"""
@@ -165,14 +165,9 @@ class TestStockScreenerIntegration:
     def test_get_nse_stock_list_success(self, mock_get, screener):
         """Test successful NSE stock list retrieval"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            'data': [
-                {'symbol': 'RELIANCE'},
-                {'symbol': 'TCS'},
-                {'symbol': 'INFY'}
-            ]
-        }
+        mock_response.text = "SYMBOL\nRELIANCE\nTCS\nINFY\n"
         mock_response.raise_for_status.return_value = None
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
         
         result = screener.get_nse_stock_list()
@@ -184,11 +179,24 @@ class TestStockScreenerIntegration:
     
     @patch('requests.get')
     def test_get_nse_stock_list_failure(self, mock_get, screener):
-        """Test NSE stock list retrieval failure"""
+        """Failure should fall back to the built-in symbol universe."""
         mock_get.side_effect = Exception("Network error")
         
         result = screener.get_nse_stock_list()
-        assert result == []
+        assert isinstance(result, list)
+        assert len(result) > 0
+        assert 'RELIANCE' in result
+
+    def test_classify_company_flags_marks_pfc_as_psu_and_finance(self, screener):
+        is_bank_finance, is_psu = screener.classify_company_flags(
+            symbol='PFC',
+            company_name='Power Finance Corporation Limited',
+            sector='Financial Services',
+            industry='Credit Services',
+        )
+
+        assert is_bank_finance is True
+        assert is_psu is True
     
     @patch.object(StockScreener, 'get_nse_stock_list')
     @patch.object(StockScreener, 'get_financial_data')
@@ -210,7 +218,8 @@ class TestStockScreenerIntegration:
                 'roe': 15,
                 'debt_to_equity': 0.2,
                 'latest_quarter_profit': 80,
-                'public_holding': 50,
+                'last_3q_profits': [60, 70, 75],
+                'public_holding': 20,
                 'is_bank_finance': False,
                 'is_psu': False,
                 'is_highest_quarter': True
@@ -226,6 +235,7 @@ class TestStockScreenerIntegration:
                 'roe': 8,
                 'debt_to_equity': 0.1,
                 'latest_quarter_profit': 25,
+                'last_3q_profits': [20, 30, 40],
                 'public_holding': 40,
                 'is_bank_finance': False,
                 'is_psu': False,
@@ -259,7 +269,8 @@ class TestStockScreenerPerformance:
             'roe': 15,
             'debt_to_equity': 0.2,
             'latest_quarter_profit': 80,
-            'public_holding': 50,
+            'last_3q_profits': [60, 70, 75],
+            'public_holding': 20,
             'is_bank_finance': False,
             'is_psu': False,
             'is_highest_quarter': True
@@ -277,13 +288,16 @@ class TestStockScreenerPerformance:
         # Should complete 1000 iterations in less than 1 second
         assert execution_time < 1.0, f"Performance test failed: {execution_time:.3f}s for 1000 iterations"
     
+    @patch('time.sleep', return_value=None)
+    @patch.object(StockScreener, 'check_existing_comprehensive_data')
     @patch.object(StockScreener, 'get_nse_stock_list')
     @patch.object(StockScreener, 'get_financial_data')
-    def test_bulk_screening_performance(self, mock_get_financial, mock_get_nse, screener):
+    def test_bulk_screening_performance(self, mock_get_financial, mock_get_nse, mock_check_existing, _mock_sleep, screener):
         """Test performance of bulk stock screening"""
         # Mock 100 stocks
         mock_symbols = [f'TEST{i}' for i in range(100)]
         mock_get_nse.return_value = mock_symbols
+        mock_check_existing.return_value = None
         
         # Mock financial data that passes criteria
         mock_financial_data = {
@@ -297,7 +311,8 @@ class TestStockScreenerPerformance:
             'roe': 15,
             'debt_to_equity': 0.2,
             'latest_quarter_profit': 80,
-            'public_holding': 50,
+            'last_3q_profits': [60, 70, 75],
+            'public_holding': 20,
             'is_bank_finance': False,
             'is_psu': False,
             'is_highest_quarter': True
@@ -329,6 +344,8 @@ class TestStockScreenerEdgeCases:
             'symbol': 'TEST',
             'company_name': 'Test Company',
             'net_profit': 300,
+            'public_holding': 20,
+            'last_3q_profits': [100, 120, 130],
             'is_highest_quarter': True
             # Missing other required fields
         }

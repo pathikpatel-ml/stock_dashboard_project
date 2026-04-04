@@ -18,6 +18,7 @@ SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_{date_str}.csv"
 COMPREHENSIVE_FILENAME_PREFIX = "comprehensive_stock_analysis_"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
+FULL_UNIVERSE_FILE_NAME = "NSE_EQ_All_Stocks_Analysis.csv"
 
 # --- Global cache state ---
 v20_signals_cache = pd.DataFrame()
@@ -319,6 +320,10 @@ def _normalize_comprehensive_columns(df):
             "Debt to Equity": "Debt_to_Equity",
             "Public Holding (%)": "Public_Holding_Percent",
             "Market Cap": "Market_Cap",
+            "MA_10": "MA10",
+            "MA_50": "MA50",
+            "MA_100": "MA100",
+            "MA_200": "MA200",
         }
     ).copy()
 
@@ -371,22 +376,35 @@ def _normalize_comprehensive_columns(df):
 
 
 def load_comprehensive_stock_data():
-    """Load screener data from the newest available file or from the bundled master file."""
+    """Load screener data from the newest full-universe file, then fall back as needed."""
     global comprehensive_stocks_df, nse_categories_df
 
     comprehensive_stocks_df = pd.DataFrame()
     nse_categories_df = pd.DataFrame()
 
     try:
+        full_universe_local_path = os.path.join(REPO_BASE_PATH, FULL_UNIVERSE_FILE_NAME)
+        if os.path.exists(full_universe_local_path):
+            comprehensive_stocks_df = _normalize_comprehensive_columns(pd.read_csv(full_universe_local_path))
+            print(f"Loaded {len(comprehensive_stocks_df)} stocks from bundled universe file {FULL_UNIVERSE_FILE_NAME}")
+
+        if comprehensive_stocks_df.empty:
+            try:
+                full_universe_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{FULL_UNIVERSE_FILE_NAME}"
+                comprehensive_stocks_df = _normalize_comprehensive_columns(pd.read_csv(full_universe_url))
+                print(f"Loaded {len(comprehensive_stocks_df)} stocks from GitHub universe file {FULL_UNIVERSE_FILE_NAME}")
+            except Exception:
+                comprehensive_stocks_df = pd.DataFrame()
+
         local_matches = _sorted_local_matches(r"comprehensive_stock_analysis_\d+\.csv")
         remote_matches = []
-        if not local_matches:
+        if comprehensive_stocks_df.empty and not local_matches:
             try:
                 remote_matches = _fetch_remote_matches(COMPREHENSIVE_FILENAME_PREFIX)
             except Exception:
                 remote_matches = []
 
-        for filename in local_matches:
+        for filename in local_matches if comprehensive_stocks_df.empty else []:
             try:
                 comprehensive_stocks_df = _normalize_comprehensive_columns(
                     pd.read_csv(os.path.join(REPO_BASE_PATH, filename))

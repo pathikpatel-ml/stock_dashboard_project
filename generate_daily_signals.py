@@ -18,6 +18,13 @@ GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv" # Dynamic stock li
 INPUT_GROWTH_DF_PATH = os.path.join(REPO_BASE_PATH, GROWTH_FILE_NAME)
 OUTPUT_SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 
+KNOWN_PSU_SYMBOLS = {
+    'BHEL', 'BPCL', 'COALINDIA', 'CONCOR', 'GAIL', 'HAL', 'HPCL', 'HUDCO', 'IOC',
+    'IRCON', 'IRCTC', 'IRFC', 'IREDA', 'LICI', 'NBCC', 'NLCINDIA', 'NMDC', 'NTPC',
+    'OIL', 'ONGC', 'PFC', 'POWERGRID', 'RAILTEL', 'RCF', 'RECLTD', 'SAIL', 'SBI',
+    'SBICARD', 'SBILIFE', 'SCI', 'UNIONBANK'
+}
+
 # --- Candle Analysis Functions (Your V20 Strategy - UNCHANGED) ---
 # This section should be exactly as you had it for your "v20 strategy"
 def fetch_historical_data_yf_candle(symbol_nse): # Renamed to avoid conflict if MA needs different params
@@ -98,7 +105,7 @@ def generate_and_save_candle_analysis_file(current_growth_file_path, output_cand
     if growth_df.empty: print("V20: Dynamic stock list is empty.");
 
     all_candle_signals = []
-    symbols_for_analysis = growth_df["Symbol"].dropna().astype(str).unique()
+    symbols_for_analysis = get_v20_eligible_symbols(growth_df)
     total_symbols = len(symbols_for_analysis)
     print(f"V20: Analyzing {total_symbols} dynamically screened symbols for V20 strategy...")
 
@@ -124,6 +131,28 @@ def generate_and_save_candle_analysis_file(current_growth_file_path, output_cand
         print("V20: No signals generated from dynamically screened stocks.")
         try: pd.DataFrame(columns=output_df_columns).to_csv(output_candle_file_path, index=False); print(f"V20: Saved empty file to '{output_candle_file_path}'."); return True, 0
         except Exception as e: print(f"V20 ERROR: saving empty signals file: {e}"); return False, 0
+
+
+def _truthy_flag(value):
+    if isinstance(value, str):
+        return value.strip().lower() in ['true', 'yes', '1', 'y']
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return bool(value)
+
+
+def get_v20_eligible_symbols(growth_df):
+    if growth_df.empty or 'Symbol' not in growth_df.columns:
+        return []
+
+    df = growth_df.copy()
+    df['Symbol'] = df['Symbol'].astype(str).str.upper().str.strip()
+
+    if 'Is PSU' in df.columns:
+        df = df[~df['Is PSU'].apply(_truthy_flag)]
+
+    df = df[~df['Symbol'].isin(KNOWN_PSU_SYMBOLS)]
+    return df['Symbol'].dropna().unique().tolist()
 
 # --- Helper function for PSU type (Shared) ---
 def get_company_type(psu_value):

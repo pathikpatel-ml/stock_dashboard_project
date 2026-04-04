@@ -7,6 +7,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import data_manager
+import generate_daily_signals
 from modules import screener_callbacks, screener_layout
 
 
@@ -20,6 +21,9 @@ def test_load_startup_uses_latest_local_files(monkeypatch):
     growth_df = pd.DataFrame(
         [{"Symbol": "TCS", "Company Name": "TCS Ltd", "Net Profit (Cr)": 100, "Latest Quarter Profit (Cr)": 25, "ROCE (%)": 30, "ROE (%)": 28, "Debt to Equity": 0.1, "Public Holding (%)": 20, "Screening Date": "2026-02-10"}]
     )
+    full_universe_df = pd.DataFrame(
+        [{"Symbol": "TCS", "Company Name": "TCS Ltd", "Sector": "Technology", "Industry": "IT Services", "Market Cap": "Large", "Net Profit (Cr)": 100, "Latest Quarter Profit (Cr)": 25, "ROCE (%)": 30, "ROE (%)": 28, "Debt to Equity": 0.1, "Public Holding (%)": 20, "Screening Date": "2026-02-10"}]
+    )
 
     def fake_read_csv(path, parse_dates=None, *args, **kwargs):
         path = str(path)
@@ -27,6 +31,8 @@ def test_load_startup_uses_latest_local_files(monkeypatch):
             return v20_df.copy()
         if "ma_signals_20260210.csv" in path:
             return ma_df.copy()
+        if "NSE_EQ_All_Stocks_Analysis.csv" in path:
+            return full_universe_df.copy()
         if "Master_company_market_trend_analysis.csv" in path:
             return growth_df.copy()
         raise FileNotFoundError(path)
@@ -37,6 +43,7 @@ def test_load_startup_uses_latest_local_files(monkeypatch):
     monkeypatch.setattr(data_manager.os.path, "exists", lambda path: str(path) in {
         "repo/stock_candle_signals_from_listing_20260210.csv",
         "repo/ma_signals_20260210.csv",
+        "repo/NSE_EQ_All_Stocks_Analysis.csv",
         "repo/Master_company_market_trend_analysis.csv",
     })
     monkeypatch.setattr(data_manager.pd, "read_csv", fake_read_csv)
@@ -51,6 +58,57 @@ def test_load_startup_uses_latest_local_files(monkeypatch):
     assert data_manager.LOADED_V20_FILE_DATE == "20260210"
     assert data_manager.LOADED_MA_FILE_DATE == "20260210"
     assert "TCS" in data_manager.all_available_symbols
+
+
+def test_v20_eligible_symbols_excludes_psu_and_known_psu_symbols():
+    growth_df = pd.DataFrame(
+        [
+            {"Symbol": "TCS", "Is PSU": False},
+            {"Symbol": "SBIN", "Is PSU": True},
+            {"Symbol": "PFC", "Is PSU": False},
+        ]
+    )
+
+    symbols = generate_daily_signals.get_v20_eligible_symbols(growth_df)
+
+    assert symbols == ["TCS"]
+
+
+def test_load_comprehensive_stock_data_prefers_full_universe_file(monkeypatch):
+    full_universe_df = pd.DataFrame(
+        [
+            {
+                "Symbol": "INFY",
+                "Company Name": "Infosys",
+                "Sector": "Technology",
+                "Industry": "IT Services",
+                "Market Cap": "Large",
+                "Net Profit (Cr)": 200,
+                "Latest Quarter Profit (Cr)": 50,
+                "ROCE (%)": 35,
+                "ROE (%)": 30,
+                "Debt to Equity": 0.0,
+                "Public Holding (%)": 40,
+            }
+        ]
+    )
+
+    def fake_read_csv(path, *args, **kwargs):
+        path = str(path)
+        if "NSE_EQ_All_Stocks_Analysis.csv" in path:
+            return full_universe_df.copy()
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(data_manager, "REPO_BASE_PATH", "repo")
+    monkeypatch.setattr(data_manager.os.path, "exists", lambda path: str(path) == "repo/NSE_EQ_All_Stocks_Analysis.csv")
+    monkeypatch.setattr(data_manager.pd, "read_csv", fake_read_csv)
+    monkeypatch.setattr(data_manager, "_sorted_local_matches", lambda pattern: [])
+    monkeypatch.setattr(data_manager, "_fetch_remote_matches", lambda prefix: [])
+
+    data_manager.load_comprehensive_stock_data()
+
+    assert len(data_manager.comprehensive_stocks_df) == 1
+    assert data_manager.comprehensive_stocks_df.iloc[0]["Symbol"] == "INFY"
 
 
 def test_screener_callback_uses_live_data_manager_dataframe(monkeypatch):

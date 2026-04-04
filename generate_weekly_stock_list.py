@@ -17,10 +17,12 @@ import pandas as pd
 # --- Configuration ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 STOCK_LIST_FILENAME = "Master_company_market_trend_analysis.csv"
+FULL_UNIVERSE_FILENAME = "NSE_EQ_All_Stocks_Analysis.csv"
 OUTPUT_STOCK_LIST_PATH = os.path.join(REPO_BASE_PATH, STOCK_LIST_FILENAME)
+OUTPUT_FULL_UNIVERSE_PATH = os.path.join(REPO_BASE_PATH, FULL_UNIVERSE_FILENAME)
 
-def generate_weekly_stock_list(output_path):
-    """Generate weekly stock list with moving averages and NSE categories"""
+def generate_weekly_stock_list(output_path, full_universe_output_path):
+    """Generate weekly screened stock list plus full analyzed NSE universe."""
     try:
         print("Starting comprehensive stock screening with enhancements...")
         screener = StockScreener()
@@ -67,9 +69,13 @@ def generate_weekly_stock_list(output_path):
             comprehensive_df.to_csv(enhanced_filepath, index=False)
             print(f"Enhanced comprehensive data saved to: {enhanced_filename}")
             
-            # Save screened stocks to main output path
+            # Save screened stocks for the V20 shortlist
             df.to_csv(output_path, index=False)
             print(f"Screened stock list saved to: {output_path}")
+
+            # Save full analyzed universe for the screener UI
+            comprehensive_df.to_csv(full_universe_output_path, index=False)
+            print(f"Full stock universe saved to: {full_universe_output_path}")
             
             return True, len(df), enhanced_filename
         else:
@@ -97,13 +103,9 @@ def run_git_command(command_list, working_dir="."):
         print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}")
         return False
 
-def commit_and_push_stock_list(file_to_add, commit_message, comprehensive_file=None):
+def commit_and_push_stock_list(files_to_add, commit_message):
     print(f"\n--- GIT OPS: Starting Git Operations for stock list ---")
-    
-    # Only add the main stock list file (comprehensive files are ignored by .gitignore)
-    files_to_add = [file_to_add]
-    
-    # Add all files
+
     for file_path in files_to_add:
         if not os.path.exists(os.path.join(REPO_BASE_PATH, file_path)):
             print(f"GIT OPS WARNING: File '{file_path}' not found. Skipping.")
@@ -137,7 +139,10 @@ if __name__ == "__main__":
     print(f"WEEKLY STOCK LIST GENERATION: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Generate the stock list using screening criteria
-    success, stock_count, comprehensive_file = generate_weekly_stock_list(OUTPUT_STOCK_LIST_PATH)
+    success, stock_count, comprehensive_file = generate_weekly_stock_list(
+        OUTPUT_STOCK_LIST_PATH,
+        OUTPUT_FULL_UNIVERSE_PATH,
+    )
     
     if success:
         print(f"WEEKLY: Successfully generated stock list with {stock_count} stocks")
@@ -146,7 +151,11 @@ if __name__ == "__main__":
         today_str = datetime.now().strftime("%Y%m%d")
         commit_message = f"Weekly stock list update {today_str} - {stock_count} stocks screened"
         
-        if commit_and_push_stock_list(STOCK_LIST_FILENAME, commit_message):
+        files_to_commit = [STOCK_LIST_FILENAME, FULL_UNIVERSE_FILENAME]
+        if os.path.exists(os.path.join(REPO_BASE_PATH, 'nse_categories.csv')):
+            files_to_commit.append('nse_categories.csv')
+
+        if commit_and_push_stock_list(files_to_commit, commit_message):
             print("WEEKLY: Successfully committed and pushed stock list to GitHub.")
         else:
             print("WEEKLY ERROR: Failed to commit and push stock list to GitHub.")

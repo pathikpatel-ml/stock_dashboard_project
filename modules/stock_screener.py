@@ -29,6 +29,23 @@ if sys.platform.startswith('win'):
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'replace')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'replace')
 
+
+FULL_UNIVERSE_FILENAME = "NSE_EQ_All_Stocks_Analysis.csv"
+
+KNOWN_PSU_SYMBOLS = {
+    'BHEL', 'BPCL', 'COALINDIA', 'CONCOR', 'GAIL', 'HAL', 'HPCL', 'HUDCO', 'IOC',
+    'IRCON', 'IRCTC', 'IRFC', 'IREDA', 'LICI', 'NBCC', 'NLCINDIA', 'NMDC', 'NTPC',
+    'OIL', 'ONGC', 'PFC', 'POWERGRID', 'RAILTEL', 'RCF', 'RECLTD', 'SAIL', 'SBI',
+    'SBICARD', 'SBILIFE', 'SCI', 'UNIONBANK'
+}
+
+PSU_NAME_KEYWORDS = (
+    'bharat', 'coal india', 'grid corporation', 'government of india', 'indian oil',
+    'indian railway', 'national aluminium', 'national thermal', 'nhpc', 'oil and natural gas',
+    'power finance', 'power grid', 'railtel', 'rural electrification', 'shipping corporation',
+    'state bank of india'
+)
+
 class StockScreener:
     def __init__(self):
         self.base_url = "https://www.screener.in/api/company/search/"
@@ -54,15 +71,26 @@ class StockScreener:
             
             try:
                 response = requests.get(url, headers=headers, timeout=10)
-                if response.status_code == 200:
-                    from io import StringIO
-                    df = pd.read_csv(StringIO(response.text))
-                    nse_symbols = df['SYMBOL'].tolist()
-                    nse_symbols = [s.strip() for s in nse_symbols if isinstance(s, str)]
-                    print(f"Fetched {len(nse_symbols)} stocks from NSE")
-                    return sorted(list(set(nse_symbols)))
-            except:
+                response.raise_for_status()
+                from io import StringIO
+                df = pd.read_csv(StringIO(response.text))
+                nse_symbols = df['SYMBOL'].tolist()
+                nse_symbols = [s.strip() for s in nse_symbols if isinstance(s, str)]
+                print(f"Fetched {len(nse_symbols)} stocks from NSE")
+                return sorted(list(set(nse_symbols)))
+            except Exception:
                 pass
+
+            universe_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), FULL_UNIVERSE_FILENAME)
+            if os.path.exists(universe_path):
+                try:
+                    universe_df = pd.read_csv(universe_path, usecols=['Symbol'])
+                    nse_symbols = universe_df['Symbol'].dropna().astype(str).str.strip().unique().tolist()
+                    if nse_symbols:
+                        print(f"Using {len(nse_symbols)} stocks from committed universe file")
+                        return sorted(nse_symbols)
+                except Exception:
+                    pass
             
             # Fallback: Comprehensive list of major NSE stocks
             print("Using comprehensive fallback list...")
@@ -102,6 +130,23 @@ class StockScreener:
         except Exception as e:
             print(f"Error: {e}. Using minimal list.")
             return ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK']
+
+    def classify_company_flags(self, symbol, company_name, sector, industry):
+        symbol_upper = str(symbol).strip().upper()
+        company_name_l = str(company_name).strip().lower()
+        sector_l = str(sector).strip().lower()
+        industry_l = str(industry).strip().lower()
+        combined = f"{sector_l} {industry_l}"
+
+        is_bank_finance = any(
+            keyword in combined for keyword in ['bank', 'finance', 'financial', 'insurance', 'mutual fund', 'credit']
+        )
+        is_psu = (
+            symbol_upper in KNOWN_PSU_SYMBOLS
+            or any(keyword in company_name_l for keyword in PSU_NAME_KEYWORDS)
+            or ('public sector' in combined)
+        )
+        return is_bank_finance, is_psu
     
     def get_screener_data(self, symbol):
         """Get enhanced data from Screener.in"""
@@ -336,14 +381,12 @@ class StockScreener:
                 industry = data['industry'].lower()
                 company_name = data['company_name'].lower()
                 
-                data['is_bank_finance'] = any(keyword in sector + industry for keyword in 
-                                            ['bank', 'finance', 'financial', 'insurance', 'mutual fund'])
-                
-                # Determine if it's a PSU (Public Sector Undertaking)
-                psu_keywords = ['bharat', 'indian', 'national', 'state bank', 'oil india', 'coal india', 
-                            'ntpc', 'ongc', 'sail', 'bhel', 'gail', 'ioc', 'bpcl', 'hpcl']
-                data['is_psu'] = any(keyword in company_name for keyword in psu_keywords) or \
-                                any(keyword in symbol.lower() for keyword in ['sbi', 'pnb', 'boi', 'canara'])
+                data['is_bank_finance'], data['is_psu'] = self.classify_company_flags(
+                    symbol=symbol,
+                    company_name=data['company_name'],
+                    sector=data['sector'],
+                    industry=data['industry'],
+                )
                 
                 # Get net profit (annual) - try multiple possible row names
                 net_profit_rows = ['Net Income', 'Net Income From Continuing Operation Net Minority Interest', 'Normalized Income']
@@ -509,26 +552,24 @@ class StockScreener:
             return False
         
         try:
+            if stock_data.get('is_psu'):
+                return False
+
             if stock_data['is_bank_finance']:
                 # Bank and Finance criteria
                 # Net profit > 1000 cr, ROE > 10%
                 return (stock_data['net_profit'] > 1000 and 
                        stock_data['roe'] > 10)
             else:
-                # Private/PSU sector criteria with public holding filter (removed D/E)
+                # Non-PSU non-financial criteria
                 last_3q = stock_data.get('last_3q_profits', [])
                 profit_exceeds_all_quarters = all(stock_data['net_profit'] > q_profit for q_profit in last_3q) if last_3q else False
                 
                 base_criteria = (stock_data['net_profit'] > 200 and 
                                stock_data['roce'] > 20 and
                                profit_exceeds_all_quarters)
-                
-                # Enhanced criteria for private stocks (removed debt_to_equity check)
-                if not stock_data['is_psu']:  # Private companies
-                    enhanced_criteria = stock_data['public_holding'] < 30
-                    return base_criteria and enhanced_criteria
-                else:  # PSU companies - only base criteria
-                    return base_criteria
+                enhanced_criteria = stock_data['public_holding'] < 30
+                return base_criteria and enhanced_criteria
                        
         except Exception as e:
             print(f"Error applying criteria: {e}")
@@ -794,7 +835,7 @@ def add_moving_averages_to_stocks(df):
         return df
     
     df_with_ma = df.copy()
-    ma_columns = ['MA_10', 'MA_50', 'MA_100', 'MA_200']
+    ma_columns = ['MA10', 'MA50', 'MA100', 'MA200']
     
     # Initialize MA columns
     for col in ma_columns:
@@ -807,10 +848,10 @@ def add_moving_averages_to_stocks(df):
         try:
             ma_data = calculate_moving_averages(symbol)
             if ma_data:
-                df_with_ma.loc[idx, 'MA_10'] = ma_data.get('MA_10')
-                df_with_ma.loc[idx, 'MA_50'] = ma_data.get('MA_50')
-                df_with_ma.loc[idx, 'MA_100'] = ma_data.get('MA_100')
-                df_with_ma.loc[idx, 'MA_200'] = ma_data.get('MA_200')
+                df_with_ma.loc[idx, 'MA10'] = ma_data.get('MA10')
+                df_with_ma.loc[idx, 'MA50'] = ma_data.get('MA50')
+                df_with_ma.loc[idx, 'MA100'] = ma_data.get('MA100')
+                df_with_ma.loc[idx, 'MA200'] = ma_data.get('MA200')
                 df_with_ma.loc[idx, 'Current_Price'] = ma_data.get('Current_Price')
         except Exception as e:
             print(f"Error calculating MA for {symbol}: {e}")
@@ -861,7 +902,7 @@ def get_current_market_price(symbol):
     print("- Bank/Finance: Net profit > Rs.1000 Cr, ROE > 10%")
     print("- Private Sector: Net profit > Rs.200 Cr, ROCE > 20%, Net profit > Each of Last 3Q")
     print("  + Enhanced: Public Holding < 30%")
-    print("- PSU Sector: Net profit > Rs.200 Cr, ROCE > 20%, Net profit > Each of Last 3Q")
+    print("- PSU Sector: Excluded from shortlist")
     print("\nStarting screening process...\n")
     
     try:
