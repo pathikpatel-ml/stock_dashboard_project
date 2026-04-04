@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import data_manager
 import generate_daily_signals
 from modules import screener_callbacks, screener_layout
+from modules.nse_category_fetcher import save_nse_categories_to_csv
 
 
 def test_load_startup_uses_latest_local_files(monkeypatch):
@@ -223,3 +224,23 @@ def test_screener_layout_sliders_have_tooltips():
 
     assert set(found.keys()) == slider_ids
     assert all(tooltip == {"placement": "bottom", "always_visible": False} for tooltip in found.values())
+
+
+def test_save_nse_categories_to_csv_writes_expected_format():
+    output_path = Path(__file__).resolve().parents[1] / "nse_categories_test.csv"
+    try:
+        save_nse_categories_to_csv(
+            {
+                "TCS": ["NIFTY 50", "NIFTY IT"],
+                "INFY": ["NIFTY 50"],
+            },
+            output_path=str(output_path),
+        )
+
+        written = pd.read_csv(output_path)
+        assert list(written.columns) == ["Symbol", "NSE_Categories"]
+        assert set(written["Symbol"]) == {"TCS", "INFY"}
+        assert "NIFTY 50" in written.loc[written["Symbol"] == "TCS", "NSE_Categories"].iloc[0]
+    finally:
+        if output_path.exists():
+            output_path.unlink()

@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from bs4 import BeautifulSoup
 import json
+import os
 
 def fetch_nse_indices():
     """Fetch all NSE indices and their constituents"""
@@ -82,3 +83,23 @@ def get_stock_categories(symbol):
         return stock_categories.get(symbol.upper(), [])
     except:
         return []
+
+
+def save_nse_categories_to_csv(stock_categories, output_path=None):
+    """Persist stock-to-index category mappings to CSV."""
+    if output_path is None:
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        output_path = os.path.join(repo_root, "nse_categories.csv")
+
+    rows = []
+    for symbol, categories in sorted((stock_categories or {}).items()):
+        rows.append(
+            {
+                "Symbol": str(symbol).strip().upper(),
+                "NSE_Categories": ",".join(categories) if isinstance(categories, list) else str(categories),
+            }
+        )
+
+    df = pd.DataFrame(rows, columns=["Symbol", "NSE_Categories"])
+    df.to_csv(output_path, index=False)
+    return output_path
