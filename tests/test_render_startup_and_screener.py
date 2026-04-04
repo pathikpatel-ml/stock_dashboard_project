@@ -7,7 +7,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import data_manager
-from modules import screener_callbacks
+from modules import screener_callbacks, screener_layout
 
 
 def test_load_startup_uses_latest_local_files(monkeypatch):
@@ -111,3 +111,53 @@ def test_category_options_are_built_from_current_dataframe():
 
     assert {"label": "IT", "value": "IT"} in options
     assert {"label": "NIFTY50", "value": "NIFTY50"} in options
+
+
+def test_normalize_comprehensive_columns_generates_fallback_categories():
+    source_df = pd.DataFrame(
+        [
+            {
+                "Symbol": "tcs",
+                "Company Name": "TCS Ltd",
+                "Sector": "Technology",
+                "Industry": "Information Technology Services",
+                "Market Cap": "Large",
+                "Net Profit (Cr)": 100,
+                "Latest Quarter Profit (Cr)": 25,
+                "ROCE (%)": 30,
+                "ROE (%)": 28,
+                "Debt to Equity": 0.1,
+                "Public Holding (%)": 20,
+                "Is PSU": "No",
+                "Is Bank/Finance": "No",
+            }
+        ]
+    )
+
+    normalized = data_manager._normalize_comprehensive_columns(source_df)
+
+    assert normalized.loc[0, "Symbol"] == "TCS"
+    assert "Sector: Technology" in normalized.loc[0, "NSE_Categories"]
+    assert "Industry: Information Technology Services" in normalized.loc[0, "NSE_Categories"]
+
+
+def test_screener_layout_sliders_have_tooltips():
+    layout = screener_layout.create_screener_layout()
+    left_card_body = layout.children[1].children[0].children.children[1]
+    slider_ids = {
+        "net-profit-slider",
+        "quarterly-profit-slider",
+        "roce-slider",
+        "roe-slider",
+        "debt-equity-slider",
+        "public-holding-slider",
+    }
+
+    found = {}
+    for component in left_card_body.children:
+        component_id = getattr(component, "id", None)
+        if component_id in slider_ids:
+            found[component_id] = getattr(component, "tooltip", None)
+
+    assert set(found.keys()) == slider_ids
+    assert all(tooltip == {"placement": "bottom", "always_visible": False} for tooltip in found.values())

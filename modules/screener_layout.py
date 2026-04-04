@@ -2,6 +2,9 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html, dash_table
 
 
+SLIDER_TOOLTIP = {"placement": "bottom", "always_visible": False}
+
+
 def create_screener_layout():
     return dbc.Container(
         id="screener-page",
@@ -39,6 +42,7 @@ def create_screener_layout():
                                             step=100,
                                             value=[-1000, 10000],
                                             marks={0: "0", 5000: "5000", 10000: "10000"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Label("Latest Quarter Profit (Cr)", className="fw-bold mt-4"),
                                         dcc.RangeSlider(
@@ -48,6 +52,7 @@ def create_screener_layout():
                                             step=50,
                                             value=[-500, 5000],
                                             marks={0: "0", 2500: "2500", 5000: "5000"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Label("ROCE (%)", className="fw-bold mt-4"),
                                         dcc.RangeSlider(
@@ -57,6 +62,7 @@ def create_screener_layout():
                                             step=5,
                                             value=[-50, 100],
                                             marks={0: "0", 50: "50", 100: "100"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Label("ROE (%)", className="fw-bold mt-4"),
                                         dcc.RangeSlider(
@@ -66,6 +72,7 @@ def create_screener_layout():
                                             step=5,
                                             value=[-50, 100],
                                             marks={0: "0", 50: "50", 100: "100"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Label("Debt / Equity", className="fw-bold mt-4"),
                                         dcc.RangeSlider(
@@ -75,6 +82,7 @@ def create_screener_layout():
                                             step=0.1,
                                             value=[0, 5],
                                             marks={0: "0", 2: "2", 5: "5"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Label("Public Holding (%)", className="fw-bold mt-4"),
                                         dcc.RangeSlider(
@@ -84,6 +92,7 @@ def create_screener_layout():
                                             step=5,
                                             value=[0, 100],
                                             marks={0: "0", 50: "50", 100: "100"},
+                                            tooltip=SLIDER_TOOLTIP,
                                         ),
                                         html.Hr(),
                                         html.Label("MA10", className="fw-bold"),

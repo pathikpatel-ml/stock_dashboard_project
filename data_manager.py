@@ -43,6 +43,33 @@ LOADED_V20_SOURCE = None
 LOADED_MA_SOURCE = None
 
 
+def _truthy_flag(value):
+    if pd.isna(value):
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _build_fallback_category_string(row):
+    categories = []
+
+    sector = str(row.get("Sector", "")).strip()
+    industry = str(row.get("Industry", "")).strip()
+    market_cap = str(row.get("Market_Cap", "")).strip()
+
+    if sector:
+        categories.append(f"Sector: {sector}")
+    if industry:
+        categories.append(f"Industry: {industry}")
+    if market_cap:
+        categories.append(f"Market Cap: {market_cap}")
+    if _truthy_flag(row.get("Is PSU")):
+        categories.append("PSU")
+    if _truthy_flag(row.get("Is Bank/Finance")):
+        categories.append("Bank/Finance")
+
+    return ", ".join(dict.fromkeys(categories))
+
+
 def process_v20_signals(signals_df_local):
     """
     Process V20 signals and calculate proximity from live prices.
@@ -332,6 +359,13 @@ def _normalize_comprehensive_columns(df):
 
     if "Symbol" in renamed.columns:
         renamed["Symbol"] = renamed["Symbol"].astype(str).str.upper()
+
+    categories_missing = renamed["NSE_Categories"].fillna("").astype(str).str.strip().eq("")
+    if categories_missing.any():
+        renamed.loc[categories_missing, "NSE_Categories"] = renamed.loc[categories_missing].apply(
+            _build_fallback_category_string,
+            axis=1,
+        )
 
     return renamed
 
