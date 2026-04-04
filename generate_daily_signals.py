@@ -21,7 +21,7 @@ OUTPUT_SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}
 KNOWN_PSU_SYMBOLS = {
     'BHEL', 'BPCL', 'COALINDIA', 'CONCOR', 'GAIL', 'HAL', 'HPCL', 'HUDCO', 'IOC',
     'IRCON', 'IRCTC', 'IRFC', 'IREDA', 'LICI', 'NBCC', 'NLCINDIA', 'NMDC', 'NTPC',
-    'OIL', 'ONGC', 'PFC', 'POWERGRID', 'RAILTEL', 'RCF', 'RECLTD', 'SAIL', 'SBI',
+    'OIL', 'ONGC', 'PFC', 'POWERGRID', 'RAILTEL', 'RCF', 'RECLTD', 'SAIL', 'SBI', 'SBIN',
     'SBICARD', 'SBILIFE', 'SCI', 'UNIONBANK'
 }
 

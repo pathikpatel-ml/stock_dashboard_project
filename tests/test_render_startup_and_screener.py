@@ -13,7 +13,10 @@ from modules import screener_callbacks, screener_layout
 
 def test_load_startup_uses_latest_local_files(monkeypatch):
     v20_df = pd.DataFrame(
-        [{"Symbol": "TCS", "Buy_Date": "2026-02-10", "Sell_Date": "2026-02-20", "Buy_Price_Low": 100, "Sequence_Gain_Percent": 12.5}]
+        [
+            {"Symbol": "TCS", "Buy_Date": "2026-02-10", "Sell_Date": "2026-02-20", "Buy_Price_Low": 100, "Sequence_Gain_Percent": 12.5},
+            {"Symbol": "PFC", "Buy_Date": "2026-02-10", "Sell_Date": "2026-02-20", "Buy_Price_Low": 100, "Sequence_Gain_Percent": 12.5},
+        ]
     )
     ma_df = pd.DataFrame(
         [{"Symbol": "TCS", "Date": "2026-02-10", "Event_Type": "Primary_Buy", "Price": 100, "Company Name": "TCS Ltd", "Type": "Large", "MarketCap": 1000}]
@@ -55,6 +58,7 @@ def test_load_startup_uses_latest_local_files(monkeypatch):
     assert not data_manager.v20_signals_df.empty
     assert not data_manager.ma_signals_df.empty
     assert not data_manager.comprehensive_stocks_df.empty
+    assert "PFC" not in data_manager.v20_signals_df["Symbol"].tolist()
     assert data_manager.LOADED_V20_FILE_DATE == "20260210"
     assert data_manager.LOADED_MA_FILE_DATE == "20260210"
     assert "TCS" in data_manager.all_available_symbols

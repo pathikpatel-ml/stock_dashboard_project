@@ -20,6 +20,14 @@ COMPREHENSIVE_FILENAME_PREFIX = "comprehensive_stock_analysis_"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 FULL_UNIVERSE_FILE_NAME = "NSE_EQ_All_Stocks_Analysis.csv"
 
+KNOWN_PSU_SYMBOLS = {
+    "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
+    "IRCON", "IRCTC", "IRFC", "IREDA", "LICI", "NBCC", "NLCINDIA", "NMDC", "NTPC",
+    "OIL", "ONGC", "PFC", "POWERGRID", "RAILTEL", "RCF", "RECLTD", "SAIL", "SBI", "SBIN",
+    "SBICARD", "SBILIFE", "SCI", "UNIONBANK", "PNB", "IOB", "INDIANB", "BANKINDIA",
+    "CENTRALBK", "CANBK"
+}
+
 # --- Global cache state ---
 v20_signals_cache = pd.DataFrame()
 ma_signals_cache = pd.DataFrame()
@@ -48,6 +56,15 @@ def _truthy_flag(value):
     if pd.isna(value):
         return False
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _filter_out_psu_symbols(df):
+    if df.empty or "Symbol" not in df.columns:
+        return df
+
+    filtered_df = df.copy()
+    filtered_df["Symbol"] = filtered_df["Symbol"].astype(str).str.upper().str.strip()
+    return filtered_df[~filtered_df["Symbol"].isin(KNOWN_PSU_SYMBOLS)].reset_index(drop=True)
 
 
 def _build_fallback_category_string(row):
@@ -364,6 +381,7 @@ def _normalize_comprehensive_columns(df):
 
     if "Symbol" in renamed.columns:
         renamed["Symbol"] = renamed["Symbol"].astype(str).str.upper()
+        renamed = _filter_out_psu_symbols(renamed)
 
     categories_missing = renamed["NSE_Categories"].fillna("").astype(str).str.strip().eq("")
     if categories_missing.any():
@@ -493,6 +511,7 @@ def load_and_process_data_on_startup():
         print("STARTUP ERROR: Failed to load any V20 data file.")
         v20_processed_df = pd.DataFrame()
     else:
+        v20_signals_df = _filter_out_psu_symbols(v20_signals_df)
         print(
             f"STARTUP: Loaded {len(v20_signals_df)} V20 rows from "
             f"{loaded_v20_name} via {LOADED_V20_SOURCE}."
