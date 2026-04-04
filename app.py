@@ -1,22 +1,23 @@
 # app.py
-import dash
-from dash import html, dcc, Output, Input  # Make sure to import Output and Input
 from datetime import datetime
 
-# Import project modules
-import data_manager
-from modules import v20_layout
-from modules import v20_callbacks
-from modules import screener_layout
-from modules import screener_callbacks
+import dash
+import dash_bootstrap_components as dbc
+from dash import Input, Output, dcc, html
 
-# 1. Initialize the Dash App
-app = dash.Dash(__name__, suppress_callback_exceptions=True, assets_folder='assets')
+import data_manager
+from modules import screener_callbacks, screener_layout, v20_callbacks, v20_layout
+
+app = dash.Dash(
+    __name__,
+    suppress_callback_exceptions=True,
+    assets_folder="assets",
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+)
 server = app.server
 app.title = "Stock Signal Dashboard"
 
-# Force CSS cache refresh by adding external stylesheets
-app.index_string = '''
+app.index_string = """
 <!DOCTYPE html>
 <html>
     <head>
@@ -37,70 +38,51 @@ app.index_string = '''
         </footer>
     </body>
 </html>
-'''
+"""
 
-# 2. Define the App Layout with Tabs
-app.layout = html.Div(className="app-container", children=[
-    html.H1("Stock Signal Dashboard", className="main-title"),
-    
-    # Navigation Tabs
-    dcc.Tabs(id="main-tabs", value="v20-tab", children=[
-        dcc.Tab(label="V20 Strategy", value="v20-tab", className="custom-tab"),
-        dcc.Tab(label="Stock Screener", value="screener-tab", className="custom-tab")
-    ], className="custom-tabs"),
-    
-    # Tab Content
-    html.Div(id="tab-content"),
-    
-    # Status Display
-    html.Div(id="app-subtitle"), 
-    
-    html.Footer("Stock Signal Dashboard © " + str(datetime.now().year), className="footer")
-])
+app.layout = html.Div(
+    className="app-container",
+    children=[
+        html.H1("Stock Signal Dashboard", className="main-title"),
+        dcc.Tabs(
+            id="main-tabs",
+            value="v20-tab",
+            children=[
+                dcc.Tab(label="V20 Strategy", value="v20-tab", className="custom-tab"),
+                dcc.Tab(label="Stock Screener", value="screener-tab", className="custom-tab"),
+            ],
+            className="custom-tabs",
+        ),
+        html.Div(id="tab-content"),
+        html.Div(id="app-subtitle"),
+        html.Footer(f"Stock Signal Dashboard © {datetime.now().year}", className="footer"),
+    ],
+)
 
-# 3. Register callbacks
 v20_callbacks.register_v20_callbacks(app)
 screener_callbacks.register_screener_callbacks(app)
 
-# Tab switching callback
-@app.callback(
-    Output('tab-content', 'children'),
-    [Input('main-tabs', 'value')]
-)
+
+@app.callback(Output("tab-content", "children"), [Input("main-tabs", "value")])
 def render_tab_content(active_tab):
-    if active_tab == 'v20-tab':
+    if active_tab == "v20-tab":
         return v20_layout.create_v20_layout()
-    elif active_tab == 'screener-tab':
+    if active_tab == "screener-tab":
         return screener_layout.create_screener_layout()
     return html.Div("Select a tab")
 
-# --- START: CORRECTED STATUS DISPLAY CALLBACK ---
-# This callback will run after the main tables are rendered, ensuring it
-# has the latest status information.
-@app.callback(
-    Output('app-subtitle', 'children'),
-    [Input('v20-signals-table-container', 'children')]
-)
+
+@app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
 def update_status_display(_):
-    def get_status_span(prefix_text, df):
-        date_str = datetime.now().strftime("%Y%m%d")
-        status_text = f"{prefix_text}NotFound"
-        status_class = "status-error"
-        
-        if not df.empty:
-            status_text = f"{prefix_text}{date_str}"
-            status_class = "status-loaded"
-        
-        return html.Span(status_text, className=status_class)
-
-    v20_span = get_status_span("V20DataLoaded", data_manager.v20_signals_df)
-    return v20_span
-# --- END: CORRECTED STATUS DISPLAY CALLBACK ---
+    loaded_date = data_manager.LOADED_V20_FILE_DATE or datetime.now().strftime("%Y%m%d")
+    if data_manager.v20_signals_df.empty:
+        return html.Span("V20DataLoadedNotFound", className="status-error")
+    return html.Span(f"V20DataLoaded{loaded_date}", className="status-loaded")
 
 
-# 4. Run the App
-if __name__ == '__main__':
-    # Load data before starting the server
-    data_manager.load_and_process_data_on_startup()
+data_manager.load_and_process_data_on_startup()
+
+
+if __name__ == "__main__":
     print("DASH APP: Application ready. Starting server...")
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    app.run_server(debug=True, host="0.0.0.0", port=8050)
