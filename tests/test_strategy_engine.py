@@ -36,6 +36,9 @@ def _build_strategy_panel():
                     "pb_ratio": config["pb_base"] + (0.1 * offset),
                     "book_value_growth_pct": config["sales_base"] + 1,
                     "eps_growth_pct": config["sales_base"] + 2,
+                    "sales": 100 * ((1 + (config["sales_base"] / 100)) ** offset),
+                    "book_value": 80 * ((1 + ((config["sales_base"] + 1) / 100)) ** offset),
+                    "eps": 10 * ((1 + ((config["sales_base"] + 2) / 100)) ** offset),
                     "promoter_holding_pct": config["promoter_start"] + offset,
                     "ps_ratio": config["ps_base"] + (0.1 * offset),
                     "pcf_ratio": config["pcf_base"] + (0.15 * offset),
@@ -62,6 +65,9 @@ def test_calculate_derived_metrics_builds_requested_windows():
     assert round(beta_2026["3yr_avg_sales_growth"], 2) == round((18 + 19 + 20) / 3, 2)
     assert round(beta_2026["3yr_avg_roce"], 2) == round((21 + 20 + 21) / 3, 2)
     assert round(beta_2026["10yr_change_promoter_holding"], 2) == 9
+    assert beta_2026["10yr_period_sales_growth"] > 10
+    assert beta_2026["10yr_period_book_value_growth"] > 10
+    assert beta_2026["10yr_period_eps_growth"] > 10
     assert beta_2026["5yr_avg_pb"] > 0
     assert beta_2026["5yr_avg_ps"] > 0
     assert beta_2026["5yr_avg_pcf"] > 0

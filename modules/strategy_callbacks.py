@@ -2,7 +2,12 @@ import pandas as pd
 from dash import Input, Output, callback, html
 
 import data_manager
-from modules.strategy_engine import quality_filter, sector_ranker, value_reversion_signals
+from modules.strategy_engine import (
+    quality_filter,
+    quality_filter_diagnostics,
+    sector_ranker,
+    value_reversion_signals,
+)
 
 
 def _columns_from_df(df):
@@ -64,6 +69,7 @@ def update_strategy_views(current_year, top_n):
     top_n = int(top_n or 3)
     ranked = sector_ranker(df, current_year=current_year, top_n=top_n)
     quality = quality_filter(ranked, current_year=current_year, df=df)
+    quality_diagnostics = quality_filter_diagnostics(ranked, current_year=current_year, df=df)
     value = value_reversion_signals(df, current_year=current_year)
     value = value[(value["Buy_Signal"]) | (value["Sell_Signal"])].copy()
 
@@ -72,6 +78,10 @@ def update_strategy_views(current_year, top_n):
             html.P(f"Current year: {current_year}", className="mb-1"),
             html.P(f"Module 1 shortlisted stocks: {len(ranked)}", className="mb-1"),
             html.P(f"Module 2 quality-approved stocks: {len(quality)}", className="mb-1"),
+            html.P(
+                f"Module 2 shortlisted diagnostics rows: {len(quality_diagnostics)}",
+                className="mb-1",
+            ),
             html.P(f"Module 3 active buy/sell signals: {len(value)}", className="mb-0"),
         ]
     )
@@ -79,8 +89,8 @@ def update_strategy_views(current_year, top_n):
         summary,
         ranked.to_dict("records"),
         _columns_from_df(ranked),
-        quality.to_dict("records"),
-        _columns_from_df(quality),
+        quality_diagnostics.to_dict("records"),
+        _columns_from_df(quality_diagnostics),
         value.to_dict("records"),
         _columns_from_df(value),
     )

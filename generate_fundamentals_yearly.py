@@ -5,6 +5,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -81,6 +82,47 @@ class YearlyFundamentalsGenerator:
             raise last_error
         raise ValueError(f"Could not fetch company page for {symbol}")
 
+    def fetch_chart_datasets(self, company_id, metrics, days=1825, consolidated=True):
+        url = f"https://www.screener.in/api/company/{company_id}/chart/"
+        params = {"q": "-".join(metrics), "days": days}
+        if consolidated:
+            params["consolidated"] = "true"
+        response = self.session.get(
+            url,
+            params=params,
+            timeout=self.timeout,
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload.get("datasets", [])
+
+    def fetch_investor_breakdown(self, company_id, classification="promoters", period="yearly"):
+        url = f"https://www.screener.in/api/3/{company_id}/investors/{classification}/{period}/"
+        response = self.session.get(
+            url,
+            timeout=self.timeout,
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def fetch_nse_pledged_data(self, symbol):
+        session = requests.Session()
+        session.headers.update({"User-Agent": self.session.headers.get("User-Agent", "Mozilla/5.0")})
+        try:
+            session.get("https://www.nseindia.com", timeout=self.timeout)
+            response = session.get(
+                "https://www.nseindia.com/api/corporate-pledgedata",
+                params={"symbol": symbol},
+                headers={"Referer": "https://www.nseindia.com/companies-listing/corporate-filings-pledged-data"},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception:
+            return {}
+
     def _build_soup(self, html):
         for parser in ("lxml", "html.parser"):
             try:
@@ -144,8 +186,20 @@ class YearlyFundamentalsGenerator:
         return parsed
 
     def _find_series(self, section_map, candidates):
+        normalized_candidates = [self._normalize_label(candidate) for candidate in candidates]
+
+        for candidate in normalized_candidates:
+            for label, series in section_map.items():
+                if label == candidate:
+                    return series
+
+        for candidate in normalized_candidates:
+            for label, series in section_map.items():
+                if label.startswith(f"{candidate} "):
+                    return series
+
         for label, series in section_map.items():
-            for candidate in candidates:
+            for candidate in normalized_candidates:
                 if candidate in label:
                     return series
         return {}
@@ -157,6 +211,78 @@ class YearlyFundamentalsGenerator:
         df["year"] = pd.to_numeric(df["year"], errors="coerce")
         return df.dropna(subset=["year"]).astype({"year": int}).sort_values("year").reset_index(drop=True)
 
+    def _dataset_values_to_year_map(self, datasets, metric_name):
+        for dataset in datasets:
+            if dataset.get("metric") != metric_name:
+                continue
+            values = dataset.get("values", [])
+            year_map = {}
+            for date_str, value in values:
+                year = self._extract_year_from_header(date_str)
+                if year is None:
+                    continue
+                year_map[year] = value
+            return year_map
+        return {}
+
+    def _parse_period_date(self, label):
+        label = str(label).strip()
+        for fmt in ("%b %Y", "%B %Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(label, fmt)
+            except ValueError:
+                continue
+        year = self._extract_year_from_header(label)
+        if year is None:
+            return None
+        return datetime(year, 12, 31)
+
+    def _aggregate_investor_payload(self, payload):
+        totals = {}
+        for investor_name, investor_data in payload.items():
+            if investor_name == "setAttributes" or not isinstance(investor_data, dict):
+                continue
+            best_value_by_year = {}
+            best_date_by_year = {}
+            for period_label, value in investor_data.items():
+                if period_label == "setAttributes":
+                    continue
+                year = self._extract_year_from_header(period_label)
+                period_date = self._parse_period_date(period_label)
+                numeric_value = self._coerce_numeric(value)
+                if year is None or period_date is None or pd.isna(numeric_value):
+                    continue
+                existing_date = best_date_by_year.get(year)
+                if existing_date is None or period_date > existing_date:
+                    best_date_by_year[year] = period_date
+                    best_value_by_year[year] = float(numeric_value)
+            for year, numeric_value in best_value_by_year.items():
+                totals[year] = totals.get(year, 0.0) + numeric_value
+        return totals
+
+    def _pledged_payload_to_year_map(self, payload):
+        if not payload or "data" not in payload or not payload["data"]:
+            return {}
+
+        year_map = {}
+        for row in payload["data"]:
+            if not isinstance(row, dict):
+                continue
+            period_label = row.get("shp") or row.get("disclosureToDate") or row.get("broadcastDt")
+            year = self._extract_year_from_header(period_label)
+            if year is None:
+                continue
+
+            promoter_pct = self._coerce_numeric(row.get("percPromoterShares"))
+            depository_pct = self._coerce_numeric(row.get("percSharesPledged"))
+
+            # Prefer the direct "% of promoter shares (X/A)" metric from NSE.
+            value = promoter_pct if not pd.isna(promoter_pct) else depository_pct
+            if pd.isna(value):
+                continue
+            year_map[year] = float(value)
+        return year_map
+
     def _compute_growth_series(self, base_df, source_column, target_column):
         if base_df.empty or source_column not in base_df.columns:
             return base_df
@@ -166,23 +292,98 @@ class YearlyFundamentalsGenerator:
 
     def parse_company_page(self, symbol, html, metadata):
         soup = self._build_soup(html)
+        company_info = soup.find(id="company-info")
+        company_id = company_info.get("data-company-id") if company_info else None
+        is_consolidated = str(company_info.get("data-consolidated", "")).lower() == "true" if company_info else True
+
         profit_loss = self._parse_section_table(soup, "profit-loss")
         ratios = self._parse_section_table(soup, "ratios")
+        cash_flow = self._parse_section_table(soup, "cash-flow")
         shareholding = self._parse_section_table(soup, "shareholding")
+
+        chart_datasets = []
+        investor_payload = {}
+        nse_pledged_payload = {}
+        if company_id:
+            try:
+                chart_datasets = self.fetch_chart_datasets(
+                    company_id,
+                    [
+                        "Price to book value",
+                        "Median PBV",
+                        "Book value",
+                        "Market Cap to Sales",
+                        "Median Market Cap to Sales",
+                        "Sales",
+                    ],
+                    days=10000,
+                    consolidated=is_consolidated,
+                )
+            except Exception:
+                chart_datasets = []
+            try:
+                investor_payload = self.fetch_investor_breakdown(company_id, classification="promoters", period="yearly")
+            except Exception:
+                investor_payload = {}
+            if not investor_payload:
+                try:
+                    investor_payload = self.fetch_investor_breakdown(
+                        company_id, classification="promoters", period="quarterly"
+                    )
+                except Exception:
+                    investor_payload = {}
+        try:
+            nse_pledged_payload = self.fetch_nse_pledged_data(symbol)
+        except Exception:
+            nse_pledged_payload = {}
 
         sales_series = self._find_series(profit_loss, ["sales", "revenue from operations"])
         other_income_series = self._find_series(profit_loss, ["other income"])
+        interest_series = self._find_series(profit_loss, ["interest"])
+        operating_profit_series = self._find_series(profit_loss, ["operating profit"])
         eps_series = self._find_series(profit_loss, ["eps in rs", "eps"])
 
         roce_series = self._find_series(ratios, ["roce"])
-        pb_series = self._find_series(ratios, ["price to book value", "price to book"])
-        ps_series = self._find_series(ratios, ["price to sales", "price/sales"])
-        pcf_series = self._find_series(ratios, ["price to cash flow", "price to cashflow", "price/cash flow"])
         book_value_series = self._find_series(ratios, ["book value"])
-        interest_coverage_series = self._find_series(ratios, ["interest coverage"])
+        cfo_series = self._find_series(cash_flow, ["cash from operating activity", "cash from operations"])
 
-        promoter_holding_series = self._find_series(shareholding, ["promoters +", "promoters"])
-        promoter_pledging_series = self._find_series(shareholding, ["pledged percentage", "pledged %", "pledged"])
+        pb_series = self._dataset_values_to_year_map(chart_datasets, "Price to book value")
+        ps_series = self._dataset_values_to_year_map(chart_datasets, "Market Cap to Sales")
+        chart_book_value_series = self._dataset_values_to_year_map(chart_datasets, "Book value")
+        if chart_book_value_series:
+            book_value_series = chart_book_value_series
+
+        promoter_holding_series = self._aggregate_investor_payload(investor_payload)
+        if not promoter_holding_series:
+            promoter_holding_series = self._find_series(shareholding, ["promoters +", "promoters"])
+        promoter_pledging_series = self._pledged_payload_to_year_map(nse_pledged_payload)
+        if not promoter_pledging_series:
+            promoter_pledging_series = self._find_series(shareholding, ["pledged percentage", "pledged %", "pledged"])
+
+        interest_coverage_series = {}
+        if operating_profit_series and interest_series:
+            years = sorted(set(operating_profit_series.keys()) | set(interest_series.keys()))
+            for year in years:
+                operating_profit = self._coerce_numeric(operating_profit_series.get(year))
+                interest = self._coerce_numeric(interest_series.get(year))
+                if pd.isna(operating_profit) or pd.isna(interest):
+                    continue
+                if interest == 0:
+                    interest_coverage_series[year] = np.nan
+                else:
+                    interest_coverage_series[year] = operating_profit / interest
+
+        pcf_series = {}
+        if ps_series and sales_series and cfo_series:
+            years = sorted(set(ps_series.keys()) & set(sales_series.keys()) & set(cfo_series.keys()))
+            for year in years:
+                ps_value = self._coerce_numeric(ps_series.get(year))
+                sales_value = self._coerce_numeric(sales_series.get(year))
+                cfo_value = self._coerce_numeric(cfo_series.get(year))
+                if pd.isna(ps_value) or pd.isna(sales_value) or pd.isna(cfo_value) or cfo_value == 0:
+                    continue
+                implied_market_cap = ps_value * sales_value
+                pcf_series[year] = implied_market_cap / cfo_value
 
         frames = [
             self._series_to_frame(sales_series, "sales"),
@@ -193,6 +394,7 @@ class YearlyFundamentalsGenerator:
             self._series_to_frame(ps_series, "ps_ratio"),
             self._series_to_frame(pcf_series, "pcf_ratio"),
             self._series_to_frame(book_value_series, "book_value"),
+            self._series_to_frame(cfo_series, "cash_from_operations"),
             self._series_to_frame(interest_coverage_series, "interest_coverage_ratio"),
             self._series_to_frame(promoter_holding_series, "promoter_holding_pct"),
             self._series_to_frame(promoter_pledging_series, "promoter_pledging_pct"),
@@ -223,6 +425,9 @@ class YearlyFundamentalsGenerator:
         required_columns = [
             "ticker",
             "year",
+            "sales",
+            "book_value",
+            "eps",
             "sales_growth_pct",
             "roce_pct",
             "pb_ratio",
@@ -240,6 +445,24 @@ class YearlyFundamentalsGenerator:
         for column in required_columns:
             if column not in result.columns:
                 result[column] = np.nan
+
+        # Annual fundamentals often lag live valuation-series updates by one reporting cycle.
+        # Carry forward the latest known annual values so the current year row remains usable.
+        carry_forward_columns = [
+            "sales",
+            "book_value",
+            "eps",
+            "sales_growth_pct",
+            "roce_pct",
+            "book_value_growth_pct",
+            "eps_growth_pct",
+            "promoter_holding_pct",
+            "promoter_pledging_pct",
+            "quality_turnover_pct",
+            "interest_coverage_ratio",
+        ]
+        result = result.sort_values("year").reset_index(drop=True)
+        result[carry_forward_columns] = result[carry_forward_columns].ffill()
 
         return result[required_columns].sort_values("year").reset_index(drop=True)
 
@@ -273,6 +496,9 @@ class YearlyFundamentalsGenerator:
                 columns=[
                     "ticker",
                     "year",
+                    "sales",
+                    "book_value",
+                    "eps",
                     "sales_growth_pct",
                     "roce_pct",
                     "pb_ratio",
