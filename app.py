@@ -6,7 +6,14 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, dcc, html
 
 import data_manager
-from modules import screener_callbacks, screener_layout, v20_callbacks, v20_layout
+from modules import (
+    screener_callbacks,
+    screener_layout,
+    strategy_callbacks,
+    strategy_layout,
+    v20_callbacks,
+    v20_layout,
+)
 
 app = dash.Dash(
     __name__,
@@ -50,6 +57,7 @@ app.layout = html.Div(
             children=[
                 dcc.Tab(label="V20 Strategy", value="v20-tab", className="custom-tab"),
                 dcc.Tab(label="Stock Screener", value="screener-tab", className="custom-tab"),
+                dcc.Tab(label="Quant Strategies", value="strategy-tab", className="custom-tab"),
             ],
             className="custom-tabs",
         ),
@@ -61,6 +69,7 @@ app.layout = html.Div(
 
 v20_callbacks.register_v20_callbacks(app)
 screener_callbacks.register_screener_callbacks(app)
+strategy_callbacks.register_strategy_callbacks(app)
 
 
 @app.callback(Output("tab-content", "children"), [Input("main-tabs", "value")])
@@ -69,6 +78,8 @@ def render_tab_content(active_tab):
         return v20_layout.create_v20_layout()
     if active_tab == "screener-tab":
         return screener_layout.create_screener_layout()
+    if active_tab == "strategy-tab":
+        return strategy_layout.create_strategy_layout()
     return html.Div("Select a tab")
 
 

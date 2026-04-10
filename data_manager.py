@@ -19,6 +19,7 @@ MA_SIGNALS_FILENAME_TEMPLATE = "ma_signals_{date_str}.csv"
 COMPREHENSIVE_FILENAME_PREFIX = "comprehensive_stock_analysis_"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 FULL_UNIVERSE_FILE_NAME = "NSE_EQ_All_Stocks_Analysis.csv"
+YEARLY_FUNDAMENTALS_FILE_NAME = "stock_fundamentals_yearly.csv"
 
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
@@ -45,6 +46,7 @@ v20_processed_df = pd.DataFrame()
 comprehensive_stocks_df = pd.DataFrame()
 nse_categories_df = pd.DataFrame()
 ma_signals_df = pd.DataFrame()
+fundamentals_yearly_df = pd.DataFrame()
 
 LOADED_V20_FILE_DATE = None
 LOADED_MA_FILE_DATE = None
@@ -393,6 +395,57 @@ def _normalize_comprehensive_columns(df):
     return renamed
 
 
+def _normalize_fundamentals_yearly_columns(df):
+    if df.empty:
+        return pd.DataFrame()
+
+    normalized = df.copy()
+    rename_map = {
+        "Symbol": "ticker",
+        "Ticker": "ticker",
+        "Year": "year",
+        "Sector": "sector",
+        "Market Cap": "market_cap",
+    }
+    normalized = normalized.rename(columns=rename_map)
+
+    required_columns = [
+        "ticker",
+        "year",
+        "sales_growth_pct",
+        "roce_pct",
+        "pb_ratio",
+        "book_value_growth_pct",
+        "eps_growth_pct",
+        "promoter_holding_pct",
+        "ps_ratio",
+        "pcf_ratio",
+        "promoter_pledging_pct",
+        "quality_turnover_pct",
+        "interest_coverage_ratio",
+        "sector",
+        "market_cap",
+    ]
+
+    for column in required_columns:
+        if column not in normalized.columns:
+            normalized[column] = np.nan
+
+    normalized["ticker"] = normalized["ticker"].astype(str).str.upper().str.strip()
+    normalized["year"] = pd.to_numeric(normalized["year"], errors="coerce")
+    normalized = normalized.dropna(subset=["ticker", "year"]).copy()
+    normalized["year"] = normalized["year"].astype(int)
+
+    numeric_columns = [column for column in required_columns if column not in {"ticker", "year", "sector"}]
+    for column in numeric_columns:
+        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+
+    normalized["sector"] = normalized["sector"].fillna("Unknown").astype(str).str.strip()
+    normalized.loc[normalized["sector"].eq(""), "sector"] = "Unknown"
+    normalized = normalized.drop_duplicates(subset=["ticker", "year"], keep="last")
+    return normalized.sort_values(["ticker", "year"]).reset_index(drop=True)
+
+
 def load_comprehensive_stock_data():
     """Load screener data from the newest full-universe file, then fall back as needed."""
     global comprehensive_stocks_df, nse_categories_df
@@ -472,6 +525,23 @@ def load_comprehensive_stock_data():
         nse_categories_df = pd.DataFrame()
 
 
+def load_fundamentals_yearly_data():
+    global fundamentals_yearly_df
+
+    fundamentals_yearly_df = pd.DataFrame()
+    try:
+        yearly_local_path = os.path.join(REPO_BASE_PATH, YEARLY_FUNDAMENTALS_FILE_NAME)
+        if os.path.exists(yearly_local_path):
+            fundamentals_yearly_df = _normalize_fundamentals_yearly_columns(pd.read_csv(yearly_local_path))
+            print(
+                f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
+                f"{YEARLY_FUNDAMENTALS_FILE_NAME}"
+            )
+    except Exception as e:
+        print(f"Error loading yearly fundamentals data: {e}")
+        fundamentals_yearly_df = pd.DataFrame()
+
+
 def get_v20_for_stock(symbol):
     global v20_signals_df
     if v20_signals_df.empty:
@@ -537,6 +607,7 @@ def load_and_process_data_on_startup():
         )
 
     load_comprehensive_stock_data()
+    load_fundamentals_yearly_data()
 
     symbols_v20 = v20_signals_df["Symbol"].dropna().astype(str).str.upper().unique().tolist() if not v20_signals_df.empty else []
     symbols_ma = ma_signals_df["Symbol"].dropna().astype(str).str.upper().unique().tolist() if not ma_signals_df.empty else []
@@ -545,5 +616,10 @@ def load_and_process_data_on_startup():
         if not comprehensive_stocks_df.empty and "Symbol" in comprehensive_stocks_df.columns
         else []
     )
-    all_available_symbols = sorted(set(symbols_v20 + symbols_ma + symbols_comp))
+    symbols_fundamentals = (
+        fundamentals_yearly_df["ticker"].dropna().astype(str).str.upper().unique().tolist()
+        if not fundamentals_yearly_df.empty and "ticker" in fundamentals_yearly_df.columns
+        else []
+    )
+    all_available_symbols = sorted(set(symbols_v20 + symbols_ma + symbols_comp + symbols_fundamentals))
 
