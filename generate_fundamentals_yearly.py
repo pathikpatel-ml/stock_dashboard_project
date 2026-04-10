@@ -332,10 +332,13 @@ class YearlyFundamentalsGenerator:
                     )
                 except Exception:
                     investor_payload = {}
-        try:
-            nse_pledged_payload = self.fetch_nse_pledged_data(symbol)
-        except Exception:
-            nse_pledged_payload = {}
+        # Only augment with NSE pledged data for real company pages.
+        # Fixture-based unit tests intentionally pass HTML without company-info.
+        if company_id:
+            try:
+                nse_pledged_payload = self.fetch_nse_pledged_data(symbol)
+            except Exception:
+                nse_pledged_payload = {}
 
         sales_series = self._find_series(profit_loss, ["sales", "revenue from operations"])
         other_income_series = self._find_series(profit_loss, ["other income"])
