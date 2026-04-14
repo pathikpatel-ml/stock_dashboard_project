@@ -23,6 +23,22 @@ OPTIONAL_RAW_COLUMNS = [
     "eps",
 ]
 
+DERIVED_METRIC_COLUMNS = [
+    "3yr_avg_sales_growth",
+    "3yr_avg_roce",
+    "5yr_avg_pb",
+    "5yr_avg_ps",
+    "5yr_avg_pcf",
+    "10yr_change_promoter_holding",
+    "10yr_avg_book_value_growth",
+    "10yr_avg_eps_growth",
+    "10yr_avg_roce",
+    "10yr_avg_sales_growth",
+    "10yr_period_book_value_growth",
+    "10yr_period_eps_growth",
+    "10yr_period_sales_growth",
+]
+
 
 def _prepare_panel(df):
     if df is None or df.empty:
@@ -75,6 +91,8 @@ def _prepare_panel(df):
 def calculate_derived_metrics(df):
     panel = _prepare_panel(df)
     if panel.empty:
+        return panel
+    if all(column in panel.columns for column in DERIVED_METRIC_COLUMNS):
         return panel
 
     grouped = panel.groupby("ticker", group_keys=False)
@@ -141,6 +159,7 @@ def sector_ranker(df, current_year, top_n=3):
         return current
 
     ranked = current[current["market_cap"] >= 200].copy()
+    ranked = ranked.dropna(subset=["sector", "3yr_avg_sales_growth", "3yr_avg_roce", "pb_ratio"])
     if ranked.empty:
         return ranked
 

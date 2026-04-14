@@ -3,6 +3,7 @@ from dash import Input, Output, State, callback, html
 
 import data_manager
 from modules.strategy_engine import (
+    calculate_derived_metrics,
     quality_filter,
     quality_filter_diagnostics,
     sector_ranker,
@@ -98,20 +99,40 @@ def update_strategy_views(current_year, selected_sector):
             return input_df
         return input_df[input_df["sector"] == selected_sector].copy()
 
-    ranked = sector_ranker(df, current_year=current_year, top_n=3)
+    features_df = data_manager.fundamentals_yearly_features_df
+    if features_df.empty:
+        features_df = calculate_derived_metrics(df)
+
+    ranked = sector_ranker(features_df, current_year=current_year, top_n=3)
     ranked = filter_by_sector(ranked)
-    quality = quality_filter(ranked, current_year=current_year, df=df)
-    quality_diagnostics = quality_filter_diagnostics(ranked, current_year=current_year, df=df)
-    value = value_reversion_signals(df, current_year=current_year)
+    quality = quality_filter(ranked, current_year=current_year, df=features_df)
+    quality_diagnostics = quality_filter_diagnostics(ranked, current_year=current_year, df=features_df)
+    value = value_reversion_signals(features_df, current_year=current_year)
     value = value[(value["Buy_Signal"]) | (value["Sell_Signal"])].copy()
     value = filter_by_sector(value)
 
     sector_label = selected_sector if selected_sector and selected_sector != "__ALL__" else "All Sectors"
 
+    current_year_df = features_df[features_df["year"] == int(current_year)].copy()
+    module1_eligible_count = 0
+    if not current_year_df.empty:
+        module1_eligible_count = int(
+            current_year_df[
+                (current_year_df["market_cap"] >= 200)
+                & current_year_df["3yr_avg_sales_growth"].notna()
+                & current_year_df["3yr_avg_roce"].notna()
+                & current_year_df["pb_ratio"].notna()
+            ].shape[0]
+        )
+
     summary = html.Div(
         [
             html.P(f"Current year: {current_year}", className="mb-1"),
             html.P(f"Selected sector: {sector_label}", className="mb-1"),
+            html.P(
+                f"Rows in selected year: {len(current_year_df)} | Module 1 eligible rows (after missing-data checks): {module1_eligible_count}",
+                className="mb-1",
+            ),
             html.P(f"Module 1 shortlisted stocks: {len(ranked)}", className="mb-1"),
             html.P(f"Module 2 quality-approved stocks: {len(quality)}", className="mb-1"),
             html.P(

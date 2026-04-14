@@ -47,6 +47,7 @@ comprehensive_stocks_df = pd.DataFrame()
 nse_categories_df = pd.DataFrame()
 ma_signals_df = pd.DataFrame()
 fundamentals_yearly_df = pd.DataFrame()
+fundamentals_yearly_features_df = pd.DataFrame()
 
 LOADED_V20_FILE_DATE = None
 LOADED_MA_FILE_DATE = None
@@ -583,9 +584,10 @@ def load_comprehensive_stock_data():
 
 
 def load_fundamentals_yearly_data():
-    global fundamentals_yearly_df
+    global fundamentals_yearly_df, fundamentals_yearly_features_df
 
     fundamentals_yearly_df = pd.DataFrame()
+    fundamentals_yearly_features_df = pd.DataFrame()
     try:
         for local_path, display_name in _list_local_yearly_fundamentals_candidates():
             try:
@@ -593,6 +595,12 @@ def load_fundamentals_yearly_data():
                 if loaded_df.empty:
                     continue
                 fundamentals_yearly_df = loaded_df
+                try:
+                    from modules.strategy_engine import calculate_derived_metrics
+
+                    fundamentals_yearly_features_df = calculate_derived_metrics(fundamentals_yearly_df)
+                except Exception:
+                    fundamentals_yearly_features_df = pd.DataFrame()
                 print(
                     f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
                     f"{display_name} (local)"
@@ -610,6 +618,12 @@ def load_fundamentals_yearly_data():
                 if loaded_df.empty:
                     continue
                 fundamentals_yearly_df = loaded_df
+                try:
+                    from modules.strategy_engine import calculate_derived_metrics
+
+                    fundamentals_yearly_features_df = calculate_derived_metrics(fundamentals_yearly_df)
+                except Exception:
+                    fundamentals_yearly_features_df = pd.DataFrame()
                 print(
                     f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
                     f"{remote_path} (github)"
@@ -625,6 +639,7 @@ def load_fundamentals_yearly_data():
     except Exception as e:
         print(f"Error loading yearly fundamentals data: {e}")
         fundamentals_yearly_df = pd.DataFrame()
+        fundamentals_yearly_features_df = pd.DataFrame()
 
 
 def get_v20_for_stock(symbol):
