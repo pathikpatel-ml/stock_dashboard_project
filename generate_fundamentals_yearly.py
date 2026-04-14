@@ -290,6 +290,49 @@ class YearlyFundamentalsGenerator:
         base_df[target_column] = base_df[source_column].pct_change() * 100
         return base_df
 
+    def _empty_output_frame(self):
+        return pd.DataFrame(
+            columns=[
+                "ticker",
+                "year",
+                "sales",
+                "book_value",
+                "eps",
+                "sales_growth_pct",
+                "roce_pct",
+                "pb_ratio",
+                "book_value_growth_pct",
+                "eps_growth_pct",
+                "promoter_holding_pct",
+                "ps_ratio",
+                "pcf_ratio",
+                "promoter_pledging_pct",
+                "quality_turnover_pct",
+                "interest_coverage_ratio",
+                "sector",
+                "market_cap",
+            ]
+        )
+
+    def _normalize_existing_output(self, df):
+        if df is None or df.empty:
+            return self._empty_output_frame()
+        normalized = df.copy()
+        if "ticker" in normalized.columns:
+            normalized["ticker"] = normalized["ticker"].astype(str).str.upper().str.strip()
+        if "year" in normalized.columns:
+            normalized["year"] = pd.to_numeric(normalized["year"], errors="coerce")
+            normalized = normalized.dropna(subset=["year"])
+            normalized["year"] = normalized["year"].astype(int)
+        required = self._empty_output_frame().columns.tolist()
+        for column in required:
+            if column not in normalized.columns:
+                normalized[column] = np.nan
+        normalized = normalized[required]
+        if {"ticker", "year"}.issubset(set(normalized.columns)):
+            normalized = normalized.drop_duplicates(subset=["ticker", "year"], keep="last")
+        return normalized.sort_values(["ticker", "year"]).reset_index(drop=True)
+
     def parse_company_page(self, symbol, html, metadata):
         soup = self._build_soup(html)
         company_info = soup.find(id="company-info")
@@ -353,6 +396,13 @@ class YearlyFundamentalsGenerator:
         pb_series = self._dataset_values_to_year_map(chart_datasets, "Price to book value")
         ps_series = self._dataset_values_to_year_map(chart_datasets, "Market Cap to Sales")
         chart_book_value_series = self._dataset_values_to_year_map(chart_datasets, "Book value")
+        ratios_pb_series = self._find_series(ratios, ["price to book value", "price to book"])
+        ratios_ps_series = self._find_series(ratios, ["price to sales", "market cap to sales"])
+        ratios_pcf_series = self._find_series(ratios, ["price to cash flow", "price to cashflow"])
+        if not pb_series:
+            pb_series = ratios_pb_series
+        if not ps_series:
+            ps_series = ratios_ps_series
         if chart_book_value_series:
             book_value_series = chart_book_value_series
 
@@ -376,7 +426,7 @@ class YearlyFundamentalsGenerator:
                 else:
                     interest_coverage_series[year] = operating_profit / interest
 
-        pcf_series = {}
+        pcf_series = ratios_pcf_series if ratios_pcf_series else {}
         if ps_series and sales_series and cfo_series:
             years = sorted(set(ps_series.keys()) & set(sales_series.keys()) & set(cfo_series.keys()))
             for year in years:
@@ -469,9 +519,13 @@ class YearlyFundamentalsGenerator:
 
         return result[required_columns].sort_values("year").reset_index(drop=True)
 
-    def generate(self, symbols, metadata_map):
+    def generate(self, symbols, metadata_map, existing_output_df=None, checkpoint_path=None, checkpoint_every=0):
         rows = []
+        if existing_output_df is not None and not existing_output_df.empty:
+            rows.append(self._normalize_existing_output(existing_output_df))
         summary = GenerationSummary(total_symbols=len(symbols))
+        checkpoint_every = int(checkpoint_every or 0)
+        processed_since_checkpoint = 0
 
         for index, symbol in enumerate(symbols, start=1):
             print(f"[{index}/{len(symbols)}] Processing {symbol}")
@@ -482,6 +536,7 @@ class YearlyFundamentalsGenerator:
                 if not company_df.empty:
                     rows.append(company_df)
                     summary.successful_symbols += 1
+                    processed_since_checkpoint += 1
                 else:
                     print(f"  No yearly data parsed for {symbol}")
                     summary.failed_symbols += 1
@@ -489,34 +544,27 @@ class YearlyFundamentalsGenerator:
                 print(f"  Failed for {symbol}: {exc}")
                 summary.failed_symbols += 1
 
+            if checkpoint_path and checkpoint_every > 0 and processed_since_checkpoint >= checkpoint_every:
+                checkpoint_df = self._normalize_existing_output(pd.concat(rows, ignore_index=True)) if rows else self._empty_output_frame()
+                os.makedirs(os.path.dirname(checkpoint_path) or REPO_BASE_PATH, exist_ok=True)
+                checkpoint_df.to_csv(checkpoint_path, index=False)
+                print(
+                    f"Checkpoint saved to {checkpoint_path} "
+                    f"(rows={len(checkpoint_df)}, processed_symbols={index}/{len(symbols)})"
+                )
+                processed_since_checkpoint = 0
+
             time.sleep(self.request_delay)
 
         if rows:
-            output_df = pd.concat(rows, ignore_index=True)
-            output_df = output_df.sort_values(["ticker", "year"]).reset_index(drop=True)
+            output_df = self._normalize_existing_output(pd.concat(rows, ignore_index=True))
         else:
-            output_df = pd.DataFrame(
-                columns=[
-                    "ticker",
-                    "year",
-                    "sales",
-                    "book_value",
-                    "eps",
-                    "sales_growth_pct",
-                    "roce_pct",
-                    "pb_ratio",
-                    "book_value_growth_pct",
-                    "eps_growth_pct",
-                    "promoter_holding_pct",
-                    "ps_ratio",
-                    "pcf_ratio",
-                    "promoter_pledging_pct",
-                    "quality_turnover_pct",
-                    "interest_coverage_ratio",
-                    "sector",
-                    "market_cap",
-                ]
-            )
+            output_df = self._empty_output_frame()
+
+        if checkpoint_path:
+            os.makedirs(os.path.dirname(checkpoint_path) or REPO_BASE_PATH, exist_ok=True)
+            output_df.to_csv(checkpoint_path, index=False)
+            print(f"Checkpoint saved to {checkpoint_path} (rows={len(output_df)})")
 
         summary.output_rows = len(output_df)
         return output_df, summary
@@ -529,6 +577,22 @@ def parse_args():
     parser.add_argument("--symbols", default="", help="Comma-separated list of symbols to process.")
     parser.add_argument("--min-successful-symbols", type=int, default=1, help="Minimum successful symbols required.")
     parser.add_argument("--request-delay", type=float, default=0.4, help="Delay between requests in seconds.")
+    parser.add_argument(
+        "--checkpoint-path",
+        default="",
+        help="Optional CSV checkpoint path to persist intermediate results.",
+    )
+    parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=50,
+        help="Write checkpoint after every N processed symbols when checkpoint path is set.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from existing checkpoint/output file and skip already processed tickers.",
+    )
     return parser.parse_args()
 
 
@@ -545,8 +609,38 @@ def main():
     if args.sample_size and args.sample_size > 0:
         symbols = symbols[: args.sample_size]
 
-    output_df, summary = generator.generate(symbols, metadata_map)
+    checkpoint_path = os.path.join(REPO_BASE_PATH, args.checkpoint_path) if args.checkpoint_path else ""
     output_path = os.path.join(REPO_BASE_PATH, args.output)
+
+    existing_df = pd.DataFrame()
+    resume_source = ""
+    if args.resume:
+        candidate_paths = [path for path in [checkpoint_path, output_path] if path]
+        for candidate in candidate_paths:
+            if os.path.exists(candidate):
+                try:
+                    existing_df = pd.read_csv(candidate)
+                    resume_source = candidate
+                    break
+                except Exception:
+                    continue
+
+    if not existing_df.empty and "ticker" in existing_df.columns:
+        existing_tickers = set(existing_df["ticker"].dropna().astype(str).str.upper().tolist())
+        before_count = len(symbols)
+        symbols = [symbol for symbol in symbols if symbol.upper() not in existing_tickers]
+        print(
+            f"Resuming from {resume_source or 'existing data'}: "
+            f"skipped {before_count - len(symbols)} already-processed symbols, remaining={len(symbols)}"
+        )
+
+    output_df, summary = generator.generate(
+        symbols,
+        metadata_map,
+        existing_output_df=existing_df,
+        checkpoint_path=checkpoint_path or None,
+        checkpoint_every=args.checkpoint_every,
+    )
     os.makedirs(os.path.dirname(output_path) or REPO_BASE_PATH, exist_ok=True)
     output_df.to_csv(output_path, index=False)
 

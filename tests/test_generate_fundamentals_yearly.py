@@ -57,6 +57,9 @@ def test_parse_company_page_extracts_expected_yearly_metrics():
     assert parsed.iloc[-1]["sales"] == 150
     assert parsed.iloc[-1]["book_value"] == 72
     assert parsed.iloc[-1]["eps"] == 18
+    assert parsed.iloc[-1]["pb_ratio"] == 3
+    assert parsed.iloc[-1]["ps_ratio"] == 5
+    assert parsed.iloc[-1]["pcf_ratio"] == 7
     assert round(parsed.iloc[-1]["sales_growth_pct"], 2) == 25.0
     assert round(parsed.iloc[-1]["book_value_growth_pct"], 2) == 20.0
     assert round(parsed.iloc[-1]["eps_growth_pct"], 2) == 50.0

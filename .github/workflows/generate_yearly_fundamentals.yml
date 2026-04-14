@@ -13,6 +13,10 @@ on:
         description: 'Run full generation after sample validation'
         required: false
         default: 'true'
+      resume_from_checkpoint:
+        description: 'Resume full generation from checkpoint when available'
+        required: false
+        default: 'true'
 
 jobs:
   generate-yearly-fundamentals:
@@ -52,17 +56,44 @@ jobs:
         pytest tests/test_generate_fundamentals_yearly.py tests/test_strategy_engine.py -q
 
     - name: Generate full yearly fundamentals dataset
+      id: full_generation
       if: ${{ github.event_name == 'schedule' || github.event.inputs.run_full != 'false' }}
+      continue-on-error: true
+      env:
+        RESUME_FROM_CHECKPOINT: ${{ github.event.inputs.resume_from_checkpoint || 'true' }}
       run: |
-        python generate_fundamentals_yearly.py --output stock_fundamentals_yearly.csv --min-successful-symbols 10
+        RESUME_FLAG=""
+        if [ "$RESUME_FROM_CHECKPOINT" = "true" ]; then
+          RESUME_FLAG="--resume"
+        fi
+        python generate_fundamentals_yearly.py \
+          --output stock_fundamentals_yearly.csv \
+          --min-successful-symbols 10 \
+          --checkpoint-path output/stock_fundamentals_yearly_checkpoint.csv \
+          --checkpoint-every 50 \
+          $RESUME_FLAG
 
-    - name: Commit and push dataset updates
-      if: ${{ github.event_name == 'schedule' || github.event.inputs.run_full != 'false' }}
+    - name: Commit and push checkpoint/full dataset updates
+      if: ${{ always() && (github.event_name == 'schedule' || github.event.inputs.run_full != 'false') }}
       run: |
-        git add stock_fundamentals_yearly.csv output/stock_fundamentals_yearly_sample.csv
+        if [ -f stock_fundamentals_yearly.csv ]; then
+          git add stock_fundamentals_yearly.csv
+        fi
+        if [ -f output/stock_fundamentals_yearly_sample.csv ]; then
+          git add output/stock_fundamentals_yearly_sample.csv
+        fi
+        if [ -f output/stock_fundamentals_yearly_checkpoint.csv ]; then
+          git add output/stock_fundamentals_yearly_checkpoint.csv
+        fi
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Automated yearly fundamentals refresh"
+          git commit -m "Automated yearly fundamentals refresh (checkpoint/full)"
           git push
         fi
+
+    - name: Fail workflow if full generation step failed
+      if: ${{ (github.event_name == 'schedule' || github.event.inputs.run_full != 'false') && steps.full_generation.outcome == 'failure' }}
+      run: |
+        echo "Full generation failed. Checkpoint (if any) has been committed."
+        exit 1
