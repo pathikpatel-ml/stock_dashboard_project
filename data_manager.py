@@ -325,6 +325,63 @@ def _read_csv_with_candidates(today_filename, filename_regex, parse_dates=None):
     return pd.DataFrame(), None, None
 
 
+def _yearly_file_sort_key(filename):
+    lower_name = str(filename).lower()
+    is_sample = "sample" in lower_name
+    date_str = _extract_date_from_name(str(filename), r"(\d{8})") or "00000000"
+    try:
+        date_rank = -int(date_str)
+    except ValueError:
+        date_rank = 0
+    return (is_sample, date_rank, lower_name)
+
+
+def _list_local_yearly_fundamentals_candidates():
+    candidates = []
+
+    root_file = YEARLY_FUNDAMENTALS_FILE_NAME
+    root_path = os.path.join(REPO_BASE_PATH, root_file)
+    if os.path.exists(root_path):
+        candidates.append((root_path, root_file))
+
+    output_dir = os.path.join(REPO_BASE_PATH, "output")
+    if os.path.isdir(output_dir):
+        for filename in os.listdir(output_dir):
+            lower_name = filename.lower()
+            if not lower_name.startswith("stock_fundamentals_yearly") or not lower_name.endswith(".csv"):
+                continue
+            file_path = os.path.join(output_dir, filename)
+            candidates.append((file_path, os.path.join("output", filename)))
+
+    seen = set()
+    deduped = []
+    for file_path, display_name in sorted(candidates, key=lambda item: _yearly_file_sort_key(item[1])):
+        key = file_path.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append((file_path, display_name))
+    return deduped
+
+
+def _list_remote_yearly_fundamentals_candidates():
+    candidates = [YEARLY_FUNDAMENTALS_FILE_NAME]
+    api_root = f"https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/contents/output"
+    try:
+        response = requests.get(api_root, timeout=10)
+        response.raise_for_status()
+        for file_item in response.json():
+            file_name = file_item.get("name", "")
+            lower_name = str(file_name).lower()
+            if lower_name.startswith("stock_fundamentals_yearly") and lower_name.endswith(".csv"):
+                candidates.append(f"output/{file_name}")
+    except Exception:
+        pass
+
+    deduped = sorted(dict.fromkeys(candidates), key=_yearly_file_sort_key)
+    return deduped
+
+
 def _normalize_comprehensive_columns(df):
     if df.empty:
         return pd.DataFrame()
@@ -530,13 +587,41 @@ def load_fundamentals_yearly_data():
 
     fundamentals_yearly_df = pd.DataFrame()
     try:
-        yearly_local_path = os.path.join(REPO_BASE_PATH, YEARLY_FUNDAMENTALS_FILE_NAME)
-        if os.path.exists(yearly_local_path):
-            fundamentals_yearly_df = _normalize_fundamentals_yearly_columns(pd.read_csv(yearly_local_path))
-            print(
-                f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
-                f"{YEARLY_FUNDAMENTALS_FILE_NAME}"
+        for local_path, display_name in _list_local_yearly_fundamentals_candidates():
+            try:
+                loaded_df = _normalize_fundamentals_yearly_columns(pd.read_csv(local_path))
+                if loaded_df.empty:
+                    continue
+                fundamentals_yearly_df = loaded_df
+                print(
+                    f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
+                    f"{display_name} (local)"
+                )
+                return
+            except Exception:
+                continue
+
+        for remote_path in _list_remote_yearly_fundamentals_candidates():
+            remote_url = (
+                f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{remote_path}"
             )
+            try:
+                loaded_df = _normalize_fundamentals_yearly_columns(pd.read_csv(remote_url))
+                if loaded_df.empty:
+                    continue
+                fundamentals_yearly_df = loaded_df
+                print(
+                    f"Loaded {len(fundamentals_yearly_df)} yearly fundamentals rows from "
+                    f"{remote_path} (github)"
+                )
+                return
+            except Exception:
+                continue
+
+        print(
+            "Yearly fundamentals file not found in local root/output or GitHub root/output. "
+            "Expected stock_fundamentals_yearly.csv or output/stock_fundamentals_yearly*.csv"
+        )
     except Exception as e:
         print(f"Error loading yearly fundamentals data: {e}")
         fundamentals_yearly_df = pd.DataFrame()

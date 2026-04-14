@@ -45,14 +45,11 @@ def create_strategy_layout():
                                     [
                                         html.Label("Current Year", className="fw-bold"),
                                         dcc.Dropdown(id="strategy-year-dropdown", clearable=False, className="mb-3"),
-                                        html.Label("Top Stocks Per Sector", className="fw-bold"),
-                                        dcc.Input(
-                                            id="strategy-topn-input",
-                                            type="number",
-                                            min=1,
-                                            step=1,
-                                            value=3,
-                                            className="form-control mb-3",
+                                        html.Label("Sector", className="fw-bold"),
+                                        dcc.Dropdown(
+                                            id="strategy-sector-dropdown",
+                                            clearable=False,
+                                            className="mb-3",
                                         ),
                                         dbc.Alert(
                                             id="strategy-data-status",
