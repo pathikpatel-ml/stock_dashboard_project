@@ -151,6 +151,12 @@ def get_v20_eligible_symbols(growth_df):
     if 'Is PSU' in df.columns:
         df = df[~df['Is PSU'].apply(_truthy_flag)]
 
+    public_holding_columns = ['Public_Holding_Percent', 'Public Holding (%)']
+    public_holding_column = next((col for col in public_holding_columns if col in df.columns), None)
+    if public_holding_column:
+        df[public_holding_column] = pd.to_numeric(df[public_holding_column], errors='coerce')
+        df = df[df[public_holding_column] < 30]
+
     df = df[~df['Symbol'].isin(KNOWN_PSU_SYMBOLS)]
     return df['Symbol'].dropna().unique().tolist()
 
