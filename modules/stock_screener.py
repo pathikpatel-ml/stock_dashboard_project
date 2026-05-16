@@ -149,200 +149,121 @@ class StockScreener:
         return is_bank_finance, is_psu
     
     def get_screener_data(self, symbol):
-        """Get enhanced data from Screener.in"""
+        """Fetch ROCE, ROE, public holding, and D/E from Screener.in."""
         url = f"https://www.screener.in/company/{symbol}/"
         try:
             response = self.session.get(url, timeout=15)
             if response.status_code != 200:
                 return None
-                
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Extract debt-to-equity
-            debt_to_equity = self._extract_debt_to_equity(soup)
-            
-            # Extract public holding
-            public_holding = self._extract_public_holding(soup)
-            
-            # Extract ROCE and ROE
-            roce = self._extract_roce(soup)
-            roe = self._extract_roe(soup)
-            
+            roce, roe     = self._parse_key_ratios_ul(soup)
+            public_holding = self._parse_shareholding_latest(soup)
+            debt_to_equity = self._parse_balance_sheet_de(soup)
             return {
-                'debt_to_equity': debt_to_equity,
-                'public_holding': public_holding,
                 'roce': roce,
-                'roe': roe
+                'roe': roe,
+                'public_holding': public_holding,
+                'debt_to_equity': debt_to_equity,
             }
         except Exception as e:
             print(f"Error fetching Screener data for {symbol}: {e}")
             return None
-    
-    def _extract_debt_to_equity(self, soup):
-        """Extract debt-to-equity with multiple methods"""
-        methods = [
-            self._extract_de_from_ratios_table,
-            self._extract_de_from_text_patterns,
-            self._extract_de_from_key_metrics
-        ]
-        
-        for method in methods:
-            try:
-                result = method(soup)
-                if result and result > 0:
-                    return result
-            except:
+
+    def _parse_key_ratios_ul(self, soup):
+        """
+        Parse ROCE and ROE from the company-ratios <ul> at the top of every
+        Screener.in company page.  Each <li> contains two <span>s:
+          <span class="name">ROCE<span ...>?</span></span>
+          <span class="number">76.7 %</span>
+        """
+        roce = roe = 0.0
+        for ul in soup.find_all('ul'):
+            text = ul.get_text()
+            if 'ROCE' not in text or 'ROE' not in text:
                 continue
-        return 0
-    
-    def _extract_de_from_ratios_table(self, soup):
-        """Extract from ratios table"""
-        ratios_section = soup.find('section', {'id': 'ratios'})
-        if ratios_section:
-            patterns = [r'debt.*equity.*?(\d+\.?\d*)', r'd/e.*?(\d+\.?\d*)']
-            text = ratios_section.get_text().lower()
-            for pattern in patterns:
-                match = re.search(pattern, text)
-                if match:
-                    return float(match.group(1))
-        return None
-    
-    def _extract_de_from_text_patterns(self, soup):
-        """Search page for D/E patterns"""
-        page_text = soup.get_text().lower()
-        patterns = [r'debt.*equity.*?(\d+\.?\d*)', r'debt.*to.*equity.*?(\d+\.?\d*)']
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, page_text)
-            if matches:
-                for match in matches:
-                    val = float(match)
-                    if 0 < val < 50:  # Reasonable D/E range
-                        return val
-        return None
-    
-    def _extract_de_from_key_metrics(self, soup):
-        """Extract from key metrics section"""
-        metrics = soup.find_all('div', class_=re.compile('metric|ratio|key'))
-        for metric in metrics:
-            text = metric.get_text().lower()
-            if 'debt' in text and 'equity' in text:
-                numbers = re.findall(r'(\d+\.?\d*)', text)
-                if numbers:
-                    return float(numbers[-1])
-        return None
-    
-    def _extract_public_holding(self, soup):
-        """Extract public holding with enhanced methods"""
-        methods = [
-            self._extract_ph_from_shareholding,
-            self._extract_ph_from_text_patterns,
-            self._extract_ph_from_tables
-        ]
-        
-        for method in methods:
-            try:
-                result = method(soup)
-                if result and result > 0:
-                    return result
-            except:
-                continue
-        return 0
-    
-    def _extract_ph_from_shareholding(self, soup):
-        """Extract from shareholding pattern"""
-        shareholding = soup.find('section', {'id': 'shareholding'}) or soup.find('div', class_=re.compile('shareholding|ownership'))
-        if shareholding:
-            patterns = [r'public.*?(\d+\.?\d*)%', r'retail.*?(\d+\.?\d*)%']
-            text = shareholding.get_text().lower()
-            for pattern in patterns:
-                match = re.search(pattern, text)
-                if match:
-                    val = float(match.group(1))
-                    if 0 < val <= 100:
-                        return val
-        return None
-    
-    def _extract_ph_from_text_patterns(self, soup):
-        """Search page for public holding patterns"""
-        page_text = soup.get_text().lower()
-        patterns = [r'public.*holding.*?(\d+\.?\d*)%', r'public.*share.*?(\d+\.?\d*)%']
-        
-        for pattern in patterns:
-            match = re.search(pattern, page_text)
-            if match:
-                val = float(match.group(1))
-                if 0 < val <= 100:
-                    return val
-        return None
-    
-    def _extract_ph_from_tables(self, soup):
-        """Extract from data tables"""
-        tables = soup.find_all('table')
-        for table in tables:
-            rows = table.find_all('tr')
-            for row in rows:
+            for li in ul.find_all('li'):
+                spans = li.find_all('span')
+                if len(spans) < 2:
+                    continue
+                name = spans[0].get_text(strip=True).rstrip('?').lower().strip()
+                raw  = re.sub(r'[%,\s]', '', spans[-1].get_text(strip=True))
+                try:
+                    val = float(raw)
+                except ValueError:
+                    continue
+                if name == 'roce':
+                    roce = val
+                elif name == 'roe':
+                    roe = val
+            break   # only the first matching ul is the key-ratios bar
+        return roce, roe
+
+    def _parse_shareholding_latest(self, soup):
+        """
+        Return the LATEST quarter's 'Public' holding % from the
+        #shareholding section table.  Columns go oldest → newest (left → right),
+        so we iterate cells in reverse to get the most recent non-empty value.
+        """
+        section = soup.find('section', id='shareholding')
+        if not section:
+            return 0.0
+        for table in section.find_all('table'):
+            for row in table.find_all('tr'):
                 cells = row.find_all(['td', 'th'])
-                if len(cells) >= 2:
-                    header = cells[0].get_text().lower()
-                    if 'public' in header or 'retail' in header:
-                        value_text = cells[1].get_text()
-                        numbers = re.findall(r'(\d+\.?\d*)', value_text)
-                        if numbers:
-                            val = float(numbers[0])
-                            if 0 < val <= 100:
-                                return val
-        return None
-    
-    def _extract_roce(self, soup):
-        """Extract ROCE from Screener.in"""
-        # Look for ROCE in ratios section
-        ratios_section = soup.find('section', {'id': 'ratios'})
-        if ratios_section:
-            text = ratios_section.get_text().lower()
-            roce_match = re.search(r'roce.*?(\d+\.?\d*)%?', text)
-            if roce_match:
-                return float(roce_match.group(1))
-        
-        # Look in tables
-        tables = soup.find_all('table')
-        for table in tables:
-            rows = table.find_all('tr')
-            for row in rows:
+                if not cells:
+                    continue
+                label = cells[0].get_text(strip=True).lower().rstrip('+').strip()
+                if label != 'public':
+                    continue
+                for cell in reversed(cells[1:]):
+                    raw = cell.get_text(strip=True).replace('%', '').replace(',', '').strip()
+                    try:
+                        val = float(raw)
+                        if 0 < val <= 100:
+                            return val
+                    except ValueError:
+                        continue
+        return 0.0
+
+    def _parse_balance_sheet_de(self, soup):
+        """
+        Calculate D/E from the Screener.in balance sheet section:
+          D/E = Borrowings / (Share Capital + Reserves)
+        Uses the latest (rightmost) column values.
+        """
+        section = soup.find('section', id='balance-sheet')
+        if not section:
+            return 0.0
+
+        def latest_positive(cells):
+            for cell in reversed(cells[1:]):
+                raw = cell.get_text(strip=True).replace(',', '').strip()
+                try:
+                    v = float(raw)
+                    if v > 0:
+                        return v
+                except ValueError:
+                    continue
+            return None
+
+        borrowings = share_capital = reserves = None
+        for table in section.find_all('table'):
+            for row in table.find_all('tr'):
                 cells = row.find_all(['td', 'th'])
-                if len(cells) >= 2:
-                    header = cells[0].get_text().lower()
-                    if 'roce' in header:
-                        value_text = cells[1].get_text()
-                        numbers = re.findall(r'(\d+\.?\d*)', value_text)
-                        if numbers:
-                            return float(numbers[0])
-        return 0
-    
-    def _extract_roe(self, soup):
-        """Extract ROE from Screener.in"""
-        # Look for ROE in ratios section
-        ratios_section = soup.find('section', {'id': 'ratios'})
-        if ratios_section:
-            text = ratios_section.get_text().lower()
-            roe_match = re.search(r'roe.*?(\d+\.?\d*)%?', text)
-            if roe_match:
-                return float(roe_match.group(1))
-        
-        # Look in tables
-        tables = soup.find_all('table')
-        for table in tables:
-            rows = table.find_all('tr')
-            for row in rows:
-                cells = row.find_all(['td', 'th'])
-                if len(cells) >= 2:
-                    header = cells[0].get_text().lower()
-                    if 'roe' in header or 'return on equity' in header:
-                        value_text = cells[1].get_text()
-                        numbers = re.findall(r'(\d+\.?\d*)', value_text)
-                        if numbers:
-                            return float(numbers[0])
-        return 0
+                if not cells:
+                    continue
+                label = cells[0].get_text(strip=True).lower().strip()
+                if 'borrowing' in label and borrowings is None:
+                    borrowings = latest_positive(cells) or 0.0
+                elif label in ('share capital', 'equity share capital') and share_capital is None:
+                    share_capital = latest_positive(cells) or 0.0
+                elif label in ('reserves', 'reserves & surplus', 'other equity') and reserves is None:
+                    reserves = latest_positive(cells) or 0.0
+
+        equity = (share_capital or 0.0) + (reserves or 0.0)
+        if equity > 0 and borrowings is not None:
+            return round(borrowings / equity, 4)
+        return 0.0
 
     def get_financial_data(self, symbol, max_retries=3):
         """Get financial data for a stock using yfinance with retry logic"""
@@ -423,35 +344,26 @@ class StockScreener:
                 else:
                     data['last_3q_profits'] = []
                 
-                # Calculate ROCE and ROE from info
-                data['roe'] = info.get('returnOnEquity', 0) * 100
-                # Use ROA as ROCE approximation, but also try to calculate better ROCE if possible
-                roa = info.get('returnOnAssets', 0) * 100
-                data['roce'] = roa  # Basic approximation
-                
-                # Try to get better ROCE calculation if we have the data
-                if data['net_profit'] > 0 and info.get('totalAssets', 0) > 0:
-                    # ROCE = EBIT / Capital Employed (approximated as total assets)
-                    # Since we don't have EBIT directly, use net profit as approximation
-                    capital_employed = info.get('totalAssets', 0) / 10000000  # Convert to crores
-                    if capital_employed > 0:
-                        data['roce'] = (data['net_profit'] / capital_employed) * 100
-                
-                # Get debt to equity ratio from yfinance (fallback)
-                yf_debt_to_equity = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0
-                
-                # Try to get enhanced data from Screener.in
+                # ROE: yfinance as initial value (Screener.in overrides below)
+                roe_yf = info.get('returnOnEquity')
+                data['roe']  = round(roe_yf * 100, 2) if roe_yf is not None else 0.0
+                data['roce'] = 0.0  # Set authoritatively from Screener.in below
+
+                # D/E fallback from yfinance (stored as ratio × 100 in yfinance)
+                yf_de_raw = info.get('debtToEquity')
+                yf_debt_to_equity = round(yf_de_raw / 100, 4) if yf_de_raw else 0.0
+
+                # Screener.in is the authoritative source for ROCE, ROE, public holding, D/E
                 screener_data = self.get_screener_data(symbol)
                 if screener_data:
-                    data['debt_to_equity'] = screener_data.get('debt_to_equity', yf_debt_to_equity)
-                    # Update public holding with Screener data if available
+                    if screener_data.get('roce', 0) > 0:
+                        data['roce'] = screener_data['roce']
+                    if screener_data.get('roe', 0) > 0:
+                        data['roe'] = screener_data['roe']
                     if screener_data.get('public_holding', 0) > 0:
                         data['public_holding'] = screener_data['public_holding']
-                    # Use Screener ROCE/ROE if YF values are 0
-                    if data['roce'] == 0 and screener_data.get('roce', 0) > 0:
-                        data['roce'] = screener_data['roce']
-                    if data['roe'] == 0 and screener_data.get('roe', 0) > 0:
-                        data['roe'] = screener_data['roe']
+                    sc_de = screener_data.get('debt_to_equity', 0)
+                    data['debt_to_equity'] = sc_de if sc_de > 0 else yf_debt_to_equity
                 else:
                     data['debt_to_equity'] = yf_debt_to_equity
                 

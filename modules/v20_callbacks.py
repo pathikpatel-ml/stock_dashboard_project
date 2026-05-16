@@ -9,16 +9,12 @@ import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from src.indicators import AdvancedIndicatorCalculator, identify_signals
-from modules.news_sentiment_analyzer import SentimentAnalyzer
-from modules.signal_generator import SignalGenerator
 from modules.notification_engine import get_notification_engine, AlertType, NotificationPriority
 from modules.stock_name_resolver import stock_resolver
 
 def register_v20_callbacks(app):
     # Initialize components
     indicator_calc = AdvancedIndicatorCalculator(cache_enabled=True)
-    sentiment_analyzer = SentimentAnalyzer()
-    signal_generator = SignalGenerator()
     notification_engine = get_notification_engine()
     
     @app.callback(
@@ -75,7 +71,7 @@ def register_v20_callbacks(app):
                 )
             
             # Calculate market sentiment
-            sentiment_score, sentiment_label, sentiment_color = calculate_market_sentiment(filtered_df, sentiment_analyzer)
+            sentiment_score, sentiment_label, sentiment_color = calculate_market_sentiment(filtered_df)
             
             # Create enhanced table with indicators FIRST
             enhanced_df = add_technical_indicators_to_df(filtered_df, indicator_calc)
@@ -127,7 +123,7 @@ def register_v20_callbacks(app):
                 html.Div("Error loading notifications")
             )
 
-def calculate_market_sentiment(df, sentiment_analyzer):
+def calculate_market_sentiment(df):
     """Calculate clear, actionable market sentiment"""
     try:
         if 'Closeness (%)' not in df.columns or df.empty:
