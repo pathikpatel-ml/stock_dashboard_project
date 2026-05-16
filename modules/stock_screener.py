@@ -467,20 +467,21 @@ class StockScreener:
                 return False
 
             if stock_data['is_bank_finance']:
-                # Bank and Finance criteria
-                # Net profit > 1000 cr, ROE > 10%
-                return (stock_data['net_profit'] > 1000 and 
-                       stock_data['roe'] > 10)
+                # Bank/Finance: net profit > 1000 Cr, ROE > 10%, public holding < 30%
+                return (stock_data['net_profit'] > 1000 and
+                        stock_data['roe'] > 10 and
+                        stock_data.get('public_holding', 100) < 30)
             else:
                 # Non-PSU non-financial criteria
                 last_3q = stock_data.get('last_3q_profits', [])
                 profit_exceeds_all_quarters = all(stock_data['net_profit'] > q_profit for q_profit in last_3q) if last_3q else False
-                
-                base_criteria = (stock_data['net_profit'] > 200 and 
-                               stock_data['roce'] > 20 and
-                               profit_exceeds_all_quarters)
-                enhanced_criteria = stock_data['public_holding'] < 30
-                return base_criteria and enhanced_criteria
+
+                return (stock_data['net_profit'] > 200 and
+                        stock_data['roce'] > 20 and
+                        stock_data.get('roe', 0) >= 15 and
+                        stock_data.get('debt_to_equity', 0) <= 1.0 and
+                        stock_data.get('public_holding', 100) < 30 and
+                        profit_exceeds_all_quarters)
                        
         except Exception as e:
             print(f"Error applying criteria: {e}")
