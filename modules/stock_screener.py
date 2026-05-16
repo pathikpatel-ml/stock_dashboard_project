@@ -17,7 +17,6 @@ import os
 import warnings
 from bs4 import BeautifulSoup
 import re
-from modules.nse_category_fetcher import get_nse_stock_categories
 from modules.ma_calculator import calculate_moving_averages
 
 # Suppress yfinance warnings
@@ -826,26 +825,7 @@ def add_moving_averages_to_stocks(df):
     return df_with_ma
 
 def add_nse_categories_to_stocks(df):
-    """
-    Add NSE category information to stocks
-    """
-    if df.empty:
-        return df
-    
-    try:
-        categories_data = get_nse_stock_categories()
-        df_with_categories = df.copy()
-        df_with_categories['NSE_Categories'] = ''
-        
-        for idx, row in df_with_categories.iterrows():
-            symbol = row['Symbol']
-            if symbol in categories_data:
-                df_with_categories.loc[idx, 'NSE_Categories'] = ','.join(categories_data[symbol])
-        
-        return df_with_categories
-    except Exception as e:
-        print(f"Error adding NSE categories: {e}")
-        return df
+    return df
 
 def get_current_market_price(symbol):
     """

@@ -11,7 +11,6 @@ import sys
 import subprocess
 from datetime import datetime
 from modules.stock_screener import StockScreener, add_moving_averages_to_stocks, add_nse_categories_to_stocks
-from modules.nse_category_fetcher import get_nse_stock_categories, save_nse_categories_to_csv
 import pandas as pd
 
 # --- Configuration ---
@@ -51,15 +50,6 @@ def generate_weekly_stock_list(output_path, full_universe_output_path):
             # Add NSE categories
             print("Adding NSE category information...")
             comprehensive_df = add_nse_categories_to_stocks(comprehensive_df)
-            
-            # Save NSE categories separately
-            print("Saving NSE categories mapping...")
-            try:
-                categories_data = get_nse_stock_categories()
-                save_nse_categories_to_csv(categories_data)
-                print("NSE categories saved successfully")
-            except Exception as e:
-                print(f"Error saving NSE categories: {e}")
             
             # Save enhanced comprehensive data
             timestamp = datetime.now().strftime('%Y%m%d')
