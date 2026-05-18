@@ -47,15 +47,27 @@ def create_v20_layout():
         }),
         
         html.Div(className='control-bar', children=[
-            html.Button('🔄 Refresh Live Prices', id='refresh-v20-live-data-button', 
-                       className='btn btn-primary', style={'marginRight': '10px'}),
-            html.Button('📊 Update Indicators', id='refresh-v20-indicators-button', 
-                       className='btn btn-success', style={'marginRight': '20px'}),
-            html.Label("Filter by Proximity (%):", style={'marginLeft': '20px', 'fontWeight': 'bold'}),
-            dcc.Input(id='v20-proximity-filter-input', type='number', value=100, min=0, step=5, 
-                     placeholder="e.g., 20", style={'marginLeft': '10px', 'marginRight': '10px'}),
-            html.Button('Apply Filter', id='apply-v20-filter-button', className='btn btn-secondary')
-        ], style={'marginBottom': '15px'}),
+            html.Div(className='action-buttons', children=[
+                html.Button([
+                    html.I(className='fa-solid fa-rotate me-2'),
+                    'Refresh Prices'
+                ], id='refresh-v20-live-data-button', className='btn btn-primary'),
+                html.Button([
+                    html.I(className='fa-solid fa-chart-bar me-2'),
+                    'Update Indicators'
+                ], id='refresh-v20-indicators-button', className='btn btn-success'),
+            ]),
+            html.Div(className='filter-group', children=[
+                html.I(className='fa-solid fa-filter', style={'color': '#6c757d', 'fontSize': '13px'}),
+                html.Label("Proximity %:", style={'fontWeight': '500', 'fontSize': '13px', 'margin': '0'}),
+                dcc.Input(id='v20-proximity-filter-input', type='number', value=100, min=0, step=5,
+                         placeholder="e.g., 20", style={'width': '80px'}),
+                html.Button([
+                    html.I(className='fa-solid fa-check me-1'),
+                    'Apply'
+                ], id='apply-v20-filter-button', className='btn btn-secondary btn-sm'),
+            ]),
+        ]),
         
         html.Div(id='v20-refresh-status-message'),
         

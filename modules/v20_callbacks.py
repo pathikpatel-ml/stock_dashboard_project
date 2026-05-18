@@ -94,11 +94,45 @@ def register_v20_callbacks(app):
                 page_size=15,
                 sort_action="native",
                 filter_action="native",
-                style_table={'overflowX': 'auto', 'minWidth': '100%'},
+                style_table={
+                    'overflowX': 'auto',
+                    'minWidth': '100%',
+                },
+                style_cell={
+                    'minWidth': '80px',
+                    'maxWidth': '160px',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'whiteSpace': 'normal',
+                    'padding': '10px 12px',
+                    'fontSize': '13px',
+                    'fontFamily': 'Inter, Segoe UI, sans-serif',
+                    'textAlign': 'center',
+                    'border': '1px solid #e9ecef',
+                },
+                style_header={
+                    'backgroundColor': '#2c3e50',
+                    'color': 'white',
+                    'fontWeight': '600',
+                    'textAlign': 'center',
+                    'padding': '12px',
+                    'fontSize': '12px',
+                    'border': '1px solid #34495e',
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                },
+                style_data_conditional=[
+                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
+                    {'if': {'state': 'active'}, 'backgroundColor': '#e3f2fd', 'border': '1px solid #2196f3'},
+                    {'if': {'filter_query': '{Signal Strength} = "STRONG BUY"'}, 'backgroundColor': '#d4edda', 'color': '#155724'},
+                    {'if': {'filter_query': '{Signal Strength} = "BUY NOW"'}, 'backgroundColor': '#d1ecf1', 'color': '#0c5460'},
+                    {'if': {'filter_query': '{Signal Strength} = "OVERBOUGHT"'}, 'backgroundColor': '#f8d7da', 'color': '#721c24'},
+                ],
+                fixed_rows={'headers': True},
                 tooltip_data=[
                     {
                         'Suggested Sell Price': {
-                            'value': '💡 Sell Price = Buy Price + 20% | Target 30% gains but hold longer if STRONG HOLD signal appears',
+                            'value': 'Sell Price = Buy Price + 20% | Target 30% gains but hold longer if STRONG HOLD signal appears',
                             'type': 'markdown'
                         }
                     } for _ in range(len(enhanced_df))
