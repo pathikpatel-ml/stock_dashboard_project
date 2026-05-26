@@ -519,8 +519,8 @@ def _analyze_all_signal_outcomes(symbol_signals, price_history):
             results.append(base)
             continue
 
-        # Buy trigger: Low touched buy zone (within 5%)
-        buy_entries = post_seq[post_seq['Low'] <= buy_target * 1.05]
+        # Buy trigger: Low touched buy zone (within 2%, matching BUY NOW threshold)
+        buy_entries = post_seq[post_seq['Low'] <= buy_target * 1.02]
         if buy_entries.empty:
             base['status'] = 'MISSED'
             results.append(base)
