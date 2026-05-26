@@ -1,6 +1,7 @@
 # modules/v20_callbacks.py
 import dash
-from dash import html, dash_table
+from dash import html, dcc, dash_table
+import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 import data_manager
 import yfinance as yf
@@ -86,7 +87,9 @@ def register_v20_callbacks(app):
             enhanced_df = add_sell_trigger_to_df(enhanced_df)
             
             table = dash_table.DataTable(
+                id='v20-main-table',
                 data=enhanced_df.to_dict('records'),
+                row_selectable='single',
                 columns=[
                     {'name': col, 'id': col, 'type': 'numeric' if col in ['Current Price', 'Buy Price', 'Target Sell Price', 'Closeness (%)', 'Potential Gain (%)'] else 'text'}
                     for col in enhanced_df.columns if col not in ['Closeness (%)', 'RSI', 'MACD Signal', 'Suggested Sell Price', 'Profit Strategy']
@@ -153,11 +156,53 @@ def register_v20_callbacks(app):
             print(f"V20 callback error: {e}")
             return (
                 html.Div(f"Error loading V20 data: {str(e)}", style={'color': 'red'}),
-                "Error", 
+                "Error",
                 html.Span("Error", style={'color': 'red'}),
                 html.Div("Error loading indicators"),
                 html.Div("Error loading notifications")
             )
+
+    @app.callback(
+        [Output('v20-stock-history-panel', 'children'),
+         Output('v20-stock-history-panel', 'style')],
+        [Input('v20-main-table', 'selected_rows'),
+         Input('v20-main-table', 'derived_virtual_data')],
+        prevent_initial_call=True
+    )
+    def show_stock_history(selected_rows, table_data):
+        hidden = {'display': 'none'}
+        visible = {
+            'display': 'block',
+            'marginTop': '24px',
+            'backgroundColor': '#f8f9fa',
+            'border': '1px solid #dee2e6',
+            'borderRadius': '8px',
+            'padding': '20px',
+        }
+        if not selected_rows or not table_data:
+            return html.Div(), hidden
+
+        row = table_data[selected_rows[0]]
+        symbol = str(row.get('Symbol', '')).upper().strip()
+        signal_strength = row.get('Signal Strength', '')
+
+        if signal_strength not in ('STRONG BUY', 'BUY NOW', 'BUY'):
+            return html.Div([
+                html.Div(f'Historical panel only available for BUY signals. '
+                         f'{symbol} is currently {signal_strength}.',
+                         style={'color': '#6c757d', 'fontStyle': 'italic', 'padding': '12px'})
+            ]), visible
+
+        all_signals = data_manager.v20_signals_df
+        if all_signals.empty or 'Symbol' not in all_signals.columns:
+            return html.Div('No historical data loaded.', style={'color': '#6c757d'}), visible
+
+        symbol_signals = all_signals[
+            all_signals['Symbol'].astype(str).str.upper() == symbol
+        ].copy().reset_index(drop=True)
+
+        panel_content = build_stock_history_panel(symbol, row, symbol_signals)
+        return panel_content, visible
 
 def calculate_market_sentiment(df):
     """Calculate clear, actionable market sentiment"""
@@ -403,6 +448,186 @@ def add_sell_trigger_to_df(df):
     result = df.copy()
     result['Sell Trigger'] = sell_triggers
     return result
+
+def _compute_history_stats(symbol_signals):
+    """Compute backtesting stats for a stock's historical V20 signals."""
+    gains = symbol_signals['Sequence_Gain_Percent'].dropna().tolist()
+    days_list = symbol_signals['Days_in_Sequence'].dropna().tolist()
+    if not gains:
+        return None
+
+    avg_gain = np.mean(gains)
+    median_gain = np.median(gains)
+    avg_days = np.mean(days_list) if days_list else 0
+
+    ann_returns = []
+    for g, d in zip(gains, days_list):
+        if d > 0:
+            ann = ((1 + g / 100) ** (365 / max(d, 1)) - 1) * 100
+            ann_returns.append(min(ann, 999.0))
+    avg_ann = np.mean(ann_returns) if ann_returns else 0
+
+    cv = (np.std(gains) / avg_gain * 100) if len(gains) > 1 and avg_gain > 0 else 100
+    consistency = max(0, min(100, round(100 - cv)))
+
+    return {
+        'total': len(symbol_signals),
+        'avg_gain': round(avg_gain, 1),
+        'median_gain': round(median_gain, 1),
+        'avg_days': round(avg_days, 1),
+        'avg_ann': round(avg_ann, 0),
+        'consistency': consistency if len(gains) > 1 else None,
+        'ann_returns': ann_returns,
+    }
+
+
+def build_stock_history_panel(symbol, current_row, symbol_signals):
+    """Build the historical performance panel for a clicked stock."""
+    stats = _compute_history_stats(symbol_signals)
+    current_buy = current_row.get('Target Buy Price (Low)', 'N/A')
+    current_signal = current_row.get('Signal Strength', '')
+    signal_colors = {'STRONG BUY': '#28a745', 'BUY NOW': '#17a2b8', 'BUY': '#007bff'}
+    sig_color = signal_colors.get(current_signal, '#6c757d')
+
+    # --- Header ---
+    header = html.Div([
+        html.Div([
+            html.Span(symbol, style={'fontSize': '22px', 'fontWeight': '700', 'color': '#2c3e50'}),
+            html.Span(f'  {current_signal}', style={
+                'fontSize': '13px', 'fontWeight': '600', 'color': sig_color,
+                'backgroundColor': sig_color + '1a', 'padding': '3px 10px',
+                'borderRadius': '12px', 'marginLeft': '10px', 'border': f'1px solid {sig_color}'
+            }),
+        ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '4px'}),
+        html.Div(f'Entry Target: ₹{current_buy}  |  Click another row to compare, click same row to dismiss',
+                 style={'fontSize': '12px', 'color': '#6c757d'}),
+    ], style={'marginBottom': '16px'})
+
+    if stats is None or stats['total'] == 0:
+        return html.Div([
+            header,
+            html.Div('No historical V20 pattern data found for this stock.',
+                     style={'color': '#6c757d', 'fontStyle': 'italic'})
+        ])
+
+    # --- Summary cards ---
+    def stat_card(label, value, sub=None, color='#2c3e50'):
+        return html.Div([
+            html.Div(value, style={'fontSize': '26px', 'fontWeight': '700', 'color': color}),
+            html.Div(label, style={'fontSize': '11px', 'color': '#6c757d', 'fontWeight': '500', 'textTransform': 'uppercase', 'letterSpacing': '0.5px'}),
+            html.Div(sub, style={'fontSize': '11px', 'color': '#999', 'marginTop': '2px'}) if sub else None,
+        ], style={
+            'backgroundColor': '#fff', 'border': '1px solid #e9ecef', 'borderRadius': '8px',
+            'padding': '14px 18px', 'textAlign': 'center', 'flex': '1', 'minWidth': '130px'
+        })
+
+    cons_val = f'{stats["consistency"]}/100' if stats['consistency'] is not None else 'N/A*'
+    cons_sub = '*Need 2+ signals' if stats['consistency'] is None else ('High' if stats['consistency'] >= 70 else 'Low')
+
+    cards = html.Div([
+        stat_card('Signals Fired', str(stats['total']), 'historical occurrences'),
+        stat_card('Avg Gain', f'{stats["avg_gain"]}%', f'Median {stats["median_gain"]}%', '#28a745'),
+        stat_card('Avg Holding', f'{stats["avg_days"]}d', 'days to target', '#007bff'),
+        stat_card('Avg Ann. Return', f'~{int(stats["avg_ann"])}%', 'annualized (capped 999%)', '#e67e22'),
+        stat_card('Consistency', cons_val, cons_sub, '#8e44ad'),
+    ], style={'display': 'flex', 'gap': '10px', 'flexWrap': 'wrap', 'marginBottom': '20px'})
+
+    # --- Plotly bar chart ---
+    sorted_sig = symbol_signals.sort_values('Buy_Date').reset_index(drop=True)
+    dates = [pd.to_datetime(d).strftime('%Y-%m-%d') if pd.notna(d) else 'N/A'
+             for d in sorted_sig['Buy_Date']]
+    gain_vals = sorted_sig['Sequence_Gain_Percent'].tolist()
+    day_vals = sorted_sig['Days_in_Sequence'].tolist()
+    ann_vals = []
+    for g, d in zip(gain_vals, day_vals):
+        if pd.notna(g) and pd.notna(d) and d > 0:
+            ann_vals.append(min(((1 + g / 100) ** (365 / max(d, 1)) - 1) * 100, 999.0))
+        else:
+            ann_vals.append(0)
+
+    fig = go.Figure(go.Bar(
+        x=dates,
+        y=gain_vals,
+        marker=dict(
+            color=day_vals,
+            colorscale=[[0, '#28a745'], [0.4, '#ffc107'], [1, '#dc3545']],
+            colorbar=dict(title='Days Held', thickness=12, len=0.8),
+            showscale=True,
+        ),
+        customdata=list(zip(day_vals, ann_vals,
+                            sorted_sig['Buy_Price_Low'].tolist(),
+                            sorted_sig['Sell_Price_High'].tolist())),
+        hovertemplate=(
+            '<b>%{x}</b><br>'
+            'Gain: <b>%{y:.1f}%</b><br>'
+            'Days held: %{customdata[0]}<br>'
+            'Ann. Return: ~%{customdata[1]:.0f}%<br>'
+            'Entry: ₹%{customdata[2]:.2f} → Exit: ₹%{customdata[3]:.2f}'
+            '<extra></extra>'
+        ),
+    ))
+    fig.update_layout(
+        title=dict(text=f'{symbol} — V20 Pattern History (gain % per occurrence)', font_size=13),
+        xaxis_title='Signal Date', yaxis_title='Gain %',
+        plot_bgcolor='#fafafa', paper_bgcolor='#fff',
+        margin=dict(l=40, r=60, t=40, b=40),
+        height=280,
+        font=dict(family='Inter, Segoe UI, sans-serif', size=11),
+        yaxis=dict(ticksuffix='%', gridcolor='#e9ecef'),
+        xaxis=dict(gridcolor='#e9ecef'),
+    )
+    chart = dcc.Graph(figure=fig, config={'displayModeBar': False}, style={'marginBottom': '16px'})
+
+    # --- Historical signals table ---
+    display_sigs = symbol_signals.sort_values('Buy_Date', ascending=False).reset_index(drop=True)
+    trows = []
+    for _, r in display_sigs.iterrows():
+        g = r.get('Sequence_Gain_Percent', np.nan)
+        d = r.get('Days_in_Sequence', np.nan)
+        buy_d = pd.to_datetime(r.get('Buy_Date')).strftime('%Y-%m-%d') if pd.notna(r.get('Buy_Date')) else 'N/A'
+        sell_d = pd.to_datetime(r.get('Sell_Date')).strftime('%Y-%m-%d') if pd.notna(r.get('Sell_Date')) else 'N/A'
+        ann_str = ''
+        if pd.notna(g) and pd.notna(d) and d > 0:
+            ann = min(((1 + g / 100) ** (365 / max(d, 1)) - 1) * 100, 999.0)
+            ann_str = f'~{int(ann)}%'
+        trows.append(html.Tr([
+            html.Td(buy_d),
+            html.Td(sell_d),
+            html.Td(f'₹{r.get("Buy_Price_Low", ""):.2f}'),
+            html.Td(f'₹{r.get("Sell_Price_High", ""):.2f}'),
+            html.Td(f'{g:.1f}%' if pd.notna(g) else 'N/A',
+                    style={'color': '#28a745', 'fontWeight': '600'}),
+            html.Td(f'{int(d)}d' if pd.notna(d) else 'N/A'),
+            html.Td(ann_str, style={'color': '#e67e22', 'fontWeight': '600'}),
+        ], style={'borderBottom': '1px solid #f0f0f0'}))
+
+    th_style = {'padding': '8px 12px', 'textAlign': 'left', 'fontSize': '11px',
+                'fontWeight': '600', 'color': '#fff', 'backgroundColor': '#2c3e50',
+                'textTransform': 'uppercase', 'letterSpacing': '0.5px'}
+    td_css = 'padding: 7px 12px; font-size: 13px;'
+    hist_table = html.Table([
+        html.Thead(html.Tr([
+            html.Th('Buy Date', style=th_style), html.Th('Sell Date', style=th_style),
+            html.Th('Entry ₹', style=th_style), html.Th('Exit ₹', style=th_style),
+            html.Th('Gain %', style=th_style), html.Th('Days', style=th_style),
+            html.Th('Ann. Return', style=th_style),
+        ])),
+        html.Tbody(trows),
+    ], style={'width': '100%', 'borderCollapse': 'collapse', 'fontSize': '13px'})
+
+    single_signal_note = html.Div(
+        '* Consistency score requires 2+ historical signals.',
+        style={'fontSize': '11px', 'color': '#999', 'marginTop': '8px'}
+    ) if stats['consistency'] is None else None
+
+    return html.Div([
+        header, cards, chart,
+        html.H6('All Historical Signals (most recent first)',
+                style={'color': '#2c3e50', 'fontWeight': '600', 'marginBottom': '8px'}),
+        hist_table,
+        single_signal_note,
+    ])
+
 
 def generate_v20_notifications(df, notification_engine):
     """Generate notifications for V20 signals"""

@@ -80,5 +80,8 @@ def create_v20_layout():
         
         dcc.Loading(type="circle", children=[
             html.Div(id='v20-signals-table-container', className='dash-table-container')
-        ])
+        ]),
+
+        # Historical Performance Panel — revealed when a BUY signal row is clicked
+        html.Div(id='v20-stock-history-panel', style={'display': 'none'})
     ])
