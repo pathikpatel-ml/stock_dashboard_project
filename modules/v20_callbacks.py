@@ -82,14 +82,14 @@ def register_v20_callbacks(app):
             # Generate notifications using enhanced dataframe with signal strength
             notifications = generate_v20_notifications(enhanced_df, notification_engine)
             
-            # Add sell price guidance to enhanced_df
-            enhanced_df = add_sell_price_guidance(enhanced_df)
+            # Add sell trigger based on proximity to V20 sell target
+            enhanced_df = add_sell_trigger_to_df(enhanced_df)
             
             table = dash_table.DataTable(
                 data=enhanced_df.to_dict('records'),
                 columns=[
-                    {'name': col, 'id': col, 'type': 'numeric' if col in ['Current Price', 'Buy Price', 'Suggested Sell Price', 'Closeness (%)', 'RSI', 'MACD Signal'] else 'text'}
-                    for col in enhanced_df.columns if col not in ['Closeness (%)']
+                    {'name': col, 'id': col, 'type': 'numeric' if col in ['Current Price', 'Buy Price', 'Target Sell Price', 'Closeness (%)', 'Potential Gain (%)'] else 'text'}
+                    for col in enhanced_df.columns if col not in ['Closeness (%)', 'RSI', 'MACD Signal', 'Suggested Sell Price', 'Profit Strategy']
                 ],
                 page_size=15,
                 sort_action="native",
@@ -127,6 +127,8 @@ def register_v20_callbacks(app):
                     {'if': {'filter_query': '{Signal Strength} = "STRONG BUY"'}, 'backgroundColor': '#d4edda', 'color': '#155724'},
                     {'if': {'filter_query': '{Signal Strength} = "BUY NOW"'}, 'backgroundColor': '#d1ecf1', 'color': '#0c5460'},
                     {'if': {'filter_query': '{Signal Strength} = "OVERBOUGHT"'}, 'backgroundColor': '#f8d7da', 'color': '#721c24'},
+                    {'if': {'filter_query': '{Sell Trigger} = "SELL NOW"'}, 'backgroundColor': '#f8d7da', 'color': '#721c24'},
+                    {'if': {'filter_query': '{Sell Trigger} = "SELL SOON"'}, 'backgroundColor': '#ffe8cc', 'color': '#8a4a00'},
                 ],
                 fixed_rows={'headers': True},
                 tooltip_data=[
@@ -379,6 +381,28 @@ def add_sell_price_guidance(df):
     except Exception as e:
         print(f"Error adding sell price guidance: {e}")
         return df
+
+def add_sell_trigger_to_df(df):
+    """Add Sell Trigger column based on proximity to V20 Sell_Price_High target"""
+    sell_triggers = []
+    for _, row in df.iterrows():
+        current = row.get('Latest Close Price')
+        sell_target = row.get('Target Sell Price')
+        if pd.isna(current) or pd.isna(sell_target) or sell_target == 0:
+            sell_triggers.append("N/A")
+            continue
+        proximity = ((current - sell_target) / sell_target) * 100
+        if proximity >= 0:
+            sell_triggers.append("SELL NOW")
+        elif proximity >= -2:
+            sell_triggers.append("SELL SOON")
+        elif proximity >= -5:
+            sell_triggers.append("APPROACHING")
+        else:
+            sell_triggers.append("HOLD")
+    result = df.copy()
+    result['Sell Trigger'] = sell_triggers
+    return result
 
 def generate_v20_notifications(df, notification_engine):
     """Generate notifications for V20 signals"""

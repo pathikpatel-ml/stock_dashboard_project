@@ -118,6 +118,7 @@ def process_v20_signals(signals_df_local):
         buy_date = row.get("Buy_Date")
         buy_date_str = pd.to_datetime(buy_date).strftime("%Y-%m-%d") if pd.notna(buy_date) else "N/A"
 
+        sell_price = row.get("Sell_Price_High", np.nan)
         results.append(
             {
                 "Symbol": symbol,
@@ -127,6 +128,7 @@ def process_v20_signals(signals_df_local):
                 "Proximity to Buy (%)": round(prox_pct, 2),
                 "Closeness (%)": round(abs(prox_pct), 2),
                 "Potential Gain (%)": round(row.get("Sequence_Gain_Percent", np.nan), 2),
+                "Target Sell Price": round(sell_price, 2) if not pd.isna(sell_price) else np.nan,
             }
         )
 
