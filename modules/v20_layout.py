@@ -83,5 +83,7 @@ def create_v20_layout():
         ]),
 
         # Historical Performance Panel — revealed when a BUY signal row is clicked
-        html.Div(id='v20-stock-history-panel', style={'display': 'none'})
+        dcc.Loading(type="dot", children=[
+            html.Div(id='v20-stock-history-panel', style={'display': 'none'})
+        ])
     ])
