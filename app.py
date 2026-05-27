@@ -3,10 +3,12 @@ from datetime import datetime
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, html
+from dash import Input, Output, dcc, html
 
 import data_manager
 from modules import v20_callbacks, v20_layout
+from modules.breakout import callbacks as breakout_callbacks
+from modules.breakout import layout as breakout_layout
 
 app = dash.Dash(
     __name__,
@@ -48,13 +50,23 @@ app.layout = html.Div(
     className="app-container",
     children=[
         html.H1("Stock Signal Dashboard", className="main-title"),
-        v20_layout.create_v20_layout(),
+        dcc.Tabs(
+            id="strategy-tabs",
+            value="tab-v20",
+            children=[
+                dcc.Tab(label="V20 Strategy", value="tab-v20",
+                        children=[v20_layout.create_v20_layout()]),
+                dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
+                        children=[breakout_layout.create_breakout_layout()]),
+            ],
+        ),
         html.Div(id="app-subtitle"),
         html.Footer(f"Stock Signal Dashboard © {datetime.now().year}", className="footer"),
     ],
 )
 
 v20_callbacks.register_v20_callbacks(app)
+breakout_callbacks.register_breakout_callbacks(app)
 
 
 @app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
