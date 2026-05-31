@@ -1,0 +1,51 @@
+name: Download NSE Delivery Bhav Copy (Breakout Strategy)
+
+on:
+  schedule:
+    - cron: '5 10 * * 1-5'   # 10:05 UTC ≈ 15:35 IST, weekdays (after NSE close 15:30 IST)
+  workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: 'Calendar days to back-fill (use ~130 for initial seeding)'
+        required: false
+        default: '5'
+
+jobs:
+  download-delivery:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy requests
+
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+    - name: Download delivery data + rebuild monthly store
+      run: python download_delivery_data.py --backfill-days ${{ github.event.inputs.backfill_days || '5' }}
+
+    - name: Commit and push delivery data
+      run: |
+        git add data/delivery/
+        if git diff --cached --quiet; then
+          echo "No delivery changes to commit."
+        else
+          git commit -m "Automated NSE delivery data update for $(date -u +%Y%m%d)"
+          git push
+        fi

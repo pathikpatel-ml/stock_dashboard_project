@@ -1,0 +1,56 @@
+name: Generate Multi-Year Breakout Signals
+
+on:
+  schedule:
+    - cron: '30 10 * * *'   # 10:30 UTC daily, after the delivery download job
+  workflow_dispatch:
+    inputs:
+      delivery_optional:
+        description: 'Bootstrap mode: do not reject on missing delivery (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  generate-breakout-signals:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance requests
+
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+    - name: Generate breakout signals + watchlist
+      run: |
+        if [ "${{ github.event.inputs.delivery_optional }}" = "true" ]; then
+          python generate_breakout_signals.py --delivery-optional
+        else
+          python generate_breakout_signals.py
+        fi
+
+    - name: Commit and push signals
+      run: |
+        git add breakout_signals_*.csv breakout_watchlist_*.csv
+        if git diff --cached --quiet; then
+          echo "No signal changes to commit."
+        else
+          git commit -m "Automated breakout signals for $(date -u +%Y%m%d)"
+          git push
+        fi

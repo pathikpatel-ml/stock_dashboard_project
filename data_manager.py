@@ -17,6 +17,11 @@ GITHUB_REPOSITORY = "stock_dashboard_project"
 SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 
+# --- Multi-Year Breakout strategy file configuration ---
+BREAKOUT_SIGNALS_FILENAME_TEMPLATE = "breakout_signals_{date_str}.csv"
+BREAKOUT_WATCHLIST_FILENAME_TEMPLATE = "breakout_watchlist_{date_str}.csv"
+BREAKOUT_POSITIONS_FILE = "breakout_positions.csv"
+
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
     "IRCON", "IRCTC", "IRFC", "IREDA", "LICI", "NBCC", "NLCINDIA", "NMDC", "NTPC",
@@ -38,6 +43,13 @@ v20_processed_df = pd.DataFrame()
 
 LOADED_V20_FILE_DATE = None
 LOADED_V20_SOURCE = None
+
+# --- Multi-Year Breakout strategy cache state ---
+breakout_signals_df = pd.DataFrame()
+breakout_watchlist_df = pd.DataFrame()
+breakout_positions_df = pd.DataFrame()
+LOADED_BREAKOUT_FILE_DATE = None
+LOADED_BREAKOUT_SOURCE = None
 
 
 def _filter_out_psu_symbols(df):
@@ -246,4 +258,48 @@ def load_and_process_data_on_startup():
         v20_signals_df["Symbol"].dropna().astype(str).str.upper().unique().tolist()
         if not v20_signals_df.empty
         else []
+    )
+
+    load_breakout_data_on_startup()
+
+
+def load_breakout_data_on_startup():
+    """Load Multi-Year Breakout signals, watchlist, and the user-maintained positions file.
+
+    Reuses the same local -> GitHub-raw -> fallback resolution as the V20 loader.
+    """
+    global breakout_signals_df, breakout_watchlist_df, breakout_positions_df
+    global LOADED_BREAKOUT_FILE_DATE, LOADED_BREAKOUT_SOURCE
+
+    today_str = datetime.now().strftime("%Y%m%d")
+
+    breakout_signals_df, loaded_name, LOADED_BREAKOUT_SOURCE = _read_csv_with_candidates(
+        today_filename=BREAKOUT_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
+        filename_regex=r"breakout_signals_\d{8}\.csv",
+        parse_dates=["Alert_Date"],
+    )
+    LOADED_BREAKOUT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+    if not breakout_signals_df.empty:
+        breakout_signals_df = _filter_out_psu_symbols(breakout_signals_df)
+
+    breakout_watchlist_df, _, _ = _read_csv_with_candidates(
+        today_filename=BREAKOUT_WATCHLIST_FILENAME_TEMPLATE.format(date_str=today_str),
+        filename_regex=r"breakout_watchlist_\d{8}\.csv",
+    )
+    if not breakout_watchlist_df.empty:
+        breakout_watchlist_df = _filter_out_psu_symbols(breakout_watchlist_df)
+
+    positions_path = os.path.join(REPO_BASE_PATH, BREAKOUT_POSITIONS_FILE)
+    if os.path.exists(positions_path):
+        try:
+            breakout_positions_df = pd.read_csv(positions_path)
+        except Exception:
+            breakout_positions_df = pd.DataFrame()
+    else:
+        breakout_positions_df = pd.DataFrame()
+
+    print(
+        f"STARTUP: Breakout — {len(breakout_signals_df)} signals, "
+        f"{len(breakout_watchlist_df)} watchlist, {len(breakout_positions_df)} positions "
+        f"(source={LOADED_BREAKOUT_SOURCE})."
     )
