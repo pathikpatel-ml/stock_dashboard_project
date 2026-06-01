@@ -42,6 +42,52 @@ def _empty_state(message: str, hint: str = "") -> html.Div:
     )
 
 
+def _funnel_card(rejections_df, universe_size, loaded_date):
+    """Compact 'why nothing passed' card built from the breakout_rejections_<date>.csv funnel."""
+    if rejections_df is None or rejections_df.empty:
+        return None
+    df = rejections_df.copy()
+    step_meaning = {
+        1: "STEP 1 — Universe (penny / illiquid / listed <5y)",
+        2: "STEP 2 — Not within 3% of resistance",
+        3: "STEP 3 — ATH downtrend filter / lower-highs",
+        4: "STEP 4 — No multi-year resistance (>=2 touches near ATH, age >=5y)",
+        5: "STEP 5 — Volume trend declining",
+        6: "STEP 6 — Delivery % below threshold",
+        7: "STEP 7 — Breakout candle invalid (weak close / wick / low volume)",
+        8: "STEP 8 — R:R below 1:2 (oversized breakout candle)",
+    }
+    by_step = df.groupby("Step")["Count"].sum().sort_index()
+    total_rej = int(by_step.sum())
+    rows = [html.Tr([html.Td(step_meaning.get(int(s), f"STEP {int(s)}"),
+                              style={"padding": "3px 12px 3px 0"}),
+                     html.Td(f"{int(c):,}", style={"textAlign": "right", "fontWeight": 600})])
+            for s, c in by_step.items()]
+    top_reasons = df.sort_values("Count", ascending=False).head(5)
+    reason_rows = [html.Tr([html.Td(r["Reason_Prefix"], style={"padding": "2px 12px 2px 0",
+                                                                "color": "#475569"}),
+                            html.Td(f"{int(r['Count']):,}", style={"textAlign": "right"})])
+                   for _, r in top_reasons.iterrows()]
+    universe_size = universe_size or (int(df["Universe_Size"].iloc[0])
+                                       if "Universe_Size" in df.columns else total_rej)
+    return html.Div([
+        html.H4(f"📊 Screening funnel — {universe_size:,} stocks scanned, "
+                f"0 fresh breakouts today",
+                style={"marginTop": 0, "marginBottom": "8px", "color": "#0f172a"}),
+        html.P(f"Loaded: {loaded_date or 'n/a'}. Multi-year breakouts are deliberately "
+               f"selective (5+ year base + Smart Money confirmation). Use the Backtest tab "
+               f"on a documented winner (e.g. SANGHVIMOV) to verify the engine end-to-end.",
+               style={"fontSize": "13px", "color": "#475569", "marginBottom": "10px"}),
+        html.Div(style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "20px"}, children=[
+            html.Div([html.Strong("By step", style={"fontSize": "13px"}),
+                      html.Table(rows, style={"fontSize": "13px", "width": "100%"})]),
+            html.Div([html.Strong("Top reasons", style={"fontSize": "13px"}),
+                      html.Table(reason_rows, style={"fontSize": "13px", "width": "100%"})]),
+        ]),
+    ], className="status-message", style={"backgroundColor": "#f8fafc",
+                                            "border": "1px solid #e2e8f0", "padding": "14px"})
+
+
 def _table(df: pd.DataFrame, columns, table_id, selectable=False, conditional=None):
     cols = [c for c in columns if c in df.columns]
     return dash_table.DataTable(
@@ -174,13 +220,23 @@ def register_breakout_callbacks(app):
     def render_breakout(_n_clicks, _n_intervals):
         signals = data_manager.breakout_signals_df.copy()
         watchlist = data_manager.breakout_watchlist_df.copy()
+        rejections = data_manager.breakout_rejections_df.copy()
+        loaded_date = data_manager.LOADED_BREAKOUT_FILE_DATE
+
+        universe_size = (int(rejections["Universe_Size"].iloc[0])
+                         if (not rejections.empty and "Universe_Size" in rejections.columns)
+                         else None)
+        funnel = _funnel_card(rejections, universe_size, loaded_date)
 
         # ---- Signals (Module 1) ----
         if signals.empty:
-            signals_view = _empty_state(
-                "No breakout signals yet.",
-                "Run download_delivery_data.py --backfill-days 120 then generate_breakout_signals.py "
-                "(or generate with --delivery-optional to bootstrap).")
+            uni_txt = f"{universe_size:,}" if universe_size else "the screened"
+            no_sig = _empty_state(
+                f"No fresh breakouts today — {uni_txt} NSE stocks scanned, 0 cleared all 9 filters.",
+                "This is the strategy being deliberately selective (5+ year base + Smart Money). "
+                "See the funnel below for the rejection breakdown; open the Backtest tab to "
+                "validate the engine on a documented winner (e.g. SANGHVIMOV).")
+            signals_view = html.Div([no_sig, funnel]) if funnel else no_sig
         else:
             cond = [{"if": {"filter_query": '{Candle_Quality} = "VALID"'},
                      "backgroundColor": "#d4edda", "color": "#155724"}]
@@ -188,9 +244,14 @@ def register_breakout_callbacks(app):
                                   selectable=True, conditional=cond)
 
         # ---- Watchlist (Module 2) ----
-        watch_view = (_empty_state("Watchlist is empty.")
-                      if watchlist.empty
-                      else _table(watchlist, _WATCH_DISPLAY, "bo-watchlist-table"))
+        if watchlist.empty:
+            watch_view = _empty_state(
+                "Watchlist empty — no NSE stocks are currently within 3% of a valid "
+                "multi-year resistance.",
+                "Watchlist candidates need a >= 5-year, >= 2-touch horizontal base near ATH. "
+                "When stocks approach such a level they'll appear here ranked by Priority Score.")
+        else:
+            watch_view = _table(watchlist, _WATCH_DISPLAY, "bo-watchlist-table")
 
         # ---- Positions (Module 3) ----
         tracked = pd.DataFrame()
