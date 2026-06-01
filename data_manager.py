@@ -20,6 +20,7 @@ GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 # --- Multi-Year Breakout strategy file configuration ---
 BREAKOUT_SIGNALS_FILENAME_TEMPLATE = "breakout_signals_{date_str}.csv"
 BREAKOUT_WATCHLIST_FILENAME_TEMPLATE = "breakout_watchlist_{date_str}.csv"
+BREAKOUT_REJECTIONS_FILENAME_TEMPLATE = "breakout_rejections_{date_str}.csv"
 BREAKOUT_POSITIONS_FILE = "breakout_positions.csv"
 
 KNOWN_PSU_SYMBOLS = {
@@ -47,6 +48,7 @@ LOADED_V20_SOURCE = None
 # --- Multi-Year Breakout strategy cache state ---
 breakout_signals_df = pd.DataFrame()
 breakout_watchlist_df = pd.DataFrame()
+breakout_rejections_df = pd.DataFrame()
 breakout_positions_df = pd.DataFrame()
 LOADED_BREAKOUT_FILE_DATE = None
 LOADED_BREAKOUT_SOURCE = None
@@ -268,7 +270,7 @@ def load_breakout_data_on_startup():
 
     Reuses the same local -> GitHub-raw -> fallback resolution as the V20 loader.
     """
-    global breakout_signals_df, breakout_watchlist_df, breakout_positions_df
+    global breakout_signals_df, breakout_watchlist_df, breakout_rejections_df, breakout_positions_df
     global LOADED_BREAKOUT_FILE_DATE, LOADED_BREAKOUT_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -289,6 +291,11 @@ def load_breakout_data_on_startup():
     if not breakout_watchlist_df.empty:
         breakout_watchlist_df = _filter_out_psu_symbols(breakout_watchlist_df)
 
+    breakout_rejections_df, _, _ = _read_csv_with_candidates(
+        today_filename=BREAKOUT_REJECTIONS_FILENAME_TEMPLATE.format(date_str=today_str),
+        filename_regex=r"breakout_rejections_\d{8}\.csv",
+    )
+
     positions_path = os.path.join(REPO_BASE_PATH, BREAKOUT_POSITIONS_FILE)
     if os.path.exists(positions_path):
         try:
@@ -298,8 +305,9 @@ def load_breakout_data_on_startup():
     else:
         breakout_positions_df = pd.DataFrame()
 
+    rej_count = int(breakout_rejections_df["Count"].sum()) if not breakout_rejections_df.empty else 0
     print(
         f"STARTUP: Breakout — {len(breakout_signals_df)} signals, "
-        f"{len(breakout_watchlist_df)} watchlist, {len(breakout_positions_df)} positions "
-        f"(source={LOADED_BREAKOUT_SOURCE})."
+        f"{len(breakout_watchlist_df)} watchlist, {len(breakout_positions_df)} positions, "
+        f"{rej_count} rejections (source={LOADED_BREAKOUT_SOURCE})."
     )

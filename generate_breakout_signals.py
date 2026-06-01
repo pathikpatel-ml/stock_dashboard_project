@@ -41,6 +41,7 @@ NSE_UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "nse_equity_list.csv")
 NSE_EQUITY_L_URL = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
 SIGNALS_TEMPLATE = "breakout_signals_{date_str}.csv"
 WATCHLIST_TEMPLATE = "breakout_watchlist_{date_str}.csv"
+REJECTIONS_TEMPLATE = "breakout_rejections_{date_str}.csv"
 
 # Reuse the V20 PSU exclusion set (kept in sync with data_manager.KNOWN_PSU_SYMBOLS).
 KNOWN_PSU_SYMBOLS = {
@@ -155,6 +156,7 @@ def main():
     date_str = pd.Timestamp.now().strftime("%Y%m%d")
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
     watch_path = os.path.join(REPO_BASE_PATH, WATCHLIST_TEMPLATE.format(date_str=date_str))
+    rej_path = os.path.join(REPO_BASE_PATH, REJECTIONS_TEMPLATE.format(date_str=date_str))
 
     # Always write the files (with headers) so the dashboard has a stable, current target.
     signals = out["signals"] if not out["signals"].empty else pd.DataFrame(columns=sc.SIGNAL_COLUMNS)
@@ -162,9 +164,23 @@ def main():
     signals.to_csv(signals_path, index=False)
     watch.to_csv(watch_path, index=False)
 
+    # Funnel summary: grouped (Step, Reason_Prefix) counts so the dashboard can show why
+    # nothing passed (or which step is the bottleneck) without re-running the pipeline.
+    rej = out["rejections"].copy()
+    if not rej.empty:
+        rej["Reason_Prefix"] = rej["reason"].astype(str).str.split(r"[ (:]", n=1).str[0]
+        funnel = (rej.groupby(["step", "Reason_Prefix"], dropna=False)
+                     .size().reset_index(name="Count")
+                     .sort_values("Count", ascending=False))
+        funnel.columns = ["Step", "Reason_Prefix", "Count"]
+        funnel["Universe_Size"] = len(universe)
+    else:
+        funnel = pd.DataFrame(columns=["Step", "Reason_Prefix", "Count", "Universe_Size"])
+    funnel.to_csv(rej_path, index=False)
+
     print(f"\nBreakout signals : {len(signals):>4}  -> {os.path.basename(signals_path)}")
     print(f"Watchlist        : {len(watch):>4}  -> {os.path.basename(watch_path)}")
-    print(f"Rejections       : {len(out['rejections']):>4}")
+    print(f"Rejections       : {len(out['rejections']):>4}  -> {os.path.basename(rej_path)}")
 
 
 if __name__ == "__main__":
