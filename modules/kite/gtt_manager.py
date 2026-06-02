@@ -123,32 +123,50 @@ def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float) -> lis
 def place_buy_gtt(kite, symbol: str, buy_price: float,
                   quantity: int, current_ltp: float) -> int:
     """
-    Place a single-leg GTT buy order.
+    Place a single-leg GTT buy order at buy_price.
 
-    Kite validation rules:
-      - last_price must be > trigger_value  (otherwise "trigger already met")
-      - trigger_value must be at least 0.25% below last_price
+    Two cases handled automatically:
+    1. Price ABOVE target  → "fall" GTT: fires when LTP drops to buy_price
+    2. Price BELOW target  → "rise" GTT: fires when LTP recovers to buy_price
 
-    We pass last_price = max(current_ltp, buy_price * 1.005) to always
-    satisfy both rules. This is a hint only — the real market trigger
-    fires at buy_price regardless.
+    Both result in a buy order at buy_price whenever that price is touched.
+    last_price is a Kite hint only — it determines trigger direction, not
+    the actual execution price.
     """
-    # Ensure last_price is at least 0.5% above trigger so Kite always accepts
-    effective_last_price = max(current_ltp, round(buy_price * 1.005, 2))
+    order = {
+        "transaction_type": KiteConnect.TRANSACTION_TYPE_BUY,
+        "quantity": quantity,
+        "product": KiteConnect.PRODUCT_CNC,
+        "order_type": KiteConnect.ORDER_TYPE_LIMIT,
+        "price": buy_price,
+    }
 
+    # Try 1: "fall to target" GTT — last_price above trigger (>= 0.5% buffer)
+    try:
+        above_last_price = max(current_ltp, round(buy_price * 1.005, 2))
+        resp = kite.place_gtt(
+            trigger_type=KiteConnect.GTT_TYPE_SINGLE,
+            tradingsymbol=symbol,
+            exchange="NSE",
+            trigger_values=[buy_price],
+            last_price=above_last_price,
+            orders=[order],
+        )
+        return resp["trigger_id"]
+    except Exception as exc:
+        if "trigger already met" not in str(exc).lower() and "already met" not in str(exc).lower():
+            raise  # not a "met" error — re-raise
+
+    # Try 2: "rise to target" GTT — price already below target
+    # last_price below trigger tells Kite: fire when price rises back to buy_price
+    below_last_price = round(buy_price * 0.994, 2)
     resp = kite.place_gtt(
         trigger_type=KiteConnect.GTT_TYPE_SINGLE,
         tradingsymbol=symbol,
         exchange="NSE",
         trigger_values=[buy_price],
-        last_price=effective_last_price,
-        orders=[{
-            "transaction_type": KiteConnect.TRANSACTION_TYPE_BUY,
-            "quantity": quantity,
-            "product": KiteConnect.PRODUCT_CNC,
-            "order_type": KiteConnect.ORDER_TYPE_LIMIT,
-            "price": buy_price,
-        }],
+        last_price=below_last_price,
+        orders=[order],
     )
     return resp["trigger_id"]
 
