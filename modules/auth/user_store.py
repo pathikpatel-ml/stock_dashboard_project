@@ -225,9 +225,17 @@ def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
 
 
 def get_gtt_log_today(user_id: int) -> list:
-    return _get("gtt_log", {
+    rows = _get("gtt_log", {
         "user_id": f"eq.{user_id}",
         "run_date": f"eq.{date.today()}",
         "select": "*",
         "order": "created_at.desc",
     })
+    # Keep only the latest entry per symbol — removes stale entries from earlier runs
+    seen: set = set()
+    deduped = []
+    for r in rows:
+        if r["symbol"] not in seen:
+            seen.add(r["symbol"])
+            deduped.append(r)
+    return deduped

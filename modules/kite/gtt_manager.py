@@ -22,26 +22,26 @@ def get_existing_gtt_symbols(kite) -> set:
 
 def _macd_is_bullish(symbol: str) -> bool:
     """
-    Return True if the stock's MACD line is above the signal line (bullish).
-    Uses 30 days of daily data — fast, only called for proximity-filtered stocks.
-    Returns True on any error so we don't accidentally block valid signals.
+    Return True if MACD line > 0 (same logic as the V20 tab signal strength).
+    V20 tab: BUY/BUY NOW/STRONG BUY all require MACD line > 0 (12-EMA > 26-EMA).
+    Uses 6 months of daily data — same lookback as the V20 tab callback.
+    Returns True on any fetch error so valid signals are never accidentally blocked.
     """
     try:
         import yfinance as yf
         ticker = symbol + ".NS"
-        df = yf.download(ticker, period="60d", interval="1d",
+        df = yf.download(ticker, period="6mo", interval="1d",
                          progress=False, auto_adjust=True)
         if df is None or len(df) < 27:
-            return True  # not enough data, allow through
+            return True  # not enough data — allow through
 
         close = df["Close"].squeeze()
         ema12 = close.ewm(span=12, adjust=False).mean()
         ema26 = close.ewm(span=26, adjust=False).mean()
         macd_line = ema12 - ema26
-        signal_line = macd_line.ewm(span=9, adjust=False).mean()
 
-        # Bullish = MACD line above signal line on the latest candle
-        return float(macd_line.iloc[-1]) > float(signal_line.iloc[-1])
+        # Match V20 tab exactly: bullish = MACD line itself is positive
+        return float(macd_line.iloc[-1]) > 0
     except Exception as exc:
         logger.warning("MACD check failed for %s: %s — allowing through.", symbol, exc)
         return True
