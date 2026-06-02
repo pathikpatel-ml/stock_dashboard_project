@@ -10,6 +10,7 @@ http_cache.sqlite
 __pycache__/
 *.pyc
 *.pyo
+*.db
 
 # Environment files
 .env

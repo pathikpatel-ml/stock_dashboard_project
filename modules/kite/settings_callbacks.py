@@ -1,0 +1,258 @@
+import flask
+import flask_login
+import dash
+from dash import Input, Output, State, html, dash_table
+import dash_bootstrap_components as dbc
+
+from modules.auth import user_store
+from modules.auth.crypto import decrypt, encrypt
+from modules.kite import auth as kite_auth
+from modules.kite import portfolio as kite_portfolio
+from modules.kite.scheduler import run_premarket_gtt_job
+
+
+def _current_user_id():
+    if flask_login.current_user.is_authenticated:
+        return flask_login.current_user.id
+    return None
+
+
+def _connection_badge(settings):
+    """Return a Bootstrap badge showing Kite connection status."""
+    if settings.get("access_token_enc"):
+        token_age = settings.get("access_token_set_at")
+        valid = kite_portfolio.is_token_valid(token_age)
+        if valid:
+            return dbc.Badge("Connected", color="success", className="fs-6")
+        else:
+            return dbc.Badge("Token Expired — Reconnect", color="warning", className="fs-6")
+    return dbc.Badge("Not Connected", color="secondary", className="fs-6")
+
+
+def register_kite_settings_callbacks(app):
+
+    # ── Load saved settings when the tab becomes visible ──────────────────
+    @app.callback(
+        Output("kite-api-key-input", "placeholder"),
+        Output("proximity-threshold-slider", "value"),
+        Output("max-allocation-slider", "value"),
+        Output("gtt-enabled-switch", "value"),
+        Output("kite-connection-status", "children"),
+        Output("kite-settings-loaded", "data"),
+        Input("kite-status-interval", "n_intervals"),
+        Input("strategy-tabs", "value"),
+    )
+    def load_kite_settings(n_intervals, active_tab):
+        user_id = _current_user_id()
+        if not user_id or active_tab != "tab-kite-settings":
+            raise dash.exceptions.PreventUpdate
+
+        settings = user_store.get_kite_settings(user_id)
+        api_key_hint = (
+            "•••• saved ••••" if settings.get("api_key_enc") else "Paste your Kite API Key"
+        )
+        return (
+            api_key_hint,
+            settings.get("proximity_threshold_pct", 2.0),
+            settings.get("max_allocation_pct", 3.0),
+            settings.get("gtt_enabled", False),
+            _connection_badge(settings),
+            True,
+        )
+
+    # ── Save API credentials ───────────────────────────────────────────────
+    @app.callback(
+        Output("kite-creds-status", "children"),
+        Input("save-kite-creds-btn", "n_clicks"),
+        State("kite-api-key-input", "value"),
+        State("kite-api-secret-input", "value"),
+        prevent_initial_call=True,
+    )
+    def save_credentials(n_clicks, api_key, api_secret):
+        user_id = _current_user_id()
+        if not user_id:
+            return "Not logged in."
+        if not api_key or not api_secret:
+            return "Both API Key and API Secret are required."
+        try:
+            user_store.upsert_kite_settings(
+                user_id,
+                api_key_enc=encrypt(api_key.strip()),
+                api_secret_enc=encrypt(api_secret.strip()),
+            )
+            return dbc.Alert("Credentials saved securely.", color="success",
+                             dismissable=True, duration=4000)
+        except Exception as exc:
+            return dbc.Alert(f"Error: {exc}", color="danger", dismissable=True)
+
+    # ── Update slider labels ───────────────────────────────────────────────
+    @app.callback(
+        Output("proximity-threshold-label", "children"),
+        Input("proximity-threshold-slider", "value"),
+    )
+    def update_proximity_label(val):
+        return f"Proximity Threshold: {val}%"
+
+    @app.callback(
+        Output("max-allocation-label", "children"),
+        Input("max-allocation-slider", "value"),
+    )
+    def update_allocation_label(val):
+        return f"Max Allocation per Stock: {val}%"
+
+    # ── Save preferences ──────────────────────────────────────────────────
+    @app.callback(
+        Output("kite-prefs-status", "children"),
+        Input("save-kite-prefs-btn", "n_clicks"),
+        State("proximity-threshold-slider", "value"),
+        State("max-allocation-slider", "value"),
+        State("gtt-enabled-switch", "value"),
+        prevent_initial_call=True,
+    )
+    def save_preferences(n_clicks, proximity_pct, allocation_pct, gtt_enabled):
+        user_id = _current_user_id()
+        if not user_id:
+            return "Not logged in."
+        try:
+            user_store.upsert_kite_settings(
+                user_id,
+                proximity_threshold_pct=proximity_pct,
+                max_allocation_pct=allocation_pct,
+                gtt_enabled=bool(gtt_enabled),
+            )
+            status = "enabled" if gtt_enabled else "disabled"
+            return dbc.Alert(
+                f"Preferences saved. GTT auto-creation is {status}.",
+                color="success", dismissable=True, duration=4000
+            )
+        except Exception as exc:
+            return dbc.Alert(f"Error: {exc}", color="danger", dismissable=True)
+
+    # ── Connect Zerodha — redirect to Kite login URL ──────────────────────
+    @app.callback(
+        Output("kite-login-redirect", "href"),
+        Output("kite-token-status", "children"),
+        Input("connect-kite-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def connect_zerodha(n_clicks):
+        user_id = _current_user_id()
+        if not user_id:
+            return dash.no_update, "Not logged in."
+        settings = user_store.get_kite_settings(user_id)
+        if not settings.get("api_key_enc"):
+            return dash.no_update, dbc.Alert(
+                "Save your API Key first, then click Connect.", color="warning"
+            )
+        try:
+            api_key = decrypt(settings["api_key_enc"])
+            login_url = kite_auth.generate_login_url(api_key)
+            return login_url, dbc.Alert(
+                "Redirecting to Zerodha login...", color="info", duration=3000
+            )
+        except Exception as exc:
+            return dash.no_update, dbc.Alert(f"Error: {exc}", color="danger")
+
+    # ── Auto-exchange token when redirected back from Kite ─────────────────
+    @app.callback(
+        Output("kite-token-status", "children", allow_duplicate=True),
+        Output("kite-connection-status", "children", allow_duplicate=True),
+        Input("kite-settings-loaded", "data"),
+        prevent_initial_call=True,
+    )
+    def auto_exchange_token(loaded):
+        """Exchange request_token stored in Flask session after Kite OAuth redirect."""
+        if not loaded:
+            raise dash.exceptions.PreventUpdate
+
+        request_token = flask.session.pop("kite_request_token", None)
+        if not request_token:
+            raise dash.exceptions.PreventUpdate
+
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+
+        settings = user_store.get_kite_settings(user_id)
+        if not settings.get("api_key_enc") or not settings.get("api_secret_enc"):
+            return dbc.Alert("Save API credentials before connecting.", color="warning"), dash.no_update
+
+        try:
+            from datetime import datetime, timezone
+            api_key = decrypt(settings["api_key_enc"])
+            api_secret = decrypt(settings["api_secret_enc"])
+            access_token = kite_auth.exchange_request_token(api_key, request_token, api_secret)
+            user_store.upsert_kite_settings(
+                user_id,
+                access_token_enc=encrypt(access_token),
+                access_token_set_at=datetime.now(timezone.utc),
+            )
+            return (
+                dbc.Alert("Zerodha connected successfully!", color="success", duration=5000),
+                dbc.Badge("Connected", color="success", className="fs-6"),
+            )
+        except Exception as exc:
+            return dbc.Alert(f"Token exchange failed: {exc}", color="danger"), dash.no_update
+
+    # ── GTT log table ──────────────────────────────────────────────────────
+    @app.callback(
+        Output("gtt-log-container", "children"),
+        Input("run-gtt-job-btn", "n_clicks"),
+        Input("kite-status-interval", "n_intervals"),
+        Input("strategy-tabs", "value"),
+        prevent_initial_call=False,
+    )
+    def refresh_gtt_log(n_clicks, n_intervals, active_tab):
+        user_id = _current_user_id()
+        if not user_id or active_tab != "tab-kite-settings":
+            raise dash.exceptions.PreventUpdate
+
+        ctx = dash.callback_context
+        triggered = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+
+        if "run-gtt-job-btn" in triggered and n_clicks:
+            try:
+                run_premarket_gtt_job()
+            except Exception as exc:
+                return dbc.Alert(f"Job failed: {exc}", color="danger")
+
+        rows = user_store.get_gtt_log_today(user_id)
+        if not rows:
+            return html.P("No GTT actions today yet.", className="text-muted small")
+
+        status_colors = {
+            "created": "success",
+            "skipped_exists": "info",
+            "skipped_low_qty": "warning",
+            "skipped_proximity": "secondary",
+            "failed": "danger",
+        }
+
+        table_rows = []
+        for r in rows:
+            badge = dbc.Badge(
+                r["status"],
+                color=status_colors.get(r["status"], "secondary"),
+                className="me-1",
+            )
+            table_rows.append(
+                html.Tr([
+                    html.Td(r["symbol"]),
+                    html.Td(r["strategy"].upper()),
+                    html.Td(badge),
+                    html.Td(str(r["gtt_id"] or "—")),
+                    html.Td(r["error_msg"] or "—", className="small text-muted"),
+                ])
+            )
+
+        return dbc.Table(
+            [
+                html.Thead(html.Tr([
+                    html.Th("Symbol"), html.Th("Strategy"),
+                    html.Th("Status"), html.Th("GTT ID"), html.Th("Note"),
+                ])),
+                html.Tbody(table_rows),
+            ],
+            bordered=True, hover=True, size="sm", responsive=True,
+            className="small",
+        )
