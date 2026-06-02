@@ -210,15 +210,41 @@ def register_kite_settings_callbacks(app):
         ctx = dash.callback_context
         triggered = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
 
+        job_log_section = None
         if "run-gtt-job-btn" in triggered and n_clicks:
             try:
-                run_premarket_gtt_job()
+                job_logs = run_premarket_gtt_job()
+                job_log_section = dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Job Output", className="mb-2"),
+                        html.Pre(
+                            "\n".join(job_logs),
+                            style={
+                                "fontSize": "0.75rem",
+                                "background": "#0f172a",
+                                "color": "#94a3b8",
+                                "padding": "0.75rem",
+                                "borderRadius": "6px",
+                                "maxHeight": "300px",
+                                "overflowY": "auto",
+                            },
+                        ),
+                    ]),
+                    className="mb-3",
+                )
             except Exception as exc:
-                return dbc.Alert(f"Job failed: {exc}", color="danger")
+                import traceback
+                job_log_section = dbc.Alert(
+                    [html.Strong("Job error: "), html.Pre(traceback.format_exc(),
+                     style={"fontSize": "0.75rem", "marginBottom": 0})],
+                    color="danger",
+                    className="mb-3",
+                )
 
         rows = user_store.get_gtt_log_today(user_id)
         if not rows:
-            return html.P("No GTT actions today yet.", className="text-muted small")
+            empty = html.P("No GTT actions today yet.", className="text-muted small")
+            return html.Div([job_log_section, empty]) if job_log_section else empty
 
         status_colors = {
             "created": "success",
@@ -245,7 +271,7 @@ def register_kite_settings_callbacks(app):
                 ])
             )
 
-        return dbc.Table(
+        table = dbc.Table(
             [
                 html.Thead(html.Tr([
                     html.Th("Symbol"), html.Th("Strategy"),
@@ -256,3 +282,4 @@ def register_kite_settings_callbacks(app):
             bordered=True, hover=True, size="sm", responsive=True,
             className="small",
         )
+        return html.Div([job_log_section, table]) if job_log_section else table
