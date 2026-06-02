@@ -213,7 +213,12 @@ def register_kite_settings_callbacks(app):
         job_log_section = None
         if "run-gtt-job-btn" in triggered and n_clicks:
             try:
-                job_logs = run_premarket_gtt_job()
+                result = run_premarket_gtt_job()
+                job_logs = result.get("logs", [])
+                token_expired = result.get("token_expired", False)
+                alert_color = "warning" if token_expired else "secondary"
+                if token_expired:
+                    job_logs.append("ACTION REQUIRED: Reconnect Zerodha (Connect Zerodha button above).")
                 job_log_section = dbc.Card(
                     dbc.CardBody([
                         html.H6("Job Output", className="mb-2"),

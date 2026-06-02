@@ -81,8 +81,12 @@ def api_run_gtt():
         return flask.jsonify({"error": "unauthorized"}), 401
     try:
         from modules.kite.scheduler import run_premarket_gtt_job
-        logs = run_premarket_gtt_job()
-        return flask.jsonify({"status": "ok", "logs": logs})
+        result = run_premarket_gtt_job()
+        if result.get("token_expired"):
+            # HTTP 400 → GitHub Action fails → GitHub sends automatic failure email
+            return flask.jsonify({"status": "token_expired",
+                                  "logs": result["logs"]}), 400
+        return flask.jsonify({"status": "ok", "logs": result["logs"]})
     except Exception as exc:
         import traceback
         return flask.jsonify({"status": "error", "error": str(exc),

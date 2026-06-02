@@ -72,14 +72,17 @@ def _send_reauth_email(to_email: str):
         logger.error("Failed to send reauth email to %s: %s", to_email, exc)
 
 
-def run_premarket_gtt_job() -> list[str]:
+def run_premarket_gtt_job() -> dict:
     """
     Runs daily before market open (03:00 UTC = 08:30 IST, Mon-Fri).
-    Returns a list of human-readable log lines for UI display.
+    Returns {"logs": [...], "success": bool, "token_expired": bool}
+    success=False when a token is expired — causes the GitHub Action to fail
+    and send an automatic email notification.
     """
     import data_manager  # avoid circular import at module load
 
     logs = []
+    token_expired = False
 
     def log(msg: str, level: str = "info"):
         logger.info(msg) if level == "info" else logger.error(msg)
@@ -93,11 +96,11 @@ def run_premarket_gtt_job() -> list[str]:
     except Exception as exc:
         log(f"ERROR fetching users from DB: {exc}", "error")
         log(traceback.format_exc(), "error")
-        return logs
+        return {"logs": logs, "success": False, "token_expired": False}
 
     if not users:
         log("No users with GTT enabled and a connected Kite account.")
-        return logs
+        return {"logs": logs, "success": True, "token_expired": False}
     log(f"Found {len(users)} user(s) with GTT enabled.")
 
     # ── 2. Load today's signals ──────────────────────────────────────────────
@@ -118,8 +121,8 @@ def run_premarket_gtt_job() -> list[str]:
         token_set_at = user.get("access_token_set_at")
         log(f"  Token set at: {token_set_at}")
         if not portfolio.is_token_valid(token_set_at):
-            log(f"  WARN: Token expired — skipping and sending notification.")
-            _send_reauth_email(email)
+            log(f"  TOKEN_EXPIRED: Kite token not connected today — please reconnect before 8 AM IST.", "error")
+            token_expired = True
             continue
         log("  Token valid [OK]")
 
@@ -205,7 +208,7 @@ def run_premarket_gtt_job() -> list[str]:
                 log(f"  [{symbol}] ERROR: {exc}", "error")
 
     log("GTT job finished.")
-    return logs
+    return {"logs": logs, "success": not token_expired, "token_expired": token_expired}
 
 
 def create_scheduler() -> BackgroundScheduler:

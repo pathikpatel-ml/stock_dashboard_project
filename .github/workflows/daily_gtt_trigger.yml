@@ -37,23 +37,32 @@ jobs:
       - name: Trigger GTT job
         run: |
           echo "Triggering pre-market GTT creation..."
-          RESPONSE=$(curl -s --max-time 120 \
+          HTTP_CODE=$(curl -s -o /tmp/gtt_response.json -w "%{http_code}" --max-time 120 \
             -X POST \
             -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
             -H "Content-Type: application/json" \
             https://stock-dashboard-project.onrender.com/api/run-gtt)
-          echo "Response: $RESPONSE"
-          STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','error'))" 2>/dev/null || echo "parse_error")
-          if [ "$STATUS" = "ok" ]; then
-            echo "GTT job completed successfully."
-            echo "$RESPONSE" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          for line in d.get('logs', []):
-              print(line)
-            "
-          else
-            echo "GTT job failed or returned error."
-            echo "$RESPONSE"
+
+          echo "=== GTT Job Log ==="
+          python3 -c "
+          import json
+          try:
+              d = json.load(open('/tmp/gtt_response.json'))
+              for line in d.get('logs', []):
+                  print(line)
+          except Exception as e:
+              print('Could not parse response:', e)
+          "
+
+          echo "HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" = "400" ]; then
+            echo ""
+            echo "KITE TOKEN EXPIRED — Please open your dashboard and reconnect Zerodha."
+            echo "URL: https://stock-dashboard-project.onrender.com"
             exit 1
+          elif [ "$HTTP_CODE" != "200" ]; then
+            echo "GTT job failed with HTTP $HTTP_CODE"
+            exit 1
+          else
+            echo "GTT job completed successfully."
           fi
