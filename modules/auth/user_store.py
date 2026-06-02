@@ -61,7 +61,7 @@ def _post(table: str, data: dict, prefer: str = "return=representation") -> list
         timeout=10,
     )
     resp.raise_for_status()
-    return resp.json()
+    return resp.json() if resp.content else []
 
 
 def _patch(table: str, params: dict, data: dict) -> list:
