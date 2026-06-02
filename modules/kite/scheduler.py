@@ -1,6 +1,10 @@
 import logging
+import os
+import smtplib
 import traceback
 from datetime import date, datetime, timezone
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -12,21 +16,60 @@ from modules.kite import gtt_manager, portfolio
 logger = logging.getLogger(__name__)
 
 
-def _send_reauth_notification(email: str):
-    try:
-        from modules.notification_engine import get_notification_engine, NotificationChannel
-        engine = get_notification_engine()
-        engine.send_notification(
-            title="Kite Token Expired — Action Required",
-            message=(
-                "Your Zerodha Kite access token has expired. "
-                "Please reconnect your Zerodha account in the Stock Dashboard."
-            ),
-            channel=NotificationChannel.EMAIL,
-            recipient=email,
+def _send_reauth_email(to_email: str):
+    """
+    Send a Kite token-expired alert via Gmail SMTP.
+
+    Required env vars:
+        NOTIFY_EMAIL          — Gmail address that sends the alert (e.g. yourname@gmail.com)
+        NOTIFY_EMAIL_PASSWORD — Gmail App Password (16-char, not your regular password)
+                                Generate at: myaccount.google.com → Security → App Passwords
+    """
+    sender = os.environ.get("NOTIFY_EMAIL", "")
+    password = os.environ.get("NOTIFY_EMAIL_PASSWORD", "")
+
+    if not sender or not password:
+        logger.warning(
+            "NOTIFY_EMAIL or NOTIFY_EMAIL_PASSWORD not set — skipping email to %s.", to_email
         )
+        return
+
+    subject = "Action Required: Reconnect Zerodha before market open"
+    html_body = f"""
+    <html><body style="font-family: Arial, sans-serif; color: #1e293b;">
+      <h2 style="color:#ef4444;">Kite Access Token Expired</h2>
+      <p>Your Zerodha Kite access token has expired (tokens reset every day at 6 AM IST).</p>
+      <p>The pre-market GTT job could <strong>not create orders</strong> today because
+         no valid token was found.</p>
+      <h3>What to do:</h3>
+      <ol>
+        <li>Open your <a href="https://stock-dashboard-project.onrender.com">Stock Dashboard</a></li>
+        <li>Go to the <strong>Zerodha Settings</strong> tab</li>
+        <li>Click <strong>Connect Zerodha</strong> and log in with your Kite User ID</li>
+        <li>You will be redirected back automatically — token is saved</li>
+      </ol>
+      <p style="color:#64748b; font-size:0.85em;">
+        Please reconnect <strong>before 8:00 AM IST</strong> so tomorrow's GTT job runs successfully.
+      </p>
+    </body></html>
+    """
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = sender
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(sender, password)
+            server.sendmail(sender, to_email, msg.as_string())
+
+        logger.info("Reauth email sent to %s.", to_email)
     except Exception as exc:
-        logger.warning("Could not send reauth notification to %s: %s", email, exc)
+        logger.error("Failed to send reauth email to %s: %s", to_email, exc)
 
 
 def run_premarket_gtt_job() -> list[str]:
@@ -76,7 +119,7 @@ def run_premarket_gtt_job() -> list[str]:
         log(f"  Token set at: {token_set_at}")
         if not portfolio.is_token_valid(token_set_at):
             log(f"  WARN: Token expired — skipping and sending notification.")
-            _send_reauth_notification(email)
+            _send_reauth_email(email)
             continue
         log("  Token valid [OK]")
 
@@ -88,7 +131,7 @@ def run_premarket_gtt_job() -> list[str]:
             log("  Kite client built [OK]")
         except Exception as exc:
             log(f"  ERROR building Kite client: {exc}", "error")
-            _send_reauth_notification(email)
+            _send_reauth_email(email)
             continue
 
         # ── 5. Portfolio value ───────────────────────────────────────────────
@@ -97,7 +140,7 @@ def run_premarket_gtt_job() -> list[str]:
             log(f"  Portfolio value: Rs.{portfolio_value:,.0f}")
         except Exception as exc:
             log(f"  ERROR fetching portfolio: {exc}", "error")
-            _send_reauth_notification(email)
+            _send_reauth_email(email)
             continue
 
         if portfolio_value <= 0:
