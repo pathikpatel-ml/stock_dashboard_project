@@ -72,6 +72,31 @@ def logout():
     return flask.redirect("/")
 
 
+@server.route("/api/run-gtt", methods=["POST"])
+def api_run_gtt():
+    """GitHub Actions calls this endpoint to trigger the pre-market GTT job."""
+    token = flask.request.headers.get("X-Trigger-Token", "")
+    expected = os.environ.get("GTT_TRIGGER_TOKEN", "")
+    if not expected or token != expected:
+        return flask.jsonify({"error": "unauthorized"}), 401
+    try:
+        from modules.kite.scheduler import run_premarket_gtt_job
+        logs = run_premarket_gtt_job()
+        return flask.jsonify({"status": "ok", "logs": logs})
+    except Exception as exc:
+        import traceback
+        return flask.jsonify({"status": "error", "error": str(exc),
+                              "traceback": traceback.format_exc()}), 500
+
+
+@server.route("/api/health")
+def api_health():
+    """Wake-up ping used by GitHub Actions before triggering GTT."""
+    import data_manager
+    v20_count = 0 if data_manager.v20_signals_df is None else len(data_manager.v20_signals_df)
+    return flask.jsonify({"status": "ok", "v20_signals": v20_count})
+
+
 @server.route("/kite/callback")
 def kite_callback():
     """Zerodha OAuth redirect endpoint — captures request_token and stores in session."""
