@@ -115,11 +115,12 @@ def run_premarket_gtt_job() -> dict:
     for user in users:
         user_id = user["id"]
         email = user["email"]
-        log(f"--- Processing user: {email} ---")
+        # Email stays in server log only, not in browser-visible output
+        logger.info("Processing GTT for user %s (id=%s)", email, user_id)
+        log(f"--- Processing user (id={user_id}) ---")
 
         # ── 3. Token check ───────────────────────────────────────────────────
         token_set_at = user.get("access_token_set_at")
-        log(f"  Token set at: {token_set_at}")
         if not portfolio.is_token_valid(token_set_at):
             log(f"  TOKEN_EXPIRED: Kite token not connected today — please reconnect before 8 AM IST.", "error")
             token_expired = True
@@ -140,14 +141,16 @@ def run_premarket_gtt_job() -> dict:
         # ── 5. Portfolio value ───────────────────────────────────────────────
         try:
             portfolio_value = portfolio.get_portfolio_value(kite)
-            log(f"  Portfolio value: Rs.{portfolio_value:,.0f}")
+            # Portfolio value is financial data — keep it in server log only
+            logger.info("Portfolio value for user %s: Rs.%.0f", email, portfolio_value)
+            log("  Portfolio loaded [OK]")
         except Exception as exc:
             log(f"  ERROR fetching portfolio: {exc}", "error")
             _send_reauth_email(email)
             continue
 
         if portfolio_value <= 0:
-            log("  WARN: Portfolio value is ₹0 — skipping GTT creation.")
+            log("  WARN: Portfolio value is zero — skipping GTT creation.")
             continue
 
         # ── 6. GTT candidates ────────────────────────────────────────────────

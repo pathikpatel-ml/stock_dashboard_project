@@ -1,14 +1,18 @@
+import logging
+
+import dash
+import dash_bootstrap_components as dbc
 import flask
 import flask_login
-import dash
-from dash import Input, Output, State, html, dash_table
-import dash_bootstrap_components as dbc
+from dash import Input, Output, State, html
 
 from modules.auth import user_store
 from modules.auth.crypto import decrypt, encrypt
 from modules.kite import auth as kite_auth
 from modules.kite import portfolio as kite_portfolio
 from modules.kite.scheduler import run_premarket_gtt_job
+
+logger = logging.getLogger(__name__)
 
 
 def _current_user_id():
@@ -82,8 +86,10 @@ def register_kite_settings_callbacks(app):
             )
             return dbc.Alert("Credentials saved securely.", color="success",
                              dismissable=True, duration=4000)
-        except Exception as exc:
-            return dbc.Alert(f"Error: {exc}", color="danger", dismissable=True)
+        except Exception:
+            logger.exception("Failed to save Kite credentials for user %s", user_id)
+            return dbc.Alert("Failed to save credentials. Please try again.",
+                             color="danger", dismissable=True)
 
     # ── Update slider labels ───────────────────────────────────────────────
     @app.callback(
@@ -125,8 +131,10 @@ def register_kite_settings_callbacks(app):
                 f"Preferences saved. GTT auto-creation is {status}.",
                 color="success", dismissable=True, duration=4000
             )
-        except Exception as exc:
-            return dbc.Alert(f"Error: {exc}", color="danger", dismissable=True)
+        except Exception:
+            logger.exception("Failed to save Kite preferences for user %s", user_id)
+            return dbc.Alert("Failed to save preferences. Please try again.",
+                             color="danger", dismissable=True)
 
     # ── Connect Zerodha — redirect to Kite login URL ──────────────────────
     @app.callback(
@@ -150,8 +158,12 @@ def register_kite_settings_callbacks(app):
             return login_url, dbc.Alert(
                 "Redirecting to Zerodha login...", color="info", duration=3000
             )
-        except Exception as exc:
-            return dash.no_update, dbc.Alert(f"Error: {exc}", color="danger")
+        except Exception:
+            logger.exception("Failed to generate Kite login URL for user %s", user_id)
+            return dash.no_update, dbc.Alert(
+                "Could not generate login URL. Check your API Key is saved correctly.",
+                color="danger"
+            )
 
     # ── Auto-exchange token when redirected back from Kite ─────────────────
     @app.callback(
@@ -191,8 +203,13 @@ def register_kite_settings_callbacks(app):
                 dbc.Alert("Zerodha connected successfully!", color="success", duration=5000),
                 dbc.Badge("Connected", color="success", className="fs-6"),
             )
-        except Exception as exc:
-            return dbc.Alert(f"Token exchange failed: {exc}", color="danger"), dash.no_update
+        except Exception:
+            logger.exception("Kite token exchange failed for user %s", user_id)
+            return (
+                dbc.Alert("Connection failed. Check your API Key and Secret and try again.",
+                          color="danger"),
+                dash.no_update,
+            )
 
     # ── GTT log table ──────────────────────────────────────────────────────
     @app.callback(

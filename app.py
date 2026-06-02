@@ -1,13 +1,15 @@
 # app.py
 import atexit
+import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import dash
 import dash_bootstrap_components as dbc
 import flask
 import flask_login
 from dash import Input, Output, dcc, html
+from flask_talisman import Talisman
 
 import data_manager
 from modules import v20_callbacks, v20_layout
@@ -25,6 +27,8 @@ try:
 except ImportError:
     pass
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Dash + Flask app setup
 # ---------------------------------------------------------------------------
@@ -39,19 +43,48 @@ server = app.server
 app.title = "Stock Signal Dashboard"
 
 # ---------------------------------------------------------------------------
-# Flask-Login configuration
+# Security — secret key (fail hard if not set in production)
 # ---------------------------------------------------------------------------
 
-server.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-me-in-production-set-env-var")
+_secret_key = os.environ.get("FLASK_SECRET_KEY", "")
+if not _secret_key:
+    if os.environ.get("RENDER"):
+        raise RuntimeError("FLASK_SECRET_KEY environment variable must be set in production.")
+    # Local dev fallback — NOT safe for production
+    _secret_key = "dev-only-insecure-key-set-FLASK_SECRET_KEY-in-env"
+    logger.warning("FLASK_SECRET_KEY not set — using insecure dev default. Set it in .env")
+
+server.secret_key = _secret_key
 server.config["SESSION_COOKIE_HTTPONLY"] = True
 server.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Enable Secure flag when deployed (Render uses HTTPS)
 if os.environ.get("RENDER"):
     server.config["SESSION_COOKIE_SECURE"] = True
+
+# ---------------------------------------------------------------------------
+# Security headers via Flask-Talisman
+# ---------------------------------------------------------------------------
+# CSP disabled because Dash requires inline JS/CSS — all other headers applied.
+Talisman(
+    server,
+    force_https=bool(os.environ.get("RENDER")),
+    strict_transport_security=bool(os.environ.get("RENDER")),
+    strict_transport_security_max_age=31536000,
+    content_security_policy=False,   # Dash needs inline scripts
+    x_content_type_options=True,     # No MIME-type sniffing
+    x_xss_protection=True,           # XSS browser filter
+    referrer_policy="strict-origin-when-cross-origin",
+    frame_options="SAMEORIGIN",      # Clickjack protection
+)
+
+# ---------------------------------------------------------------------------
+# Flask-Login configuration
+# ---------------------------------------------------------------------------
 
 login_manager = flask_login.LoginManager()
 login_manager.init_app(server)
 login_manager.login_view = "/"
+
+SESSION_TIMEOUT_MINUTES = 30
 
 
 @login_manager.user_loader
@@ -63,12 +96,38 @@ def load_user(user_id):
 
 
 # ---------------------------------------------------------------------------
+# Session inactivity timeout (30 minutes)
+# ---------------------------------------------------------------------------
+
+@server.before_request
+def enforce_session_timeout():
+    """Log out users who have been idle for SESSION_TIMEOUT_MINUTES."""
+    # Skip Dash internals, static files, API endpoints
+    path = flask.request.path
+    if (path.startswith("/_dash") or path.startswith("/assets")
+            or path.startswith("/api/") or path in ("/logout", "/kite/callback")):
+        return
+    if not flask_login.current_user.is_authenticated:
+        return
+    last_active = flask.session.get("last_active")
+    now = datetime.now(timezone.utc).timestamp()
+    if last_active and (now - last_active) > (SESSION_TIMEOUT_MINUTES * 60):
+        logger.info("Session timed out for user %s", flask_login.current_user.id)
+        flask_login.logout_user()
+        flask.session.clear()
+        return flask.redirect("/")
+    flask.session["last_active"] = now
+    flask.session.modified = True
+
+
+# ---------------------------------------------------------------------------
 # Flask routes
 # ---------------------------------------------------------------------------
 
 @server.route("/logout")
 def logout():
     flask_login.logout_user()
+    flask.session.clear()
     return flask.redirect("/")
 
 
@@ -83,22 +142,24 @@ def api_run_gtt():
         from modules.kite.scheduler import run_premarket_gtt_job
         result = run_premarket_gtt_job()
         if result.get("token_expired"):
-            # HTTP 400 → GitHub Action fails → GitHub sends automatic failure email
-            return flask.jsonify({"status": "token_expired",
-                                  "logs": result["logs"]}), 400
+            return flask.jsonify({"status": "token_expired", "logs": result["logs"]}), 400
         return flask.jsonify({"status": "ok", "logs": result["logs"]})
-    except Exception as exc:
-        import traceback
-        return flask.jsonify({"status": "error", "error": str(exc),
-                              "traceback": traceback.format_exc()}), 500
+    except Exception:
+        logger.exception("GTT job error in /api/run-gtt")
+        return flask.jsonify({"status": "error",
+                              "error": "Internal server error — check Render logs"}), 500
 
 
 @server.route("/api/health")
 def api_health():
-    """Wake-up ping used by GitHub Actions before triggering GTT."""
-    import data_manager
-    v20_count = 0 if data_manager.v20_signals_df is None else len(data_manager.v20_signals_df)
-    return flask.jsonify({"status": "ok", "v20_signals": v20_count})
+    """Wake-up ping for GitHub Actions. Returns signal count only with valid token."""
+    token = flask.request.headers.get("X-Trigger-Token", "")
+    expected = os.environ.get("GTT_TRIGGER_TOKEN", "")
+    # Always return 200 (keeps Render awake), but only expose data with valid token
+    if expected and token == expected:
+        v20_count = 0 if data_manager.v20_signals_df is None else len(data_manager.v20_signals_df)
+        return flask.jsonify({"status": "ok", "v20_signals": v20_count})
+    return flask.jsonify({"status": "ok"})
 
 
 @server.route("/kite/callback")
@@ -151,12 +212,10 @@ app.index_string = """
 # ---------------------------------------------------------------------------
 
 def _main_dashboard_layout():
-    user = flask_login.current_user
-    user_email = user.email if flask_login.current_user.is_authenticated else ""
+    user_email = flask_login.current_user.email if flask_login.current_user.is_authenticated else ""
     return html.Div(
         className="app-container",
         children=[
-            # Header with logout link
             html.Div(
                 className="d-flex justify-content-between align-items-center px-3 pt-2",
                 children=[
@@ -179,7 +238,7 @@ def _main_dashboard_layout():
                             children=[v20_layout.create_v20_layout()]),
                     dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
                             children=[breakout_layout.create_breakout_layout()]),
-                    dcc.Tab(label="⚙️ Zerodha Settings", value="tab-kite-settings",
+                    dcc.Tab(label="Zerodha Settings", value="tab-kite-settings",
                             children=[kite_settings_layout.create_kite_settings_layout()]),
                 ],
             ),
@@ -202,7 +261,7 @@ def serve_layout():
     return auth_layout.create_login_layout()
 
 
-app.layout = serve_layout  # pass callable, not serve_layout()
+app.layout = serve_layout
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +275,7 @@ kite_settings_callbacks.register_kite_settings_callbacks(app)
 
 
 # ---------------------------------------------------------------------------
-# Status callback (only relevant when authenticated)
+# Status callback
 # ---------------------------------------------------------------------------
 
 @app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
@@ -236,10 +295,7 @@ data_manager.load_and_process_data_on_startup()
 try:
     user_store.init_db()
 except Exception as _db_err:
-    import logging
-    logging.getLogger(__name__).warning(
-        "Database init failed (check DATABASE_URL env var): %s", _db_err
-    )
+    logger.warning("Database init failed (check SUPABASE env vars): %s", _db_err)
 
 try:
     from modules.kite.scheduler import create_scheduler
@@ -247,8 +303,7 @@ try:
     _scheduler.start()
     atexit.register(lambda: _scheduler.shutdown(wait=False))
 except Exception as _sched_err:
-    import logging
-    logging.getLogger(__name__).warning("Scheduler failed to start: %s", _sched_err)
+    logger.warning("Scheduler failed to start: %s", _sched_err)
 
 
 # ---------------------------------------------------------------------------
@@ -257,4 +312,5 @@ except Exception as _sched_err:
 
 if __name__ == "__main__":
     print("DASH APP: Application ready. Starting server...")
-    app.run_server(debug=True, host="0.0.0.0", port=8050)
+    _debug = os.environ.get("DEBUG", "false").lower() == "true"
+    app.run_server(debug=_debug, host="0.0.0.0", port=8050)
