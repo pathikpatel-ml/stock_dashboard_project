@@ -1,8 +1,8 @@
 import os
 from datetime import date, datetime, timezone
 
+import requests
 from flask_login import UserMixin
-from supabase import create_client, Client
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
@@ -18,21 +18,78 @@ class User(UserMixin):
 
 
 # ---------------------------------------------------------------------------
-# Client
+# Supabase REST helpers
 # ---------------------------------------------------------------------------
 
-def _get_client() -> Client:
-    url = os.environ.get("SUPABASE_URL", "")
+def _base_url() -> str:
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    if not url:
+        raise RuntimeError("SUPABASE_URL environment variable is not set.")
+    return f"{url}/rest/v1"
+
+
+def _headers(prefer: str = "") -> dict:
     key = os.environ.get("SUPABASE_SERVICE_KEY", "")
-    if not url or not key:
-        raise RuntimeError(
-            "SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables must be set."
-        )
-    return create_client(url, key)
+    if not key:
+        raise RuntimeError("SUPABASE_SERVICE_KEY environment variable is not set.")
+    h = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    if prefer:
+        h["Prefer"] = prefer
+    return h
+
+
+def _get(table: str, params: dict) -> list:
+    resp = requests.get(
+        f"{_base_url()}/{table}",
+        headers=_headers("return=representation"),
+        params=params,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _post(table: str, data: dict, prefer: str = "return=representation") -> list:
+    resp = requests.post(
+        f"{_base_url()}/{table}",
+        headers=_headers(prefer),
+        json=data,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _patch(table: str, params: dict, data: dict) -> list:
+    resp = requests.patch(
+        f"{_base_url()}/{table}",
+        headers=_headers("return=representation"),
+        params=params,
+        json=data,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _upsert(table: str, data: dict, on_conflict: str) -> list:
+    resp = requests.post(
+        f"{_base_url()}/{table}",
+        headers=_headers(f"resolution=merge-duplicates,return=representation"),
+        params={"on_conflict": on_conflict},
+        json=data,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def init_db():
-    # Schema created manually via Supabase SQL editor — nothing to do here.
+    # Schema created manually in Supabase SQL editor — nothing to do.
     pass
 
 
@@ -41,47 +98,42 @@ def init_db():
 # ---------------------------------------------------------------------------
 
 def get_user_by_id(user_id: int):
-    resp = _get_client().table("users").select("*").eq("id", user_id).execute()
-    if not resp.data:
+    rows = _get("users", {"id": f"eq.{user_id}", "select": "*"})
+    if not rows:
         return None
-    row = resp.data[0]
-    return User(row["id"], row["email"], row["is_active"])
+    r = rows[0]
+    return User(r["id"], r["email"], r["is_active"])
 
 
 def get_user_by_email(email: str):
-    resp = _get_client().table("users").select("*").eq(
-        "email", email.lower().strip()
-    ).execute()
-    if not resp.data:
+    rows = _get("users", {"email": f"eq.{email.lower().strip()}", "select": "*"})
+    if not rows:
         return None
-    row = resp.data[0]
-    return User(row["id"], row["email"], row["is_active"])
+    r = rows[0]
+    return User(r["id"], r["email"], r["is_active"])
 
 
 def verify_password(email: str, password: str):
-    resp = _get_client().table("users").select("*").eq(
-        "email", email.lower().strip()
-    ).execute()
-    if not resp.data:
+    rows = _get("users", {"email": f"eq.{email.lower().strip()}", "select": "*"})
+    if not rows:
         return None
-    row = resp.data[0]
-    if not check_password_hash(row["password_hash"], password):
+    r = rows[0]
+    if not check_password_hash(r["password_hash"], password):
         return None
-    _get_client().table("users").update(
-        {"last_login_at": datetime.now(timezone.utc).isoformat()}
-    ).eq("id", row["id"]).execute()
-    return User(row["id"], row["email"], row["is_active"])
+    _patch("users",
+           {"id": f"eq.{r['id']}"},
+           {"last_login_at": datetime.now(timezone.utc).isoformat()})
+    return User(r["id"], r["email"], r["is_active"])
 
 
 def create_user(email: str, password: str) -> User:
-    hashed = generate_password_hash(password)
-    resp = _get_client().table("users").insert({
+    rows = _post("users", {
         "email": email.lower().strip(),
-        "password_hash": hashed,
+        "password_hash": generate_password_hash(password),
         "is_active": True,
-    }).execute()
-    row = resp.data[0]
-    return User(row["id"], row["email"], row["is_active"])
+    })
+    r = rows[0]
+    return User(r["id"], r["email"], r["is_active"])
 
 
 # ---------------------------------------------------------------------------
@@ -89,10 +141,8 @@ def create_user(email: str, password: str) -> User:
 # ---------------------------------------------------------------------------
 
 def get_kite_settings(user_id: int) -> dict:
-    resp = _get_client().table("kite_settings").select("*").eq(
-        "user_id", user_id
-    ).execute()
-    if not resp.data:
+    rows = _get("kite_settings", {"user_id": f"eq.{user_id}", "select": "*"})
+    if not rows:
         return {
             "user_id": user_id,
             "api_key_enc": None,
@@ -103,7 +153,7 @@ def get_kite_settings(user_id: int) -> dict:
             "max_allocation_pct": 3.0,
             "gtt_enabled": False,
         }
-    return resp.data[0]
+    return rows[0]
 
 
 def upsert_kite_settings(user_id: int, **kwargs):
@@ -115,33 +165,33 @@ def upsert_kite_settings(user_id: int, **kwargs):
     data = {k: v for k, v in kwargs.items() if k in allowed}
     if not data:
         return
-    # Serialise datetime objects to ISO strings
-    for key in ("access_token_set_at",):
-        if key in data and hasattr(data[key], "isoformat"):
-            data[key] = data[key].isoformat()
+    # Serialise datetime objects
+    if "access_token_set_at" in data and hasattr(data["access_token_set_at"], "isoformat"):
+        data["access_token_set_at"] = data["access_token_set_at"].isoformat()
     data["user_id"] = user_id
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    _get_client().table("kite_settings").upsert(data, on_conflict="user_id").execute()
+    _upsert("kite_settings", data, on_conflict="user_id")
 
 
 def get_all_gtt_enabled_users() -> list:
-    client = _get_client()
-    settings_resp = client.table("kite_settings").select("*").eq(
-        "gtt_enabled", True
-    ).not_.is_("access_token_enc", "null").execute()
-
-    if not settings_resp.data:
+    settings = _get("kite_settings", {
+        "gtt_enabled": "eq.true",
+        "access_token_enc": "not.is.null",
+        "select": "*",
+    })
+    if not settings:
         return []
 
-    user_ids = [s["user_id"] for s in settings_resp.data]
-    users_resp = client.table("users").select(
-        "id, email, is_active"
-    ).in_("id", user_ids).eq("is_active", True).execute()
-
-    users_by_id = {u["id"]: u for u in users_resp.data}
+    user_ids = ",".join(str(s["user_id"]) for s in settings)
+    users = _get("users", {
+        "id": f"in.({user_ids})",
+        "is_active": "eq.true",
+        "select": "id,email",
+    })
+    users_by_id = {u["id"]: u for u in users}
 
     result = []
-    for s in settings_resp.data:
+    for s in settings:
         user = users_by_id.get(s["user_id"])
         if user:
             result.append({
@@ -163,7 +213,7 @@ def get_all_gtt_enabled_users() -> list:
 
 def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
                    gtt_id, status: str, error_msg):
-    _get_client().table("gtt_log").insert({
+    _post("gtt_log", {
         "user_id": user_id,
         "run_date": str(run_date),
         "symbol": symbol,
@@ -171,13 +221,13 @@ def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
         "gtt_id": gtt_id,
         "status": status,
         "error_msg": error_msg,
-    }).execute()
+    }, prefer="return=minimal")
 
 
 def get_gtt_log_today(user_id: int) -> list:
-    resp = _get_client().table("gtt_log").select("*").eq(
-        "user_id", user_id
-    ).eq("run_date", str(date.today())).order(
-        "created_at", desc=True
-    ).execute()
-    return resp.data or []
+    return _get("gtt_log", {
+        "user_id": f"eq.{user_id}",
+        "run_date": f"eq.{date.today()}",
+        "select": "*",
+        "order": "created_at.desc",
+    })
