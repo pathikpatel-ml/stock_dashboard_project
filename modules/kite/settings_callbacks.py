@@ -248,6 +248,7 @@ def register_kite_settings_callbacks(app):
 
         status_colors = {
             "created": "success",
+            "buy_at_market": "danger",       # needs immediate action
             "skipped_exists": "info",
             "skipped_low_qty": "warning",
             "skipped_proximity": "secondary",

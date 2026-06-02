@@ -116,7 +116,9 @@ def run_premarket_gtt_job() -> list[str]:
             log(f"  ERROR building candidates: {exc}", "error")
             continue
 
-        log(f"  Candidates within threshold: {len(candidates)}")
+        log(f"  Candidates within threshold (bullish signals only): {len(candidates)}")
+        for c in candidates:
+            log(f"    -> {c['symbol']} ({c['strategy']}) signal={c.get('signal_strength','?')} buy@Rs.{c['buy_price']}")
         if not candidates:
             log("  No signals close enough to buy target — nothing to do.")
             continue
@@ -155,9 +157,17 @@ def run_premarket_gtt_job() -> list[str]:
                 log(f"  [{symbol}] GTT CREATED [OK] id={gtt_id} qty={qty} @Rs.{c['buy_price']}")
                 existing_symbols.add(symbol)
             except Exception as exc:
-                user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
-                                          None, "failed", str(exc))
-                log(f"  [{symbol}] ERROR: {exc}", "error")
+                err = str(exc).lower()
+                if "trigger already met" in err or "already met" in err:
+                    # Price is already at/below buy target — buy manually at market
+                    user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                              None, "buy_at_market",
+                                              f"Live price already at/below Rs.{c['buy_price']} — buy manually")
+                    log(f"  [{symbol}] BUY NOW at market — price already at Rs.{c['buy_price']} target!")
+                else:
+                    user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                              None, "failed", str(exc))
+                    log(f"  [{symbol}] ERROR: {exc}", "error")
 
     log("GTT job finished.")
     return logs
