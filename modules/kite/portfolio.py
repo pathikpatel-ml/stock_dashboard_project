@@ -11,6 +11,12 @@ def is_token_valid(access_token_set_at) -> bool:
     """Kite access tokens expire at approximately 06:00 IST (00:30 UTC) every day."""
     if access_token_set_at is None:
         return False
+    # Supabase REST API returns timestamps as strings — parse if needed
+    if isinstance(access_token_set_at, str):
+        try:
+            access_token_set_at = datetime.fromisoformat(access_token_set_at)
+        except ValueError:
+            return False
     now_utc = datetime.now(timezone.utc)
     # Make offset-aware if naive
     if access_token_set_at.tzinfo is None:
