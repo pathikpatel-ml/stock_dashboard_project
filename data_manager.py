@@ -1,6 +1,7 @@
 # data_manager.py
 import os
 import re
+import threading
 from datetime import datetime
 
 import numpy as np
@@ -99,39 +100,48 @@ def process_v20_signals(signals_df_local):
         return pd.DataFrame()
 
     yf_symbols = [f"{symbol}.NS" for symbol in unique_symbols]
-    latest_prices_map = {}
 
-    for i in range(0, len(yf_symbols), 50):
-        chunk = yf_symbols[i:i + 50]
-        try:
-            data = yf.download(
-                tickers=chunk,
-                period="2d",
-                progress=False,
-                auto_adjust=False,
-                group_by="ticker",
-                timeout=10,
-            )
-            if data is None or data.empty:
+    # Fetch CMPs in a daemon thread with a 90-second hard timeout.
+    # Updates result_holder[0] after each successful chunk so partial data is
+    # preserved even if we time out mid-way.
+    result_holder = [{}]
+
+    def _fetch_chunks():
+        prices = {}
+        for i in range(0, len(yf_symbols), 50):
+            chunk = yf_symbols[i:i + 50]
+            try:
+                data = yf.download(
+                    tickers=chunk,
+                    period="2d",
+                    progress=False,
+                    auto_adjust=False,
+                    group_by="ticker",
+                    timeout=10,
+                )
+                if data is not None and not data.empty:
+                    for sym_ns in chunk:
+                        base_sym = sym_ns.replace(".NS", "")
+                        price_series = None
+                        if isinstance(data.columns, pd.MultiIndex):
+                            if (sym_ns, "Close") in data.columns:
+                                price_series = data[(sym_ns, "Close")]
+                            elif (sym_ns.upper(), "Close") in data.columns:
+                                price_series = data[(sym_ns.upper(), "Close")]
+                        elif "Close" in data.columns and len(chunk) == 1:
+                            price_series = data["Close"]
+                        if price_series is not None and not price_series.dropna().empty:
+                            prices[base_sym.upper()] = price_series.dropna().iloc[-1]
+                    result_holder[0] = dict(prices)  # persist partial progress
+            except Exception:
                 continue
 
-            for sym_ns in chunk:
-                base_sym = sym_ns.replace(".NS", "")
-                price_series = None
-
-                if isinstance(data.columns, pd.MultiIndex):
-                    if (sym_ns, "Close") in data.columns:
-                        price_series = data[(sym_ns, "Close")]
-                    elif (sym_ns.upper(), "Close") in data.columns:
-                        price_series = data[(sym_ns.upper(), "Close")]
-                elif "Close" in data.columns and len(chunk) == 1:
-                    price_series = data["Close"]
-
-                if price_series is not None and not price_series.dropna().empty:
-                    latest_prices_map[base_sym.upper()] = price_series.dropna().iloc[-1]
-        except Exception:
-            # Keep startup resilient when Yahoo is temporarily unavailable.
-            continue
+    t = threading.Thread(target=_fetch_chunks, daemon=True)
+    t.start()
+    t.join(timeout=90)
+    if t.is_alive():
+        print(f"WARNING: CMP fetch timed out after 90s — using {len(result_holder[0])} partial prices.")
+    latest_prices_map = result_holder[0]
 
     df_to_process["Latest Close Price"] = (
         df_to_process["Symbol"].astype(str).str.upper().map(latest_prices_map)
