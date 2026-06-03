@@ -267,15 +267,17 @@ class TestSupabaseSessionInterface(unittest.TestCase):
         self.assertAlmostEqual(delta, DEFAULT_TTL_SECONDS, delta=5)
 
     @patch("modules.auth.session_store._save")
-    def test_save_remember_me_uses_long_ttl(self, mock_save):
+    def test_save_always_uses_default_ttl(self, mock_save):
+        """Even with _remember=set, session always uses DEFAULT_TTL_SECONDS (30 min)."""
         from modules.auth.session_store import (
-            SupabaseSession, SupabaseSessionInterface, REMEMBER_TTL_SECONDS
+            SupabaseSession, SupabaseSessionInterface, DEFAULT_TTL_SECONDS
         )
         from app import server
         with server.test_request_context("/"):
             iface = SupabaseSessionInterface()
             response = MagicMock()
 
+            # _remember="set" used to trigger 7-day TTL; should now be ignored
             sess = SupabaseSession({"_user_id": "7", "_remember": "set"}, sid="rem-test")
             sess.modified = True
 
@@ -284,7 +286,9 @@ class TestSupabaseSessionInterface(unittest.TestCase):
         args = mock_save.call_args[0]
         exp: datetime = args[2]
         delta = (exp - datetime.now(timezone.utc)).total_seconds()
-        self.assertAlmostEqual(delta, REMEMBER_TTL_SECONDS, delta=10)
+        # Should be ~30 min (DEFAULT_TTL), NOT 7 days
+        self.assertAlmostEqual(delta, DEFAULT_TTL_SECONDS, delta=5)
+        self.assertLess(delta, 3600)  # definitely less than 1 hour
 
 
 # ===========================================================================

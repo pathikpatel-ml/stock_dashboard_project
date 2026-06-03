@@ -98,7 +98,7 @@ def register_auth_callbacks(app):
 
         # ── Success ───────────────────────────────────────────────────────
         _clear_attempts(ip)
-        flask_login.login_user(user, remember=True)
+        flask_login.login_user(user, remember=False)  # TTL enforced server-side (30 min idle)
         logger.info("Successful login for %s from IP %s", email, ip)
         return "", "/"
 

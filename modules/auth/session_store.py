@@ -251,13 +251,11 @@ class SupabaseSessionInterface(SessionInterface):
 
         sess = SupabaseSession(data, sid=sid, new=False)
 
-        # Extend TTL on page loads only (not /_dash* to avoid DB write storms)
+        # Extend TTL on every page load (not /_dash* callbacks).
+        # This makes the 30-min timeout a true IDLE timeout:
+        # any page load resets the clock; inactivity for 30 min = logout.
         if not is_dash:
-            remember_me = row.get("remember_me", False)
-            ttl = REMEMBER_TTL_SECONDS if remember_me else DEFAULT_TTL_SECONDS
-            remaining = (exp - datetime.now(timezone.utc)).total_seconds()
-            if remaining < ttl / 2:
-                sess.modified = True  # triggers save_session to extend expiry
+            sess.modified = True  # triggers save_session → extends expires_at to now+30min
 
         return sess
 
@@ -279,9 +277,10 @@ class SupabaseSessionInterface(SessionInterface):
         if not session and not session.modified:
             return
 
-        remember_me = bool(session.get("_remember") == "set")
-        ttl = REMEMBER_TTL_SECONDS if remember_me else DEFAULT_TTL_SECONDS
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+        # Always use 30-min idle TTL regardless of remember flag.
+        # Sessions persist across browser restarts (cookie has 30-min expiry)
+        # but expire after 30 minutes of inactivity (no page load).
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=DEFAULT_TTL_SECONDS)
 
         try:
             import flask
@@ -290,17 +289,17 @@ class SupabaseSessionInterface(SessionInterface):
         except Exception:
             ip, ua = "", ""
 
-        _save(session.sid, dict(session), expires_at, remember_me, ip, ua)
+        _save(session.sid, dict(session), expires_at, False, ip, ua)
 
         # Keep cache in sync after write
         _cache_set(session.sid, dict(session), expires_at.isoformat())
 
-        # Cookie: long-lived for remember-me, session cookie otherwise
-        cookie_expires = expires_at if remember_me else None
+        # Cookie expiry = 30 min from now so it survives browser restarts
+        # within the active window but auto-clears when session expires.
         response.set_cookie(
             SESSION_COOKIE_NAME,
             session.sid,
-            expires=cookie_expires,
+            expires=expires_at,
             httponly=True,
             secure=bool(os.environ.get("RENDER")),
             samesite="Lax",

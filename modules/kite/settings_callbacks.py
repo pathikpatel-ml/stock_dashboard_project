@@ -181,21 +181,37 @@ def register_kite_settings_callbacks(app):
             return "Not logged in."
         try:
             user_store.upsert_kite_settings(user_id, schedule_time=schedule_time)
-            # Reschedule APScheduler job for this user
-            try:
-                from app import _scheduler
-                from modules.kite.scheduler import reschedule_user
-                reschedule_user(_scheduler, user_id, schedule_time)
-            except Exception as e:
-                logger.warning("Could not reschedule APScheduler job: %s", e)
-            return dbc.Alert(
-                [html.I(className="fas fa-check me-2"),
-                 f"Schedule saved: GTT job will run at {schedule_time} AM IST on weekdays."],
-                color="success", dismissable=True, duration=4000,
-            )
-        except Exception:
+        except Exception as exc:
+            err = str(exc).lower()
             logger.exception("Failed to save schedule for user %s", user_id)
-            return dbc.Alert("Failed to save schedule.", color="danger", dismissable=True)
+            if "schedule_time" in err or "42703" in err or "column" in err:
+                return dbc.Alert([
+                    html.Strong("Database migration required. "),
+                    "Please run this SQL in the ",
+                    html.A("Supabase SQL editor",
+                           href="https://supabase.com/dashboard/project/_/sql/new",
+                           target="_blank", className="alert-link"),
+                    ":", html.Br(),
+                    html.Code(
+                        "ALTER TABLE kite_settings ADD COLUMN IF NOT EXISTS schedule_time TEXT NOT NULL DEFAULT '08:30';",
+                        style={"fontSize": "0.8rem", "wordBreak": "break-all"},
+                    ),
+                ], color="warning", dismissable=True)
+            return dbc.Alert("Failed to save schedule — check server logs.", color="danger", dismissable=True)
+
+        # Reschedule APScheduler job for this user
+        try:
+            from app import _scheduler
+            from modules.kite.scheduler import reschedule_user
+            reschedule_user(_scheduler, user_id, schedule_time)
+        except Exception as e:
+            logger.warning("Could not reschedule APScheduler job: %s", e)
+
+        return dbc.Alert(
+            [html.I(className="fas fa-check me-2"),
+             f"Schedule saved — GTT job will run at {schedule_time} IST on weekdays."],
+            color="success", dismissable=True, duration=4000,
+        )
 
     # ── Load wizard on tab open ────────────────────────────────────────────
     @app.callback(

@@ -1,170 +1,72 @@
-/* Enhanced Stock Dashboard Styles v4.0 */
+/* Enhanced Stock Dashboard Styles v5.0 — dark theme additions */
 
-/* ---- Notification Panel ---- */
-.notification-panel {
-    animation: fadeIn 0.4s ease-in;
-    border-radius: 10px !important;
+/* Dash DataTable inside dark theme */
+.dash-spreadsheet-container,
+.dash-spreadsheet {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
 }
 
-.notifications-container {
-    max-height: 280px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
+.dash-table-container .dash-spreadsheet-inner table {
+    min-width: 700px;
+    background: #1e293b !important;
 }
 
-/* ---- Sentiment Display ---- */
-.sentiment-display {
-    transition: all 0.25s ease;
-    border-radius: 10px !important;
-    padding: 12px 18px !important;
-    font-size: 15px;
-    font-weight: 500;
+.dash-table-container .dash-header {
+    background: #1e3a5f !important;
+    color: #93c5fd !important;
+    font-weight: 600 !important;
+    border-color: #334155 !important;
+    font-size: 0.78rem !important;
 }
 
-.sentiment-display:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
-}
-
-/* ---- Indicators Summary Card ---- */
-.indicators-summary {
-    transition: all 0.25s ease;
-    border-radius: 10px !important;
-}
-
-.indicators-summary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.indicators-grid {
-    min-height: 100px;
-}
-
-/* Indicator card hover */
-.indicators-grid > div > div {
-    transition: all 0.2s ease;
-    border-radius: 8px !important;
-}
-
-.indicators-grid > div > div:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-    border-color: #3b82f6 !important;
-}
-
-/* ---- Table Enhancements ---- */
-.dash-table-container {
-    margin-top: 12px;
-    border-radius: 10px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
-}
-
-/* ---- Section Container Polish ---- */
-.section-container {
-    margin-bottom: 28px;
-    padding: 22px;
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
-    border: 1px solid #e2e8f0;
-}
-
-.section-container h3 {
-    color: #1e293b;
-    margin-bottom: 18px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #3b82f6;
-    font-size: 1.15rem;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-}
-
-/* ---- Status Messages ---- */
-.status-message {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin: 8px 0;
-    font-weight: 500;
-    font-size: 14px;
-}
-
-.status-message.info    { background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
-.status-message.error   { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-.status-message.success { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-
-/* ---- Loading Spinner ---- */
-._dash-loading { margin: 16px 0; }
-
-/* ---- App Container ---- */
-.app-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
-    background-color: #f0f2f5;
-    min-height: 100vh;
-}
-
-.app-container h1 {
-    text-align: center;
-    color: #1e293b;
-    margin-bottom: 4px;
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-/* ---- Footer ---- */
-footer {
-    text-align: center;
-    padding: 18px;
-    color: #94a3b8;
-    border-top: 1px solid #e2e8f0;
-    margin-top: 32px;
+.dash-table-container .dash-cell {
+    background: #1e293b !important;
+    color: #cbd5e1 !important;
+    border-color: #334155 !important;
     font-size: 13px;
+    padding: 9px 12px;
 }
 
-/* ---- Utility ---- */
-.text-center { text-align: center; }
-.text-left   { text-align: left; }
-.text-right  { text-align: right; }
-
-/* ---- Animations ---- */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0); }
+.dash-spreadsheet td.cell--selected,
+.dash-spreadsheet td.focused {
+    background: rgba(59,130,246,.15) !important;
+    border: 1px solid #3b82f6 !important;
 }
 
-@keyframes slideInRight {
-    from { transform: translateX(60px); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
+.dash-spreadsheet tbody tr:hover td {
+    background: rgba(255,255,255,0.04) !important;
 }
 
-.notification-item {
-    animation: slideInRight 0.25s ease-out;
+/* Signal strength row coloring (dark-theme safe) */
+.dash-spreadsheet tr[data-dash-row-index]:has(td[data-dash-column='Signal Strength'][data-dash-column-id='Signal Strength']) {
+    background: inherit;
 }
 
-/* ---- Dark Mode ---- */
-@media (prefers-color-scheme: dark) {
-    .app-container  { background-color: #0f172a; color: #f1f5f9; }
-    .section-container { background-color: #1e293b; color: #f1f5f9; border-color: #334155; }
-    .control-bar    { background-color: #1e293b; border-color: #334155; }
-    .filter-group   { background-color: #0f172a; border-color: #334155; }
+/* Keep signal color overrides working in dark mode */
+.dash-filter { background: #0f172a !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+.dash-filter input { background: #0f172a !important; color: #f1f5f9 !important; }
+
+/* V20 indicators grid items */
+.indicators-summary { background: #1e293b !important; border-color: #334155 !important; }
+.sentiment-display { background: #263548 !important; border-color: #334155 !important; color: #f1f5f9 !important; }
+
+/* Dash loading overlay */
+._dash-loading-callback { opacity: 0.6; }
+
+/* Tab pane for content inside active tab */
+.tab-pane { background: #0f172a; }
+
+/* Breakout tab styles */
+.breakout-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
 }
 
-/* ---- Responsive — 576px ---- */
-@media (max-width: 576px) {
-    .notification-item { padding: 8px; font-size: 12px; }
-    .section-container { padding: 10px; }
-    .sentiment-display { padding: 10px 12px !important; font-size: 13px; }
+/* Login page — override Bootstrap light defaults */
+.card.login-card .form-control {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
 }
-
-/* ---- Multi-Year Breakout strategy tab ---- */
-.module-help {
-    font-size: 13px;
-    color: #64748b;
-    margin: 6px 0 14px 0;
-}
-#bo-inner-tabs { margin-top: 12px; }
-#bo-inner-tabs .tab { font-size: 14px; }

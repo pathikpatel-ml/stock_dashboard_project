@@ -866,3 +866,25 @@ def generate_v20_notifications(df, notification_engine):
     except Exception as e:
         print(f"Error generating notifications: {e}")
         return html.Div("Error loading notifications", style={'color': '#dc3545'})
+
+    # ── Collapse toggles for notifications and indicators panels ─────────────
+    from dash import Input as _In, Output as _Out, State as _St
+    import dash_bootstrap_components as _dbc
+
+    @app.callback(
+        _Out("v20-notifications-collapse", "is_open"),
+        _In("v20-notifications-toggle", "n_clicks"),
+        _St("v20-notifications-collapse", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_notifications(n, is_open):
+        return not is_open if n else is_open
+
+    @app.callback(
+        _Out("v20-indicators-collapse", "is_open"),
+        _In("v20-indicators-toggle", "n_clicks"),
+        _St("v20-indicators-collapse", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_indicators(n, is_open):
+        return not is_open if n else is_open
