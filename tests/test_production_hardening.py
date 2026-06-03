@@ -144,14 +144,15 @@ class TestSupabaseSessionInterface(unittest.TestCase):
     @patch("modules.auth.session_store._fetch")
     @patch("modules.auth.session_store._save")
     def test_open_existing_valid_session(self, mock_save, mock_fetch):
-        from modules.auth.session_store import SupabaseSessionInterface
+        from modules.auth.session_store import SupabaseSessionInterface, _cache_invalidate
         mock_fetch.return_value = self._mock_row("abc", {"_user_id": "5"})
+        _cache_invalidate("abc")  # ensure no stale cache
 
         iface = SupabaseSessionInterface()
         app = MagicMock()
-        app.session_cookie_name = "ssd_sid"
         request = MagicMock()
         request.cookies = {"ssd_sid": "abc"}
+        request.path = "/"  # page load — bypasses cache
 
         sess = iface.open_session(app, request)
 
@@ -164,9 +165,9 @@ class TestSupabaseSessionInterface(unittest.TestCase):
         from modules.auth.session_store import SupabaseSessionInterface
         iface = SupabaseSessionInterface()
         app = MagicMock()
-        app.session_cookie_name = "ssd_sid"
         request = MagicMock()
         request.cookies = {}
+        request.path = "/"
 
         sess = iface.open_session(app, request)
 
@@ -176,14 +177,15 @@ class TestSupabaseSessionInterface(unittest.TestCase):
     @patch("modules.auth.session_store._delete")
     @patch("modules.auth.session_store._fetch")
     def test_open_expired_session_creates_new_and_deletes(self, mock_fetch, mock_delete):
-        from modules.auth.session_store import SupabaseSessionInterface
+        from modules.auth.session_store import SupabaseSessionInterface, _cache_invalidate
         mock_fetch.return_value = self._mock_row("old-sid", expired=True)
+        _cache_invalidate("old-sid")
 
         iface = SupabaseSessionInterface()
         app = MagicMock()
-        app.session_cookie_name = "ssd_sid"
         request = MagicMock()
         request.cookies = {"ssd_sid": "old-sid"}
+        request.path = "/"  # page load — bypasses cache
 
         sess = iface.open_session(app, request)
 
@@ -192,17 +194,53 @@ class TestSupabaseSessionInterface(unittest.TestCase):
 
     @patch("modules.auth.session_store._fetch")
     def test_open_nonexistent_session_creates_new(self, mock_fetch):
-        from modules.auth.session_store import SupabaseSessionInterface
+        from modules.auth.session_store import SupabaseSessionInterface, _cache_invalidate
         mock_fetch.return_value = None
+        _cache_invalidate("ghost-sid")
 
         iface = SupabaseSessionInterface()
         app = MagicMock()
-        app.session_cookie_name = "ssd_sid"
         request = MagicMock()
         request.cookies = {"ssd_sid": "ghost-sid"}
+        request.path = "/"
 
         sess = iface.open_session(app, request)
         self.assertTrue(sess.new)
+
+    def test_open_dash_callback_uses_cache(self):
+        """/_dash-* requests should use in-process cache, not hit DB."""
+        from modules.auth.session_store import (
+            SupabaseSessionInterface, _cache_set, _cache_invalidate
+        )
+        _cache_set("cached-sid", {"_user_id": "9"},
+                   (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())
+
+        iface = SupabaseSessionInterface()
+        app = MagicMock()
+        request = MagicMock()
+        request.cookies = {"ssd_sid": "cached-sid"}
+        request.path = "/_dash-update-component"
+
+        with patch("modules.auth.session_store._fetch") as mock_fetch:
+            sess = iface.open_session(app, request)
+            mock_fetch.assert_not_called()  # cache hit — no DB call
+
+        self.assertEqual(sess["_user_id"], "9")
+        _cache_invalidate("cached-sid")
+
+    def test_save_session_skips_db_for_dash_when_unmodified(self):
+        """/_dash-* requests should not write to DB when session data unchanged."""
+        from modules.auth.session_store import SupabaseSession, SupabaseSessionInterface
+        from app import server
+        with server.test_request_context("/_dash-update-component"):
+            iface = SupabaseSessionInterface()
+            response = MagicMock()
+            sess = SupabaseSession({"_user_id": "5"}, sid="unmod-dash")
+            # modified=False means nothing changed
+
+            with patch("modules.auth.session_store._save") as mock_save:
+                iface.save_session(server, sess, response)
+                mock_save.assert_not_called()  # no write for unmodified dash requests
 
     @patch("modules.auth.session_store._save")
     def test_save_session_calls_upsert(self, mock_save):

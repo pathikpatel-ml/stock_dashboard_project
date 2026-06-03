@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,31 @@ logger = logging.getLogger(__name__)
 SESSION_COOKIE_NAME = "ssd_sid"
 DEFAULT_TTL_SECONDS = 30 * 60          # 30-minute idle timeout
 REMEMBER_TTL_SECONDS = 7 * 24 * 3600  # 7-day remember-me
+
+# ---------------------------------------------------------------------------
+# In-process session cache
+# Avoids a Supabase round-trip on every /_dash-update-component request.
+# Key: session ID  Value: {"data": {...}, "expires_at": ISO str, "ts": float}
+# TTL: 45 seconds. Cache is per-process (fine for single-worker Render free tier).
+# ---------------------------------------------------------------------------
+_CACHE_TTL_SEC = 45
+_session_cache: dict = {}
+
+
+def _cache_get(sid: str) -> dict | None:
+    entry = _session_cache.get(sid)
+    if entry and (time.monotonic() - entry["ts"]) < _CACHE_TTL_SEC:
+        return entry
+    _session_cache.pop(sid, None)
+    return None
+
+
+def _cache_set(sid: str, data: dict, expires_at_iso: str):
+    _session_cache[sid] = {"data": data, "expires_at": expires_at_iso, "ts": time.monotonic()}
+
+
+def _cache_invalidate(sid: str):
+    _session_cache.pop(sid, None)
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +114,7 @@ def _save(sid: str, data: dict, expires_at: datetime,
 
 
 def _delete(sid: str):
+    _cache_invalidate(sid)
     try:
         requests.delete(
             _url(),
@@ -165,16 +192,43 @@ def revoke_all_user_sessions(user_id: int):
 
 class SupabaseSessionInterface(SessionInterface):
 
+    @staticmethod
+    def _req_path() -> str:
+        try:
+            import flask
+            return flask.request.path
+        except Exception:
+            return ""
+
     def open_session(self, app, request):
         sid = request.cookies.get(SESSION_COOKIE_NAME)
         if not sid:
             return SupabaseSession(new=True)
 
+        req_path = request.path
+        is_dash = req_path.startswith("/_dash")
+
+        # ── Fast path: serve /_dash* requests from in-process cache ──────────
+        # Avoids a Supabase round-trip on every Dash callback (which can be
+        # 10-20 per page load). Cache TTL is 45 seconds; page loads always bypass.
+        if is_dash:
+            cached = _cache_get(sid)
+            if cached:
+                try:
+                    exp = datetime.fromisoformat(cached["expires_at"])
+                    if exp.tzinfo is None:
+                        exp = exp.replace(tzinfo=timezone.utc)
+                    if datetime.now(timezone.utc) < exp:
+                        return SupabaseSession(cached["data"], sid=sid, new=False)
+                except Exception:
+                    pass  # fall through to DB lookup
+
+        # ── Full DB lookup (page loads and cache misses) ──────────────────────
         row = _fetch(sid)
         if not row:
+            _cache_invalidate(sid)
             return SupabaseSession(new=True)
 
-        # Check expiry
         try:
             exp = datetime.fromisoformat(row["expires_at"])
             if exp.tzinfo is None:
@@ -184,37 +238,45 @@ class SupabaseSessionInterface(SessionInterface):
 
         if datetime.now(timezone.utc) > exp:
             _delete(sid)
+            _cache_invalidate(sid)
             return SupabaseSession(new=True)
 
-        # Deserialise
         try:
             data = json.loads(row.get("data") or "{}")
         except Exception:
             data = {}
 
+        # Update cache on every DB hit
+        _cache_set(sid, data, row["expires_at"])
+
         sess = SupabaseSession(data, sid=sid, new=False)
 
-        # Extend TTL if less than half of it remains (sliding window, reduces DB writes)
-        remember_me = row.get("remember_me", False)
-        ttl = REMEMBER_TTL_SECONDS if remember_me else DEFAULT_TTL_SECONDS
-        remaining = (exp - datetime.now(timezone.utc)).total_seconds()
-        if remaining < ttl / 2:
-            sess.modified = True  # triggers save_session to extend expiry
+        # Extend TTL on page loads only (not /_dash* to avoid DB write storms)
+        if not is_dash:
+            remember_me = row.get("remember_me", False)
+            ttl = REMEMBER_TTL_SECONDS if remember_me else DEFAULT_TTL_SECONDS
+            remaining = (exp - datetime.now(timezone.utc)).total_seconds()
+            if remaining < ttl / 2:
+                sess.modified = True  # triggers save_session to extend expiry
 
         return sess
 
     def save_session(self, app, session, response):
-        if not session and not session.modified:
+        req_path = self._req_path()
+
+        # Skip /api/ endpoints entirely (no cookies needed there)
+        if req_path.startswith("/api/"):
             return
 
-        # Don't set cookies for API endpoints
-        path = getattr(getattr(app, "_request_ctx_stack", None), "top", None)
-        try:
-            import flask
-            req_path = flask.request.path
-        except Exception:
-            req_path = ""
-        if req_path.startswith("/api/"):
+        is_dash = req_path.startswith("/_dash")
+
+        # For Dash internals, only write to DB if session data actually changed.
+        # This prevents a Supabase write on every callback (the main performance fix).
+        if is_dash and not session.modified:
+            return
+
+        # Empty session with no changes — nothing to persist
+        if not session and not session.modified:
             return
 
         remember_me = bool(session.get("_remember") == "set")
@@ -229,6 +291,9 @@ class SupabaseSessionInterface(SessionInterface):
             ip, ua = "", ""
 
         _save(session.sid, dict(session), expires_at, remember_me, ip, ua)
+
+        # Keep cache in sync after write
+        _cache_set(session.sid, dict(session), expires_at.isoformat())
 
         # Cookie: long-lived for remember-me, session cookie otherwise
         cookie_expires = expires_at if remember_me else None
