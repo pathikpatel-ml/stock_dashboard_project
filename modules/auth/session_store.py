@@ -26,8 +26,8 @@ class SupabaseSession(CallbackDict, SessionMixin):
         CallbackDict.__init__(self, initial or {}, on_update)
         self.sid = sid or str(uuid.uuid4())
         self.new = new
-        self.modified = False
-        self.permanent = True
+        self.permanent = True  # SessionMixin.permanent.setter writes to dict → triggers on_update
+        self.modified = False  # must be last line
 
 
 # ---------------------------------------------------------------------------
