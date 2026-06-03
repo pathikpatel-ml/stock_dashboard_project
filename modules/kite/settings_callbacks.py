@@ -77,72 +77,75 @@ def _determine_wizard_step(settings: dict) -> int:
 
 def register_kite_settings_callbacks(app):
 
-    # ── Mode selector: wizard vs dashboard ────────────────────────────────
+    # ── Master render: single callback, one set of elements in DOM ───────────
+    # Replaces the old render_kite_mode + render_dashboard + render_wizard_step.
+    # Only wizard OR dashboard elements are in the DOM at any time — no duplicate IDs.
     @app.callback(
-        Output("kite-wizard-container", "style"),
-        Output("kite-dashboard-container", "style"),
+        Output("kite-settings-root", "children"),
         Input("strategy-tabs", "value"),
         Input("kite-status-interval", "n_intervals"),
-    )
-    def render_kite_mode(active_tab, _):
-        if active_tab != "tab-kite-settings":
-            raise dash.exceptions.PreventUpdate
-        user_id = _current_user_id()
-        if not user_id:
-            return {"display": "block"}, {"display": "none"}
-        settings = user_store.get_kite_settings(user_id)
-        # Show dashboard if API credentials have been saved at least once
-        if settings.get("api_key_enc"):
-            return {"display": "none"}, {"display": "block"}
-        return {"display": "block"}, {"display": "none"}
-
-    # ── Dashboard: render sidebar + content + expired banner ──────────────
-    @app.callback(
-        Output("kite-dashboard-sidebar", "children"),
-        Output("kite-dashboard-content", "children"),
-        Output("kite-token-expired-banner", "children"),
+        Input("kite-wizard-step", "data"),
         Input("kite-panel", "data"),
-        Input("kite-status-interval", "n_intervals"),
-        Input("strategy-tabs", "value"),
     )
-    def render_dashboard(active_panel, _, active_tab):
+    def render_kite_root(active_tab, _, wizard_step, panel):
         if active_tab != "tab-kite-settings":
             raise dash.exceptions.PreventUpdate
         user_id = _current_user_id()
         if not user_id:
             raise dash.exceptions.PreventUpdate
+
         settings = user_store.get_kite_settings(user_id)
-        if not settings.get("api_key_enc"):
-            raise dash.exceptions.PreventUpdate
+        badge, connected = _connection_status(settings)
+        api_key_saved = bool(settings.get("api_key_enc"))
 
-        _, connected = _token_status(settings)
+        # ── Wizard mode: first-time setup ─────────────────────────────────
+        if not api_key_saved:
+            step = wizard_step or _determine_wizard_step(settings)
+            exclusions = user_store.get_exclusions(user_id) if step == 4 else []
+            if step == 1:   step_content = _step1_card()
+            elif step == 2: step_content = _step2_card(False)
+            elif step == 3: step_content = _step3_card(badge)
+            else:           step_content = _step4_card(settings, exclusions)
+
+            parts = [_progress_bar(step), step_content]
+            if connected:
+                parts.append(dbc.Card(dbc.CardBody([
+                    html.H6([html.I(className="fas fa-vial me-2"), "Test GTT Job"],
+                            className="mb-3"),
+                    dbc.Button([html.I(className="fas fa-play me-2"), "Run GTT Job Now"],
+                               id="run-gtt-job-btn", color="warning", size="sm",
+                               className="mb-3", n_clicks=0),
+                    html.Div(id="gtt-log-container"),
+                ]), className="mt-4 section-container"))
+            return parts
+
+        # ── Dashboard mode: returning users ───────────────────────────────
         exclusions = user_store.get_exclusions(user_id)
+        _, is_connected = _token_status(settings)
 
-        sidebar = _sidebar(active_panel or "connection", settings)
+        active_panel = panel or "connection"
+        if active_panel == "connection":   sec = _connection_section(settings)
+        elif active_panel == "schedule":   sec = _schedule_section(settings)
+        elif active_panel == "prefs":      sec = _prefs_section(settings)
+        elif active_panel == "exclusions": sec = _exclusions_section(exclusions)
+        elif active_panel == "activity":   sec = _activity_section(user_id)
+        else:                              sec = _connection_section(settings)
 
-        # Render content panel for active section
-        panel = active_panel or "connection"
-        if panel == "connection":
-            content = _connection_section(settings)
-        elif panel == "schedule":
-            content = _schedule_section(settings)
-        elif panel == "prefs":
-            content = _prefs_section(settings)
-        elif panel == "exclusions":
-            content = _exclusions_section(exclusions)
-        elif panel == "activity":
-            content = _activity_section(user_id)
-        else:
-            content = _connection_section(settings)
+        parts = []
+        if settings.get("access_token_enc") and not is_connected:
+            parts.append(_expired_banner())
+        parts.append(html.Div(
+            style={"display": "flex", "gap": "0", "alignItems": "flex-start"},
+            children=[
+                html.Div(_sidebar(active_panel, settings),
+                         style={"minWidth": "185px", "paddingRight": "16px",
+                                "borderRight": "1px solid #1e3a5f"}),
+                html.Div(sec, style={"flex": "1", "paddingLeft": "24px", "minWidth": "0"}),
+            ],
+        ))
+        return parts
 
-        # Expired banner — only when token exists but is stale
-        banner = _expired_banner() if (
-            settings.get("access_token_enc") and not connected
-        ) else ""
-
-        return sidebar, content, banner
-
-    # ── Dashboard: sidebar navigation ─────────────────────────────────────
+    # ── Sidebar navigation (updates kite-panel → triggers render_kite_root) ─
     @app.callback(
         Output("kite-panel", "data"),
         Input({"type": "kite-nav-btn", "panel": ALL}, "n_clicks"),
@@ -152,9 +155,8 @@ def register_kite_settings_callbacks(app):
         ctx = dash.callback_context
         if not ctx.triggered or not any(n for n in n_clicks_list if n):
             raise dash.exceptions.PreventUpdate
-        triggered_id = ctx.triggered[0]["prop_id"]
         import json
-        id_dict = json.loads(triggered_id.split(".")[0])
+        id_dict = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
         return id_dict["panel"]
 
     # ── Banner "Go to Connection" shortcut ────────────────────────────────
@@ -167,6 +169,23 @@ def register_kite_settings_callbacks(app):
         if not n:
             raise dash.exceptions.PreventUpdate
         return "connection"
+
+    # ── initialise_wizard: sets step store + signals settings are loaded ──
+    # (kite-settings-loaded triggers auto_exchange_token after OAuth redirect)
+    @app.callback(
+        Output("kite-wizard-step", "data"),
+        Output("kite-settings-loaded", "data"),
+        Input("strategy-tabs", "value"),
+    )
+    def initialise_wizard(active_tab):
+        if active_tab != "tab-kite-settings":
+            raise dash.exceptions.PreventUpdate
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+        settings = user_store.get_kite_settings(user_id)
+        step = _determine_wizard_step(settings)
+        return step, True
 
     # ── Save schedule preference ──────────────────────────────────────────
     @app.callback(
@@ -212,74 +231,6 @@ def register_kite_settings_callbacks(app):
              f"Schedule saved — GTT job will run at {schedule_time} IST on weekdays."],
             color="success", dismissable=True, duration=4000,
         )
-
-    # ── Load wizard on tab open ────────────────────────────────────────────
-    @app.callback(
-        Output("kite-wizard-step", "data"),
-        Output("kite-settings-loaded", "data"),
-        Input("strategy-tabs", "value"),
-        Input("kite-status-interval", "n_intervals"),
-    )
-    def initialise_wizard(active_tab, n_intervals):
-        if active_tab != "tab-kite-settings":
-            raise dash.exceptions.PreventUpdate
-        user_id = _current_user_id()
-        if not user_id:
-            raise dash.exceptions.PreventUpdate
-        settings = user_store.get_kite_settings(user_id)
-        step = _determine_wizard_step(settings)
-        return step, True
-
-    # ── Render wizard step content + progress bar ─────────────────────────
-    @app.callback(
-        Output("wizard-progress", "children"),
-        Output("wizard-step-content", "children"),
-        Output("wizard-test-run-section", "children"),
-        Input("kite-wizard-step", "data"),
-    )
-    def render_wizard_step(step):
-        if step is None:
-            raise dash.exceptions.PreventUpdate
-        user_id = _current_user_id()
-        if not user_id:
-            raise dash.exceptions.PreventUpdate
-
-        settings = user_store.get_kite_settings(user_id)
-        exclusions = user_store.get_exclusions(user_id)
-        badge, connected = _connection_status(settings)
-        api_key_saved = bool(settings.get("api_key_enc"))
-
-        progress = _progress_bar(step)
-
-        if step == 1:
-            content = _step1_card()
-        elif step == 2:
-            content = _step2_card(api_key_saved)
-        elif step == 3:
-            content = _step3_card(badge)
-        else:
-            content = _step4_card(settings, exclusions)
-
-        # Show test-run card once connected
-        test_section = dash.no_update
-        if connected:
-            test_section = dbc.Card(
-                dbc.CardBody([
-                    html.H6([html.I(className="fas fa-vial me-2"),
-                             "Test GTT Job"], className="mb-3"),
-                    dbc.Button(
-                        [html.I(className="fas fa-play me-2"), "Run GTT Job Now"],
-                        id="run-gtt-job-btn",
-                        color="warning",
-                        size="sm",
-                        className="mb-3",
-                        n_clicks=0,
-                    ),
-                    html.Div(id="gtt-log-container"),
-                ]),
-                className="mt-4 section-container",
-            )
-        return progress, content, test_section
 
     # ── Step navigation ───────────────────────────────────────────────────
     for btn_id, direction in [

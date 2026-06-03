@@ -335,7 +335,6 @@ def _step3_card(connection_badge) -> html.Div:
                        id="wizard-step3-next", color="primary", n_clicks=0),
         ]),
 
-        dcc.Location(id="kite-login-redirect", refresh=True),
     ]))
 
 
@@ -516,7 +515,6 @@ def _connection_section(settings: dict) -> html.Div:
             n_clicks=0,
         ),
         html.Div(id="kite-token-status", className="mt-3"),
-        dcc.Location(id="kite-login-redirect", refresh=True),
     ])
 
 
@@ -628,8 +626,12 @@ def _activity_section(user_id: int) -> html.Div:
 
 def create_kite_settings_layout():
     """
-    Returns a shell containing both wizard and dashboard containers.
-    A callback controls which is visible (display: block vs none).
+    Minimal shell — all content is rendered into kite-settings-root by a
+    single master callback (render_kite_root). This prevents duplicate IDs
+    from wizard + dashboard elements being in the DOM simultaneously.
+
+    dcc.Location is kept at top level (outside the rendered content) so
+    the Kite OAuth redirect works regardless of which mode is active.
     """
     return dbc.Container(fluid=True, className="p-4", style={"maxWidth": "900px"}, children=[
         html.H4([html.I(className="fas fa-chart-line me-2"), "Zerodha GTT Automation"],
@@ -637,34 +639,13 @@ def create_kite_settings_layout():
         html.P("Set up automatic GTT buy orders before market open.",
                className="text-muted mb-4"),
 
-        # ── Wizard mode (first-time users) ─────────────────────────────────
-        html.Div(id="kite-wizard-container", style={"display": "block"}, children=[
-            html.Div(id="wizard-progress"),
-            html.Div(id="wizard-step-content"),
-            html.Div(id="wizard-test-run-section"),
-        ]),
+        # All mode-specific content rendered here (wizard OR dashboard, never both)
+        html.Div(id="kite-settings-root"),
 
-        # ── Dashboard mode (returning users — sidebar + content) ───────────
-        html.Div(id="kite-dashboard-container", style={"display": "none"}, children=[
-            # Token-expired banner (shown conditionally by callback)
-            html.Div(id="kite-token-expired-banner"),
+        # dcc.Location must be always in DOM for OAuth redirect to work
+        dcc.Location(id="kite-login-redirect", refresh=True),
 
-            # Two-pane layout
-            html.Div(
-                style={"display": "flex", "gap": "0", "alignItems": "flex-start"},
-                children=[
-                    # Sidebar
-                    html.Div(id="kite-dashboard-sidebar",
-                             style={"minWidth": "185px", "paddingRight": "16px",
-                                    "borderRight": "1px solid #1e3a5f"}),
-                    # Content panel
-                    html.Div(id="kite-dashboard-content",
-                             style={"flex": "1", "paddingLeft": "24px", "minWidth": "0"}),
-                ],
-            ),
-        ]),
-
-        # ── Shared stores & intervals ───────────────────────────────────────
+        # Shared stores and interval
         dcc.Store(id="kite-wizard-step", data=None),
         dcc.Store(id="kite-settings-loaded"),
         dcc.Store(id="kite-panel", data="connection"),
