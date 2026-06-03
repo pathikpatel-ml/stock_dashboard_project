@@ -11,14 +11,22 @@ from modules.auth import user_store
 from modules.auth.crypto import decrypt, encrypt
 from modules.kite import auth as kite_auth
 from modules.kite import portfolio as kite_portfolio
-from modules.kite.scheduler import run_premarket_gtt_job
+from modules.kite.scheduler import run_premarket_gtt_job, _maybe_trigger_gtt_for_user
 from modules.kite.settings_layout import (
     _connection_badge_from_settings,
+    _expired_banner,
     _progress_bar,
+    _sidebar,
     _step1_card,
     _step2_card,
     _step3_card,
     _step4_card,
+    _token_status,
+    _connection_section,
+    _schedule_section,
+    _prefs_section,
+    _exclusions_section,
+    _activity_section,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +76,126 @@ def _determine_wizard_step(settings: dict) -> int:
 
 
 def register_kite_settings_callbacks(app):
+
+    # ── Mode selector: wizard vs dashboard ────────────────────────────────
+    @app.callback(
+        Output("kite-wizard-container", "style"),
+        Output("kite-dashboard-container", "style"),
+        Input("strategy-tabs", "value"),
+        Input("kite-status-interval", "n_intervals"),
+    )
+    def render_kite_mode(active_tab, _):
+        if active_tab != "tab-kite-settings":
+            raise dash.exceptions.PreventUpdate
+        user_id = _current_user_id()
+        if not user_id:
+            return {"display": "block"}, {"display": "none"}
+        settings = user_store.get_kite_settings(user_id)
+        # Show dashboard if API credentials have been saved at least once
+        if settings.get("api_key_enc"):
+            return {"display": "none"}, {"display": "block"}
+        return {"display": "block"}, {"display": "none"}
+
+    # ── Dashboard: render sidebar + content + expired banner ──────────────
+    @app.callback(
+        Output("kite-dashboard-sidebar", "children"),
+        Output("kite-dashboard-content", "children"),
+        Output("kite-token-expired-banner", "children"),
+        Input("kite-panel", "data"),
+        Input("kite-status-interval", "n_intervals"),
+        Input("strategy-tabs", "value"),
+    )
+    def render_dashboard(active_panel, _, active_tab):
+        if active_tab != "tab-kite-settings":
+            raise dash.exceptions.PreventUpdate
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+        settings = user_store.get_kite_settings(user_id)
+        if not settings.get("api_key_enc"):
+            raise dash.exceptions.PreventUpdate
+
+        _, connected = _token_status(settings)
+        exclusions = user_store.get_exclusions(user_id)
+
+        sidebar = _sidebar(active_panel or "connection", settings)
+
+        # Render content panel for active section
+        panel = active_panel or "connection"
+        if panel == "connection":
+            content = _connection_section(settings)
+        elif panel == "schedule":
+            content = _schedule_section(settings)
+        elif panel == "prefs":
+            content = _prefs_section(settings)
+        elif panel == "exclusions":
+            content = _exclusions_section(exclusions)
+        elif panel == "activity":
+            content = _activity_section(user_id)
+        else:
+            content = _connection_section(settings)
+
+        # Expired banner — only when token exists but is stale
+        banner = _expired_banner() if (
+            settings.get("access_token_enc") and not connected
+        ) else ""
+
+        return sidebar, content, banner
+
+    # ── Dashboard: sidebar navigation ─────────────────────────────────────
+    @app.callback(
+        Output("kite-panel", "data"),
+        Input({"type": "kite-nav-btn", "panel": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def sidebar_nav(n_clicks_list):
+        ctx = dash.callback_context
+        if not ctx.triggered or not any(n for n in n_clicks_list if n):
+            raise dash.exceptions.PreventUpdate
+        triggered_id = ctx.triggered[0]["prop_id"]
+        import json
+        id_dict = json.loads(triggered_id.split(".")[0])
+        return id_dict["panel"]
+
+    # ── Banner "Go to Connection" shortcut ────────────────────────────────
+    @app.callback(
+        Output("kite-panel", "data", allow_duplicate=True),
+        Input("banner-goto-connection", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def banner_goto_connection(n):
+        if not n:
+            raise dash.exceptions.PreventUpdate
+        return "connection"
+
+    # ── Save schedule preference ──────────────────────────────────────────
+    @app.callback(
+        Output("schedule-save-status", "children"),
+        Input("save-schedule-btn", "n_clicks"),
+        State("schedule-time-radio", "value"),
+        prevent_initial_call=True,
+    )
+    def save_schedule(n_clicks, schedule_time):
+        user_id = _current_user_id()
+        if not user_id:
+            return "Not logged in."
+        try:
+            user_store.upsert_kite_settings(user_id, schedule_time=schedule_time)
+            # Reschedule APScheduler job for this user
+            try:
+                from app import _scheduler
+                from modules.kite.scheduler import reschedule_user
+                reschedule_user(_scheduler, user_id, schedule_time)
+            except Exception as e:
+                logger.warning("Could not reschedule APScheduler job: %s", e)
+            return dbc.Alert(
+                [html.I(className="fas fa-check me-2"),
+                 f"Schedule saved: GTT job will run at {schedule_time} AM IST on weekdays."],
+                color="success", dismissable=True, duration=4000,
+            )
+        except Exception:
+            logger.exception("Failed to save schedule for user %s", user_id)
+            return dbc.Alert("Failed to save schedule.", color="danger", dismissable=True)
 
     # ── Load wizard on tab open ────────────────────────────────────────────
     @app.callback(
@@ -210,6 +338,8 @@ def register_kite_settings_callbacks(app):
         if not user_id:
             return "Not logged in."
         try:
+            old_settings = user_store.get_kite_settings(user_id)
+            was_disabled = not old_settings.get("gtt_enabled", False)
             user_store.upsert_kite_settings(
                 user_id,
                 proximity_threshold_pct=proximity_pct,
@@ -217,10 +347,16 @@ def register_kite_settings_callbacks(app):
                 gtt_enabled=bool(gtt_enabled),
             )
             status = "enabled" if gtt_enabled else "disabled"
+            extra = ""
+            # Auto-trigger if user just enabled GTT for the first time during pre-market
+            if gtt_enabled and was_disabled:
+                trigger_msg = _maybe_trigger_gtt_for_user(user_id)
+                if trigger_msg:
+                    extra = f" {trigger_msg}"
             return dbc.Alert(
                 [html.I(className="fas fa-check me-2"),
-                 f"Saved. GTT auto-creation is {status}."],
-                color="success", dismissable=True, duration=4000,
+                 f"Saved. GTT auto-creation is {status}.{extra}"],
+                color="success", dismissable=True, duration=6000,
             )
         except Exception:
             logger.exception("Failed to save Kite preferences for user %s", user_id)
@@ -288,11 +424,15 @@ def register_kite_settings_callbacks(app):
                 access_token_enc=encrypt(access_token),
                 access_token_set_at=datetime.now(timezone.utc),
             )
+            # Auto-trigger GTT job if pre-market and GTT is enabled
+            trigger_msg = _maybe_trigger_gtt_for_user(user_id)
+            success_msg = "Zerodha connected successfully!"
+            if trigger_msg:
+                success_msg = f"Zerodha connected! {trigger_msg}"
             return (
                 dbc.Alert(
-                    [html.I(className="fas fa-check-circle me-2"),
-                     "Zerodha connected successfully!"],
-                    color="success", duration=5000,
+                    [html.I(className="fas fa-check-circle me-2"), success_msg],
+                    color="success", duration=8000,
                 ),
                 4,  # advance to preferences step
             )

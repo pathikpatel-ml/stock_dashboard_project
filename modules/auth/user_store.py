@@ -229,15 +229,19 @@ def get_kite_settings(user_id: int) -> dict:
             "proximity_threshold_pct": 2.0,
             "max_allocation_pct": 3.0,
             "gtt_enabled": False,
+            "schedule_time": "08:30",
         }
-    return rows[0]
+    row = rows[0]
+    if not row.get("schedule_time"):
+        row["schedule_time"] = "08:30"
+    return row
 
 
 def upsert_kite_settings(user_id: int, **kwargs):
     allowed = {
         "api_key_enc", "api_secret_enc", "access_token_enc",
         "access_token_set_at", "proximity_threshold_pct",
-        "max_allocation_pct", "gtt_enabled",
+        "max_allocation_pct", "gtt_enabled", "schedule_time",
     }
     data = {k: v for k, v in kwargs.items() if k in allowed}
     if not data:
@@ -280,6 +284,7 @@ def get_all_gtt_enabled_users() -> list:
                 "access_token_set_at": s.get("access_token_set_at"),
                 "proximity_threshold_pct": s["proximity_threshold_pct"],
                 "max_allocation_pct": s["max_allocation_pct"],
+                "schedule_time": s.get("schedule_time") or "08:30",
             })
     return result
 

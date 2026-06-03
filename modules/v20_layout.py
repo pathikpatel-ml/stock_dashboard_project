@@ -77,6 +77,13 @@ def create_v20_layout():
             interval=300000,  # 5 minutes
             n_intervals=0
         ),
+        # Polls every 8s during startup until data is ready, then disables itself
+        dcc.Interval(
+            id='startup-data-poll',
+            interval=8000,
+            n_intervals=0,
+            disabled=False,
+        ),
         
         dcc.Loading(type="circle", children=[
             html.Div(id='v20-signals-table-container', className='dash-table-container')

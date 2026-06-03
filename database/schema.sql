@@ -25,8 +25,23 @@ CREATE TABLE IF NOT EXISTS kite_settings (
     proximity_threshold_pct REAL        NOT NULL DEFAULT 2.0,
     max_allocation_pct      REAL        NOT NULL DEFAULT 3.0,
     gtt_enabled             BOOLEAN     NOT NULL DEFAULT FALSE,
+    schedule_time           TEXT        NOT NULL DEFAULT '08:30',
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT        PRIMARY KEY,
+    user_id      INTEGER     REFERENCES users(id) ON DELETE CASCADE,
+    data         JSONB       NOT NULL DEFAULT '{}',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_active  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at   TIMESTAMPTZ NOT NULL,
+    remember_me  BOOLEAN     NOT NULL DEFAULT FALSE,
+    ip_address   TEXT,
+    user_agent   TEXT
+);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
 
 CREATE TABLE IF NOT EXISTS kite_exclusions (
     id         SERIAL PRIMARY KEY,

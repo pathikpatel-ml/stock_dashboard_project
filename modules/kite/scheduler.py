@@ -1,10 +1,6 @@
 import logging
-import os
-import smtplib
 import traceback
-from datetime import date, datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from datetime import date, datetime, timezone, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -12,72 +8,55 @@ from modules.auth import user_store
 from modules.auth.crypto import decrypt
 from modules.kite import auth as kite_auth
 from modules.kite import gtt_manager, portfolio
+from modules.notifications import notify_token_expired
 
 logger = logging.getLogger(__name__)
 
+_IST = timezone(timedelta(hours=5, minutes=30))
+_MARKET_OPEN_MINUTES = 9 * 60 + 15  # 9:15 AM IST in minutes from midnight
 
-def _send_reauth_email(to_email: str):
+
+def _is_premarket_ist() -> bool:
+    """True if current IST time is before 9:15 AM on a weekday."""
+    now_ist = datetime.now(_IST)
+    if now_ist.weekday() >= 5:  # Sat/Sun
+        return False
+    return (now_ist.hour * 60 + now_ist.minute) < _MARKET_OPEN_MINUTES
+
+
+def _maybe_trigger_gtt_for_user(user_id: int) -> str | None:
     """
-    Send a Kite token-expired alert via Gmail SMTP.
-
-    Required env vars:
-        NOTIFY_EMAIL          — Gmail address that sends the alert (e.g. yourname@gmail.com)
-        NOTIFY_EMAIL_PASSWORD — Gmail App Password (16-char, not your regular password)
-                                Generate at: myaccount.google.com → Security → App Passwords
+    Trigger GTT job for a single user in a background thread if:
+    - gtt_enabled = True
+    - Current IST time is before 9:15 AM (pre-market)
+    - No GTT log entries exist for today
+    Returns a status message if triggered, None otherwise.
     """
-    sender = os.environ.get("NOTIFY_EMAIL", "")
-    password = os.environ.get("NOTIFY_EMAIL_PASSWORD", "")
+    import threading
+    if not _is_premarket_ist():
+        return None
+    settings = user_store.get_kite_settings(user_id)
+    if not settings.get("gtt_enabled"):
+        return None
+    if not settings.get("access_token_enc"):
+        return None
+    # Don't re-run if job already ran for this user today
+    if user_store.get_gtt_log_today(user_id):
+        return None
+    logger.info("Auto-triggering GTT job for user_id=%s after token reconnect", user_id)
+    threading.Thread(
+        target=run_premarket_gtt_job,
+        kwargs={"user_ids": [user_id]},
+        daemon=True,
+    ).start()
+    return "GTT orders are being placed for today's signals. Check Activity Log in ~30s."
 
-    if not sender or not password:
-        logger.warning(
-            "NOTIFY_EMAIL or NOTIFY_EMAIL_PASSWORD not set — skipping email to %s.", to_email
-        )
-        return
 
-    subject = "Action Required: Reconnect Zerodha before market open"
-    html_body = f"""
-    <html><body style="font-family: Arial, sans-serif; color: #1e293b;">
-      <h2 style="color:#ef4444;">Kite Access Token Expired</h2>
-      <p>Your Zerodha Kite access token has expired (tokens reset every day at 6 AM IST).</p>
-      <p>The pre-market GTT job could <strong>not create orders</strong> today because
-         no valid token was found.</p>
-      <h3>What to do:</h3>
-      <ol>
-        <li>Open your <a href="https://stock-dashboard-project.onrender.com">Stock Dashboard</a></li>
-        <li>Go to the <strong>Zerodha Settings</strong> tab</li>
-        <li>Click <strong>Connect Zerodha</strong> and log in with your Kite User ID</li>
-        <li>You will be redirected back automatically — token is saved</li>
-      </ol>
-      <p style="color:#64748b; font-size:0.85em;">
-        Please reconnect <strong>before 8:00 AM IST</strong> so tomorrow's GTT job runs successfully.
-      </p>
-    </body></html>
+def run_premarket_gtt_job(user_ids: list | None = None) -> dict:
     """
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = sender
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, to_email, msg.as_string())
-
-        logger.info("Reauth email sent to %s.", to_email)
-    except Exception as exc:
-        logger.error("Failed to send reauth email to %s: %s", to_email, exc)
-
-
-def run_premarket_gtt_job() -> dict:
-    """
-    Runs daily before market open (03:00 UTC = 08:30 IST, Mon-Fri).
+    Runs daily before market open.
+    user_ids: if provided, only process those user IDs (for targeted re-runs).
     Returns {"logs": [...], "success": bool, "token_expired": bool}
-    success=False when a token is expired — causes the GitHub Action to fail
-    and send an automatic email notification.
     """
     import data_manager  # avoid circular import at module load
 
@@ -97,6 +76,10 @@ def run_premarket_gtt_job() -> dict:
         log(f"ERROR fetching users from DB: {exc}", "error")
         log(traceback.format_exc(), "error")
         return {"logs": logs, "success": False, "token_expired": False}
+
+    if user_ids is not None:
+        users = [u for u in users if u["id"] in set(user_ids)]
+        log(f"Filtered to {len(users)} user(s) by user_ids={user_ids}.")
 
     if not users:
         log("No users with GTT enabled and a connected Kite account.")
@@ -135,7 +118,7 @@ def run_premarket_gtt_job() -> dict:
             log("  Kite client built [OK]")
         except Exception as exc:
             log(f"  ERROR building Kite client: {exc}", "error")
-            _send_reauth_email(email)
+            notify_token_expired(email)
             continue
 
         # ── 5. Portfolio value ───────────────────────────────────────────────
@@ -146,7 +129,7 @@ def run_premarket_gtt_job() -> dict:
             log("  Portfolio loaded [OK]")
         except Exception as exc:
             log(f"  ERROR fetching portfolio: {exc}", "error")
-            _send_reauth_email(email)
+            notify_token_expired(email)
             continue
 
         if portfolio_value <= 0:
@@ -219,16 +202,62 @@ def run_premarket_gtt_job() -> dict:
     return {"logs": logs, "success": not token_expired, "token_expired": token_expired}
 
 
+def _schedule_to_utc(schedule_time: str) -> tuple:
+    """Convert 'HH:MM' IST string to (hour_utc, minute_utc)."""
+    try:
+        h, m = map(int, schedule_time.split(":"))
+    except Exception:
+        h, m = 8, 30  # default
+    # IST = UTC + 5:30
+    total_minutes = h * 60 + m - 330  # subtract 5h30m
+    total_minutes = total_minutes % (24 * 60)  # wrap at midnight
+    return total_minutes // 60, total_minutes % 60
+
+
+def reschedule_user(sched: BackgroundScheduler, user_id: int, schedule_time: str):
+    """Add or update a per-user GTT job in the scheduler."""
+    job_id = f"gtt_user_{user_id}"
+    hour_utc, minute_utc = _schedule_to_utc(schedule_time)
+    try:
+        sched.reschedule_job(
+            job_id,
+            trigger="cron",
+            hour=hour_utc,
+            minute=minute_utc,
+            day_of_week="mon-fri",
+        )
+        logger.info("Rescheduled job %s → %02d:%02d UTC", job_id, hour_utc, minute_utc)
+    except Exception:
+        # Job doesn't exist yet — add it
+        sched.add_job(
+            run_premarket_gtt_job,
+            trigger="cron",
+            hour=hour_utc,
+            minute=minute_utc,
+            day_of_week="mon-fri",
+            id=job_id,
+            kwargs={"user_ids": [user_id]},
+            replace_existing=True,
+        )
+        logger.info("Registered new job %s → %02d:%02d UTC", job_id, hour_utc, minute_utc)
+
+
+def rebuild_user_schedules(sched: BackgroundScheduler):
+    """
+    Called on app startup to reconstruct per-user APScheduler jobs from DB.
+    Replaces the old global 'premarket_gtt' job.
+    """
+    try:
+        users = user_store.get_all_gtt_enabled_users()
+    except Exception as exc:
+        logger.warning("rebuild_user_schedules: could not fetch users: %s", exc)
+        return
+    for user in users:
+        reschedule_user(sched, user["id"], user.get("schedule_time", "08:30"))
+    logger.info("rebuild_user_schedules: registered %d user job(s).", len(users))
+
+
 def create_scheduler() -> BackgroundScheduler:
+    """Create the background scheduler. Per-user jobs are registered by rebuild_user_schedules."""
     sched = BackgroundScheduler(timezone="UTC")
-    # 08:30 IST = 03:00 UTC, Mon–Fri only
-    sched.add_job(
-        run_premarket_gtt_job,
-        trigger="cron",
-        hour=3,
-        minute=0,
-        day_of_week="mon-fri",
-        id="premarket_gtt",
-        replace_existing=True,
-    )
     return sched

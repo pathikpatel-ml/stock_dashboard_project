@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import flask
 
 from modules.auth import user_store
+from modules.notifications import notify_admin_new_signup
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,7 @@ def register_signup_route(server):
             _record_signup_attempt(ip)
             user_store.create_pending_user(name, email, password)
             logger.info("New signup request from %s (IP: %s)", email, ip)
+            notify_admin_new_signup(name, email)  # async, fire-and-forget
 
         except Exception:
             logger.exception("Signup failed for email %s", email)

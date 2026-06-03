@@ -53,6 +53,27 @@ breakout_positions_df = pd.DataFrame()
 LOADED_BREAKOUT_FILE_DATE = None
 LOADED_BREAKOUT_SOURCE = None
 
+# --- Startup loading state ---
+_startup_loading = False   # True while background thread is running
+_startup_done = False      # True once all data (including CMPs) is loaded
+
+
+def is_loading() -> bool:
+    return _startup_loading and not _startup_done
+
+
+def is_ready() -> bool:
+    return _startup_done
+
+
+def start_background_load():
+    """Start data loading in a daemon thread so WSGI can serve requests immediately."""
+    import threading
+    global _startup_loading
+    _startup_loading = True
+    t = threading.Thread(target=load_and_process_data_on_startup, daemon=True)
+    t.start()
+
 
 def _filter_out_psu_symbols(df):
     if df.empty or "Symbol" not in df.columns:
@@ -234,6 +255,7 @@ def get_v20_for_stock(symbol):
 def load_and_process_data_on_startup():
     global v20_signals_df, all_available_symbols, v20_processed_df
     global LOADED_V20_FILE_DATE, LOADED_V20_SOURCE
+    global _startup_loading, _startup_done
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -263,6 +285,10 @@ def load_and_process_data_on_startup():
     )
 
     load_breakout_data_on_startup()
+
+    _startup_loading = False
+    _startup_done = True
+    print("STARTUP: All data loaded and ready.")
 
 
 def load_breakout_data_on_startup():
