@@ -47,14 +47,17 @@ def _macd_is_bullish(symbol: str) -> bool:
         return True
 
 
-def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float) -> list:
+def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float,
+                     excluded_symbols: set | None = None) -> list:
     """
     Return list of dicts: {symbol, buy_price, strategy, current_ltp, signal_strength}
     Only includes signals that are:
       - Within proximity_threshold_pct of the buy target
       - Have a bullish signal (BUY / BUY NOW / STRONG BUY) for V20
       - Or are breakout watchlist entries where CMP is just below entry
+      - Not in excluded_symbols
     """
+    excluded = {s.upper() for s in excluded_symbols} if excluded_symbols else set()
     candidates = []
 
     # ── V20 signals ─────────────────────────────────────────────────────────
@@ -73,6 +76,9 @@ def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float) -> lis
                 symbol = str(row["Symbol"]).strip()
 
                 if proximity > proximity_threshold_pct or buy_price <= 0 or ltp <= 0:
+                    continue
+                if symbol.upper() in excluded:
+                    logger.info("  [%s] skipped — in exclusion list.", symbol)
                     continue
 
                 # ── Signal strength filter ────────────────────────────────
@@ -105,10 +111,11 @@ def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float) -> lis
                 cmp = float(row.get("CMP", 0))
                 if entry <= 0 or cmp <= 0:
                     continue
+                symbol_up = str(row["Symbol"]).strip().upper()
                 prox_pct = (cmp - entry) / entry * 100
-                if -proximity_threshold_pct <= prox_pct <= 0:
+                if -proximity_threshold_pct <= prox_pct <= 0 and symbol_up not in excluded:
                     candidates.append({
-                        "symbol": str(row["Symbol"]).strip(),
+                        "symbol": symbol_up,
                         "buy_price": round(entry, 2),
                         "strategy": "breakout",
                         "current_ltp": round(cmp, 2),

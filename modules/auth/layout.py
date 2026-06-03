@@ -54,6 +54,17 @@ def create_login_layout():
                     ),
                     # Hidden location component — triggers redirect after successful login
                     dcc.Location(id="login-redirect", refresh=True),
+                    html.Hr(className="login-divider mt-3"),
+                    html.Div(
+                        html.A(
+                            [html.I(className="fas fa-user-plus me-1"), "Request Access"],
+                            href="/signup",
+                            className="text-center d-block",
+                            style={"color": "#64748b", "fontSize": "0.82rem",
+                                   "textDecoration": "none"},
+                        ),
+                        className="text-center",
+                    ),
                 ]),
             )
         ],

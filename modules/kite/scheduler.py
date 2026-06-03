@@ -159,8 +159,13 @@ def run_premarket_gtt_job() -> dict:
         allocation_pct = settings.get("max_allocation_pct", 3.0)
         log(f"  Proximity threshold: {proximity_pct}% | Max allocation: {allocation_pct}%")
 
+        exclusions = set(user_store.get_exclusions(user_id))
+        if exclusions:
+            log(f"  Excluded symbols: {', '.join(sorted(exclusions))}")
+
         try:
-            candidates = gtt_manager.build_candidates(v20_df, breakout_df, proximity_pct)
+            candidates = gtt_manager.build_candidates(v20_df, breakout_df, proximity_pct,
+                                                       excluded_symbols=exclusions)
         except Exception as exc:
             log(f"  ERROR building candidates: {exc}", "error")
             continue

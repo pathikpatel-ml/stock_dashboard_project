@@ -87,6 +87,15 @@ def register_auth_callbacks(app):
             )
             return "Invalid email or password.", dash.no_update
 
+        # ── Status check — block pending/rejected users ───────────────────
+        if user.status == "pending":
+            return ("Your account is pending admin approval. "
+                    "You will be notified once approved."), dash.no_update
+        if user.status == "rejected":
+            return "Your access request was not approved.", dash.no_update
+        if not user.is_active:
+            return "Your account has been deactivated.", dash.no_update
+
         # ── Success ───────────────────────────────────────────────────────
         _clear_attempts(ip)
         flask_login.login_user(user, remember=True)

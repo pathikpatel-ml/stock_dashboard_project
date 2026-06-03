@@ -7,10 +7,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class User(UserMixin):
-    def __init__(self, id: int, email: str, is_active: bool):
+    def __init__(self, id: int, email: str, is_active: bool,
+                 name: str = "", status: str = "active"):
         self.id = id
         self.email = email
         self._is_active = is_active
+        self.name = name
+        self.status = status
 
     @property
     def is_active(self):
@@ -79,7 +82,7 @@ def _patch(table: str, params: dict, data: dict) -> list:
 def _upsert(table: str, data: dict, on_conflict: str) -> list:
     resp = requests.post(
         f"{_base_url()}/{table}",
-        headers=_headers(f"resolution=merge-duplicates,return=representation"),
+        headers=_headers("resolution=merge-duplicates,return=representation"),
         params={"on_conflict": on_conflict},
         json=data,
         timeout=10,
@@ -88,8 +91,18 @@ def _upsert(table: str, data: dict, on_conflict: str) -> list:
     return resp.json()
 
 
+def _delete(table: str, params: dict):
+    resp = requests.delete(
+        f"{_base_url()}/{table}",
+        headers=_headers(),
+        params=params,
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+
 def init_db():
-    # Schema created manually in Supabase SQL editor — nothing to do.
+    # Schema created manually in Supabase SQL editor — nothing to do here.
     pass
 
 
@@ -97,20 +110,28 @@ def init_db():
 # Users
 # ---------------------------------------------------------------------------
 
+def _row_to_user(r: dict) -> User:
+    return User(
+        id=r["id"],
+        email=r["email"],
+        is_active=r.get("is_active", True),
+        name=r.get("name", ""),
+        status=r.get("status", "active"),
+    )
+
+
 def get_user_by_id(user_id: int):
     rows = _get("users", {"id": f"eq.{user_id}", "select": "*"})
     if not rows:
         return None
-    r = rows[0]
-    return User(r["id"], r["email"], r["is_active"])
+    return _row_to_user(rows[0])
 
 
 def get_user_by_email(email: str):
     rows = _get("users", {"email": f"eq.{email.lower().strip()}", "select": "*"})
     if not rows:
         return None
-    r = rows[0]
-    return User(r["id"], r["email"], r["is_active"])
+    return _row_to_user(rows[0])
 
 
 def verify_password(email: str, password: str):
@@ -123,17 +144,73 @@ def verify_password(email: str, password: str):
     _patch("users",
            {"id": f"eq.{r['id']}"},
            {"last_login_at": datetime.now(timezone.utc).isoformat()})
-    return User(r["id"], r["email"], r["is_active"])
+    return _row_to_user(r)
 
 
-def create_user(email: str, password: str) -> User:
+def create_user(email: str, password: str, name: str = "",
+                status: str = "active") -> User:
     rows = _post("users", {
         "email": email.lower().strip(),
         "password_hash": generate_password_hash(password),
-        "is_active": True,
+        "name": name.strip(),
+        "is_active": status == "active",
+        "status": status,
     })
-    r = rows[0]
-    return User(r["id"], r["email"], r["is_active"])
+    return _row_to_user(rows[0])
+
+
+def create_pending_user(name: str, email: str, password: str) -> User:
+    """Create a user with status='pending' — requires admin approval before login."""
+    return create_user(email, password, name=name, status="pending")
+
+
+# ---------------------------------------------------------------------------
+# Admin — user management
+# ---------------------------------------------------------------------------
+
+def get_pending_users_count() -> int:
+    rows = _get("users", {"status": "eq.pending", "select": "id"})
+    return len(rows)
+
+
+def get_pending_users() -> list:
+    return _get("users", {
+        "status": "eq.pending",
+        "select": "id,name,email,created_at",
+        "order": "created_at.asc",
+    })
+
+
+def get_all_active_users() -> list:
+    return _get("users", {
+        "status": "not.eq.pending",
+        "select": "id,name,email,status,is_active,last_login_at,created_at",
+        "order": "created_at.asc",
+    })
+
+
+def approve_user(user_id: int):
+    _patch("users",
+           {"id": f"eq.{user_id}"},
+           {"status": "active", "is_active": True})
+
+
+def reject_user(user_id: int):
+    _patch("users",
+           {"id": f"eq.{user_id}"},
+           {"status": "rejected", "is_active": False})
+
+
+def deactivate_user(user_id: int):
+    _patch("users",
+           {"id": f"eq.{user_id}"},
+           {"is_active": False, "status": "deactivated"})
+
+
+def reactivate_user(user_id: int):
+    _patch("users",
+           {"id": f"eq.{user_id}"},
+           {"is_active": True, "status": "active"})
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +242,6 @@ def upsert_kite_settings(user_id: int, **kwargs):
     data = {k: v for k, v in kwargs.items() if k in allowed}
     if not data:
         return
-    # Serialise datetime objects
     if "access_token_set_at" in data and hasattr(data["access_token_set_at"], "isoformat"):
         data["access_token_set_at"] = data["access_token_set_at"].isoformat()
     data["user_id"] = user_id
@@ -186,6 +262,7 @@ def get_all_gtt_enabled_users() -> list:
     users = _get("users", {
         "id": f"in.({user_ids})",
         "is_active": "eq.true",
+        "status": "eq.active",
         "select": "id,email",
     })
     users_by_id = {u["id"]: u for u in users}
@@ -205,6 +282,34 @@ def get_all_gtt_enabled_users() -> list:
                 "max_allocation_pct": s["max_allocation_pct"],
             })
     return result
+
+
+# ---------------------------------------------------------------------------
+# Stock exclusions
+# ---------------------------------------------------------------------------
+
+def get_exclusions(user_id: int) -> list:
+    rows = _get("kite_exclusions", {"user_id": f"eq.{user_id}", "select": "symbol"})
+    return [r["symbol"] for r in rows]
+
+
+def add_exclusion(user_id: int, symbol: str):
+    symbol = symbol.strip().upper()
+    if not symbol:
+        return
+    try:
+        _post("kite_exclusions",
+              {"user_id": user_id, "symbol": symbol},
+              prefer="return=minimal")
+    except Exception:
+        pass  # ignore duplicate (UNIQUE constraint)
+
+
+def remove_exclusion(user_id: int, symbol: str):
+    _delete("kite_exclusions", {
+        "user_id": f"eq.{user_id}",
+        "symbol": f"eq.{symbol.upper()}",
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +336,6 @@ def get_gtt_log_today(user_id: int) -> list:
         "select": "*",
         "order": "created_at.desc",
     })
-    # Keep only the latest entry per symbol — removes stale entries from earlier runs
     seen: set = set()
     deduped = []
     for r in rows:

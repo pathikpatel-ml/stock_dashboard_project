@@ -13,9 +13,12 @@ from flask_talisman import Talisman
 
 import data_manager
 from modules import v20_callbacks, v20_layout
+from modules.admin import callbacks as admin_callbacks
+from modules.admin import layout as admin_layout
 from modules.auth import callbacks as auth_callbacks
 from modules.auth import layout as auth_layout
 from modules.auth import user_store
+from modules.auth.signup import register_signup_route
 from modules.breakout import callbacks as breakout_callbacks
 from modules.breakout import layout as breakout_layout
 from modules.kite import settings_callbacks as kite_settings_callbacks
@@ -79,6 +82,16 @@ Talisman(
 # ---------------------------------------------------------------------------
 # Flask-Login configuration
 # ---------------------------------------------------------------------------
+
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "pathikc129@gmail.com")
+server.config["ADMIN_EMAIL"] = ADMIN_EMAIL
+
+
+def _is_admin(user) -> bool:
+    return (user.is_authenticated
+            and hasattr(user, "email")
+            and user.email == ADMIN_EMAIL)
+
 
 login_manager = flask_login.LoginManager()
 login_manager.init_app(server)
@@ -212,7 +225,57 @@ app.index_string = """
 # ---------------------------------------------------------------------------
 
 def _main_dashboard_layout():
-    user_email = flask_login.current_user.email if flask_login.current_user.is_authenticated else ""
+    user = flask_login.current_user
+    user_email = user.email if user.is_authenticated else ""
+    is_admin = _is_admin(user)
+
+    # Pending badge for admin
+    pending_count = 0
+    if is_admin:
+        try:
+            pending_count = user_store.get_pending_users_count()
+        except Exception:
+            pass
+
+    header_right = [
+        html.Span(f"{user_email} ", className="text-muted small me-2"),
+    ]
+    if is_admin and pending_count > 0:
+        header_right.append(
+            dbc.Button(
+                [dbc.Badge(str(pending_count), color="light", text_color="danger",
+                           className="me-1"),
+                 "pending approvals"],
+                id="pending-badge-btn",
+                color="danger",
+                outline=True,
+                size="sm",
+                className="me-2",
+                n_clicks=0,
+            )
+        )
+    header_right.append(
+        html.A(
+            [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
+            href="/logout",
+            className="btn btn-sm btn-outline-secondary",
+        )
+    )
+
+    tabs = [
+        dcc.Tab(label="V20 Strategy", value="tab-v20",
+                children=[v20_layout.create_v20_layout()]),
+        dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
+                children=[breakout_layout.create_breakout_layout()]),
+        dcc.Tab(label="Zerodha Settings", value="tab-kite-settings",
+                children=[kite_settings_layout.create_kite_settings_layout()]),
+    ]
+    if is_admin:
+        tabs.append(
+            dcc.Tab(label="Admin", value="tab-admin",
+                    children=[admin_layout.create_admin_layout()])
+        )
+
     return html.Div(
         className="app-container",
         children=[
@@ -220,27 +283,13 @@ def _main_dashboard_layout():
                 className="d-flex justify-content-between align-items-center px-3 pt-2",
                 children=[
                     html.H1("Stock Signal Dashboard", className="main-title mb-0"),
-                    html.Div([
-                        html.Span(f"{user_email} ", className="text-muted small me-2"),
-                        html.A(
-                            [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
-                            href="/logout",
-                            className="btn btn-sm btn-outline-secondary",
-                        ),
-                    ]),
+                    html.Div(header_right, className="d-flex align-items-center"),
                 ],
             ),
             dcc.Tabs(
                 id="strategy-tabs",
                 value="tab-v20",
-                children=[
-                    dcc.Tab(label="V20 Strategy", value="tab-v20",
-                            children=[v20_layout.create_v20_layout()]),
-                    dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
-                            children=[breakout_layout.create_breakout_layout()]),
-                    dcc.Tab(label="Zerodha Settings", value="tab-kite-settings",
-                            children=[kite_settings_layout.create_kite_settings_layout()]),
-                ],
+                children=tabs,
             ),
             html.Div(id="app-subtitle"),
             html.Footer(
@@ -272,11 +321,22 @@ auth_callbacks.register_auth_callbacks(app)
 v20_callbacks.register_v20_callbacks(app)
 breakout_callbacks.register_breakout_callbacks(app)
 kite_settings_callbacks.register_kite_settings_callbacks(app)
+admin_callbacks.register_admin_callbacks(app)
+register_signup_route(server)
 
 
 # ---------------------------------------------------------------------------
 # Status callback
 # ---------------------------------------------------------------------------
+
+@app.callback(
+    Output("strategy-tabs", "value"),
+    Input("pending-badge-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def go_to_admin_tab(n_clicks):
+    return "tab-admin"
+
 
 @app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
 def update_status_display(_):
