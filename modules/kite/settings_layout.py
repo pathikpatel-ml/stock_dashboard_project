@@ -72,59 +72,199 @@ def _progress_bar(current_step: int) -> html.Div:
                                   "padding": "1rem 0", "marginBottom": "1.5rem"})
 
 
+def _step(n: int, text) -> html.Div:
+    """Render a single numbered instruction step."""
+    return html.Div(
+        className="d-flex align-items-start mb-3",
+        children=[
+            html.Div(
+                str(n),
+                style={
+                    "minWidth": "26px", "height": "26px",
+                    "borderRadius": "50%", "background": "#1e3a5f",
+                    "border": "1px solid #3b82f6", "color": "#60a5fa",
+                    "display": "flex", "alignItems": "center",
+                    "justifyContent": "center", "fontSize": "0.78rem",
+                    "fontWeight": "700", "marginRight": "12px",
+                    "marginTop": "2px", "flexShrink": "0",
+                },
+            ),
+            html.Div(text, style={"color": "#cbd5e1", "fontSize": "0.875rem",
+                                   "lineHeight": "1.6"}),
+        ],
+    )
+
+
 def _step1_card() -> html.Div:
+    redirect_url = "https://stock-dashboard-project.onrender.com/kite/callback"
+
     return dbc.Card(className="section-container", children=dbc.CardBody([
-        html.H5([html.I(className="fas fa-code me-2 text-primary"),
-                 "Create a Kite Connect Developer Account"], className="mb-3"),
-        html.P("You need a free Kite Connect API key to use GTT automation. "
-               "This is a one-time setup.", className="text-muted"),
-        html.Hr(),
-        dbc.ListGroup([
-            dbc.ListGroupItem([dbc.Badge("1", color="primary", className="me-2"),
-                               "Go to ", html.Strong("developers.kite.trade"),
-                               " and sign up (free)"], className="border-0 ps-0"),
-            dbc.ListGroupItem([dbc.Badge("2", color="primary", className="me-2"),
-                               "After login, click ",
-                               html.Strong("My Apps → Create new app")],
-                              className="border-0 ps-0"),
-            dbc.ListGroupItem([dbc.Badge("3", color="primary", className="me-2"),
-                               "App type: ",
-                               dbc.Badge("Personal", color="success", className="me-1"),
-                               "(free, includes GTT + portfolio)"], className="border-0 ps-0"),
-            dbc.ListGroupItem([dbc.Badge("4", color="primary", className="me-2"),
-                               "Set Redirect URL to:", html.Br(),
-                               html.Code(
-                                   "https://stock-dashboard-project.onrender.com/kite/callback",
-                                   style={"background": "#0f172a", "padding": "2px 6px",
-                                          "borderRadius": "4px", "fontSize": "0.8rem"})],
-                              className="border-0 ps-0"),
-        ], flush=True, className="mb-4"),
-        html.Div(className="d-flex justify-content-between align-items-center", children=[
-            html.A([html.I(className="fas fa-external-link-alt me-1"),
-                    "Open developers.kite.trade"],
-                   href="https://developers.kite.trade", target="_blank",
-                   className="btn btn-outline-primary btn-sm"),
-            dbc.Button(["I have my API Key & Secret ",
-                        html.I(className="fas fa-arrow-right ms-1")],
-                       id="wizard-step1-next", color="primary", n_clicks=0),
+
+        # Header
+        html.H5([html.I(className="fas fa-id-card me-2 text-primary"),
+                 "Get Your Zerodha Kite API Key"],
+                className="mb-1 fw-semibold"),
+        html.P(
+            "This is a one-time setup. You need an active Zerodha trading account to begin.",
+            className="text-muted small mb-4",
+        ),
+
+        # Prerequisite banner
+        dbc.Alert(
+            [html.I(className="fas fa-info-circle me-2"),
+             html.Strong("Prerequisite: "),
+             "You must already have a Zerodha demat/trading account (user ID like ZY1234). "
+             "If you don't have one, open an account at ",
+             html.A("zerodha.com", href="https://zerodha.com", target="_blank",
+                    className="alert-link"), " first."],
+            color="info", className="mb-4", style={"fontSize": "0.85rem"},
+        ),
+
+        html.Hr(style={"borderColor": "#334155"}),
+        html.P("Follow these steps to get your API Key:", className="small fw-semibold mb-3"),
+
+        _step(1, [
+            "Open the Kite Connect developer portal: ",
+            html.A("developers.kite.trade", href="https://developers.kite.trade",
+                   target="_blank", style={"color": "#60a5fa"}),
+        ]),
+        _step(2, [
+            "Click ", html.Strong("Login"), " in the top-right corner. ",
+            "Sign in with your ", html.Strong("Zerodha User ID and password"),
+            " (same credentials you use to log in to Kite/Zerodha). ",
+            "Do NOT create a new account — use your existing Zerodha login.",
+        ]),
+        _step(3, [
+            "After logging in, click ",
+            html.Strong("Create new app"),
+            " (or go to ",
+            html.A("developers.kite.trade/apps/new",
+                   href="https://developers.kite.trade/apps/new",
+                   target="_blank", style={"color": "#60a5fa"}),
+            ").",
+        ]),
+        _step(4, [
+            "Fill in the form:",
+            html.Ul([
+                html.Li([html.Strong("App name: "), "Any name, e.g. ", html.Em("My GTT Bot")]),
+                html.Li([html.Strong("App type: "), "Select ", html.Strong("Personal"),
+                         " (free, no approval needed)"]),
+                html.Li([html.Strong("Redirect URL: "), "Copy exactly:",
+                         html.Br(),
+                         html.Div(
+                             redirect_url,
+                             style={"background": "#0f172a", "border": "1px solid #334155",
+                                    "borderRadius": "6px", "padding": "6px 10px",
+                                    "fontFamily": "monospace", "fontSize": "0.8rem",
+                                    "color": "#93c5fd", "marginTop": "4px",
+                                    "wordBreak": "break-all"},
+                         )]),
+                html.Li([html.Strong("Description: "), "Optional — write anything"]),
+            ], style={"marginTop": "6px", "paddingLeft": "18px",
+                      "color": "#94a3b8", "fontSize": "0.85rem"}),
+        ]),
+        _step(5, [
+            "Click ", html.Strong("Create"), ". Your app is now created. ",
+            "You will see your ", html.Strong("API Key"),
+            " on the app's detail page — click ",
+            html.Strong("Show API Secret"), " to reveal your ",
+            html.Strong("API Secret"), " too.",
+        ]),
+
+        dbc.Alert(
+            [html.I(className="fas fa-exclamation-triangle me-2 text-warning"),
+             html.Strong("Important: "), "Copy and save your ",
+             html.Strong("API Secret"), " now. It is shown only once. "
+             "If you lose it, you will need to regenerate it in the portal."],
+            color="warning", className="mt-3 mb-4", style={"fontSize": "0.85rem"},
+        ),
+
+        html.Hr(style={"borderColor": "#334155"}),
+
+        html.Div(className="d-flex justify-content-between align-items-center mt-3", children=[
+            html.A(
+                [html.I(className="fas fa-external-link-alt me-1"),
+                 "Open Developer Portal"],
+                href="https://developers.kite.trade",
+                target="_blank",
+                className="btn btn-outline-primary btn-sm",
+            ),
+            dbc.Button(
+                ["I have my API Key & Secret ",
+                 html.I(className="fas fa-arrow-right ms-1")],
+                id="wizard-step1-next",
+                color="primary",
+                n_clicks=0,
+            ),
         ]),
     ]))
 
 
 def _step2_card(api_key_saved: bool = False) -> html.Div:
-    placeholder = "•••• saved (enter new key to update)" if api_key_saved else "Paste your API Key"
+    key_placeholder = "•••••••••••• already saved (enter new key to update)" if api_key_saved else "e.g. abcdef1234567890"
     return dbc.Card(className="section-container", children=dbc.CardBody([
+
         html.H5([html.I(className="fas fa-key me-2 text-primary"),
-                 "Enter Your API Credentials"], className="mb-3"),
-        html.P(["Find these in your Kite developer app under ",
-                html.Strong("My Apps → your app → API details"), "."],
-               className="text-muted small mb-4"),
-        dbc.Label("API Key"),
-        dbc.Input(id="kite-api-key-input", type="text", placeholder=placeholder, className="mb-3"),
-        dbc.Label("API Secret"),
-        dbc.Input(id="kite-api-secret-input", type="password",
-                  placeholder="Paste your API Secret", className="mb-4"),
+                 "Enter Your API Key & Secret"],
+                className="mb-1 fw-semibold"),
+        html.P(
+            "Paste the credentials from your Kite Connect app's detail page.",
+            className="text-muted small mb-4",
+        ),
+
+        # Where to find them
+        dbc.Card(
+            dbc.CardBody([
+                html.P([html.I(className="fas fa-map-marker-alt me-2 text-primary"),
+                        html.Strong("Where to find these:")],
+                       className="mb-2 small"),
+                html.Ol([
+                    html.Li(["Go to ",
+                             html.A("developers.kite.trade/apps",
+                                    href="https://developers.kite.trade/apps",
+                                    target="_blank", style={"color": "#60a5fa"})]),
+                    html.Li(["Click on the app you created (e.g. ", html.Em("My GTT Bot"), ")"]),
+                    html.Li(["Your ", html.Strong("API Key"), " is shown at the top of the page"]),
+                    html.Li(["Click ", html.Strong("Show API Secret"),
+                             " to reveal your ", html.Strong("API Secret")]),
+                ], style={"color": "#94a3b8", "fontSize": "0.83rem",
+                          "paddingLeft": "18px", "marginBottom": "0"}),
+            ]),
+            className="mb-4",
+            style={"background": "#0f172a", "border": "1px solid #1e3a5f"},
+        ),
+
+        dbc.Label([html.I(className="fas fa-key me-1 text-primary"), " API Key"],
+                  className="small fw-semibold"),
+        dbc.Input(
+            id="kite-api-key-input",
+            type="text",
+            placeholder=key_placeholder,
+            className="mb-1",
+        ),
+        html.P("Looks like: a8kc3fg7h2mj5p1q (16 alphanumeric characters)",
+               className="text-muted mb-3", style={"fontSize": "0.78rem"}),
+
+        dbc.Label([html.I(className="fas fa-lock me-1 text-warning"), " API Secret"],
+                  className="small fw-semibold"),
+        dbc.Input(
+            id="kite-api-secret-input",
+            type="password",
+            placeholder="Paste your API Secret",
+            className="mb-1",
+        ),
+        html.P("Looks like: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (32 characters)",
+               className="text-muted mb-3", style={"fontSize": "0.78rem"}),
+
+        dbc.Alert(
+            [html.I(className="fas fa-shield-alt me-2"),
+             "Your credentials are ", html.Strong("encrypted"),
+             " before being stored. They never leave the server in plain text."],
+            color="info", className="mb-4", style={"fontSize": "0.83rem"},
+        ),
+
         html.Div(id="kite-creds-status", className="mb-3"),
+
         html.Div(className="d-flex justify-content-between", children=[
             dbc.Button([html.I(className="fas fa-arrow-left me-1"), "Back"],
                        id="wizard-step2-back", color="secondary", outline=True, n_clicks=0),
@@ -136,27 +276,65 @@ def _step2_card(api_key_saved: bool = False) -> html.Div:
 
 def _step3_card(connection_badge) -> html.Div:
     return dbc.Card(className="section-container", children=dbc.CardBody([
+
         html.H5([html.I(className="fas fa-plug me-2 text-primary"),
-                 "Connect Your Zerodha Account"], className="mb-3"),
+                 "Connect Your Zerodha Trading Account"],
+                className="mb-1 fw-semibold"),
+        html.P("Authorise this dashboard to place GTT orders on your behalf.",
+               className="text-muted small mb-4"),
+
         html.Div(className="d-flex align-items-center mb-4", children=[
-            html.Span("Status: ", className="text-muted me-2"),
+            html.Span("Status: ", className="text-muted me-2 small"),
             connection_badge,
         ]),
-        dbc.Alert([html.I(className="fas fa-info-circle me-2"),
-                   "Click below to log in with your Zerodha User ID (e.g. AB1234). "
-                   "You'll be redirected back here automatically."],
-                  color="info", className="mb-4", style={"fontSize": "0.88rem"}),
-        dbc.Button([html.I(className="fas fa-external-link-alt me-2"),
-                    "Connect Zerodha Account"],
-                   id="connect-kite-btn", color="success", size="lg",
-                   className="w-100 mb-3", n_clicks=0),
+
+        # How it works
+        dbc.Card(
+            dbc.CardBody([
+                html.P([html.I(className="fas fa-question-circle me-2 text-primary"),
+                        html.Strong("How this works:")],
+                       className="mb-2 small"),
+                html.Ul([
+                    html.Li("Click the button below — you'll be taken to Zerodha's login page"),
+                    html.Li(["Enter your ", html.Strong("Zerodha User ID"),
+                             " (e.g. ZY1234) and your ", html.Strong("Zerodha password")]),
+                    html.Li("Complete the 2FA (TOTP or SMS OTP)"),
+                    html.Li("You'll be redirected back here automatically"),
+                    html.Li("Your access token is saved — GTT automation is ready"),
+                ], style={"color": "#94a3b8", "fontSize": "0.83rem",
+                          "paddingLeft": "18px", "marginBottom": "0"}),
+            ]),
+            className="mb-4",
+            style={"background": "#0f172a", "border": "1px solid #1e3a5f"},
+        ),
+
+        dbc.Alert(
+            [html.I(className="fas fa-clock me-2 text-warning"),
+             html.Strong("Daily reconnection required. "),
+             "Zerodha resets all access tokens at ", html.Strong("6:00 AM IST"),
+             " every day. You'll receive an email each morning if reconnection is needed "
+             "before your scheduled GTT run."],
+            color="warning", className="mb-4", style={"fontSize": "0.85rem"},
+        ),
+
+        dbc.Button(
+            [html.I(className="fas fa-external-link-alt me-2"),
+             "Connect Zerodha Account"],
+            id="connect-kite-btn",
+            color="success",
+            size="lg",
+            className="w-100 mb-3",
+            n_clicks=0,
+        ),
         html.Div(id="kite-token-status", className="mb-3"),
+
         html.Div(className="d-flex justify-content-between", children=[
             dbc.Button([html.I(className="fas fa-arrow-left me-1"), "Back"],
                        id="wizard-step3-back", color="secondary", outline=True, n_clicks=0),
             dbc.Button(["Continue ", html.I(className="fas fa-arrow-right ms-1")],
                        id="wizard-step3-next", color="primary", n_clicks=0),
         ]),
+
         dcc.Location(id="kite-login-redirect", refresh=True),
     ]))
 
@@ -322,10 +500,14 @@ def _connection_section(settings: dict) -> html.Div:
             badge,
         ]),
         html.P(last_set_str, className="text-muted small mb-4"),
-        dbc.Alert([html.I(className="fas fa-info-circle me-2"),
-                   "Kite tokens reset every day at 6 AM IST. "
-                   "Reconnect each morning before your scheduled GTT time."],
-                  color="info", style={"fontSize": "0.85rem"}, className="mb-4"),
+        dbc.Alert(
+            [html.I(className="fas fa-clock me-2"),
+             html.Strong("Daily reconnection required. "),
+             "Zerodha resets all access tokens at 6 AM IST every day. "
+             "You'll receive an email alert if reconnection is needed before your scheduled GTT run. "
+             "Once you reconnect, GTT orders are placed automatically."],
+            color="info", style={"fontSize": "0.85rem"}, className="mb-4",
+        ),
         dbc.Button(
             [html.I(className="fas fa-external-link-alt me-2"),
              "Reconnect Zerodha" if connected else "Connect Zerodha"],
