@@ -259,8 +259,16 @@ h1.main-title {
 .badge { font-weight: 500 !important; letter-spacing: 0.02em; }
 
 /* ── Tables (Bootstrap) ──────────────────────────────────────── */
+/* Bootstrap 5 CSS variables for dark table theme */
 .table {
-    color: #f1f5f9 !important;
+    --bs-table-color: #cbd5e1;
+    --bs-table-bg: #1e293b;
+    --bs-table-border-color: #334155;
+    --bs-table-striped-bg: #263548;
+    --bs-table-striped-color: #cbd5e1;
+    --bs-table-hover-bg: rgba(59, 130, 246, 0.08);
+    --bs-table-hover-color: #f1f5f9;
+    color: #cbd5e1 !important;
     border-color: #334155 !important;
     font-size: 0.83rem;
 }
@@ -275,9 +283,14 @@ h1.main-title {
     letter-spacing: 0.05em;
 }
 
-.table td { border-color: #334155 !important; color: #cbd5e1 !important; }
-.table-hover tbody tr:hover { background: rgba(59,130,246,.08) !important; }
-.table-bordered { border-color: #334155 !important; }
+/* Explicit row/cell dark backgrounds so Bootstrap light defaults don't bleed through */
+.table tbody tr { background-color: #1e293b !important; }
+.table tbody tr td { color: #cbd5e1 !important; border-color: #334155 !important; }
+.table-hover tbody tr:hover td { background-color: rgba(59,130,246,.08) !important; color: #f1f5f9 !important; }
+.table-bordered, .table-bordered td, .table-bordered th { border-color: #334155 !important; }
+
+/* Select / dropdown dark fix */
+select.form-select option { background: #1e293b; color: #f1f5f9; }
 
 /* ── Notifications ───────────────────────────────────────────── */
 .notifications-container {

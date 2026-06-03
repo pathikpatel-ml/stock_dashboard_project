@@ -20,10 +20,8 @@ def _time_ago(ts_str: str) -> str:
         from datetime import datetime, timezone
         ts = datetime.fromisoformat(ts_str)
         if ts.tzinfo is None:
-            from datetime import timezone
             ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
-        s = int(delta.total_seconds())
+        s = int((datetime.now(timezone.utc) - ts).total_seconds())
         if s < 60:
             return f"{s}s ago"
         if s < 3600:
@@ -33,6 +31,27 @@ def _time_ago(ts_str: str) -> str:
         return f"{s // 86400}d ago"
     except Exception:
         return ts_str[:10] if ts_str else "unknown"
+
+
+def _time_until(ts_str: str) -> str:
+    """Human-readable time until a future timestamp (for expires_at column)."""
+    if not ts_str:
+        return "—"
+    try:
+        from datetime import datetime, timezone
+        ts = datetime.fromisoformat(ts_str)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        s = int((ts - datetime.now(timezone.utc)).total_seconds())
+        if s <= 0:
+            return "expired"
+        if s < 60:
+            return f"in {s}s"
+        if s < 3600:
+            return f"in {s // 60}m"
+        return f"in {s // 3600}h"
+    except Exception:
+        return "—"
 
 
 def register_admin_callbacks(app):
@@ -143,7 +162,7 @@ def register_admin_callbacks(app):
                     html.Td(s.get("email", "—")),
                     html.Td(s.get("ip_address") or "—"),
                     html.Td(_time_ago(s.get("last_active", ""))),
-                    html.Td(_time_ago(s.get("expires_at", ""))),
+                    html.Td(_time_until(s.get("expires_at", ""))),
                     html.Td(dbc.Badge("Remember Me", color="info") if s.get("remember_me")
                             else dbc.Badge("Normal", color="secondary")),
                     html.Td(dbc.Button(

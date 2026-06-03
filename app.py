@@ -264,6 +264,10 @@ def _main_dashboard_layout():
     return html.Div(
         className="app-container",
         children=[
+            # Session heartbeat: fires every 60s, redirects to login if session expired
+            dcc.Location(id="session-expired-redirect", refresh=True),
+            dcc.Interval(id="session-heartbeat", interval=60_000, n_intervals=0),
+
             html.Div(
                 className="d-flex justify-content-between align-items-center px-3 pt-2",
                 children=[
@@ -321,6 +325,18 @@ register_signup_route(server)
 )
 def go_to_admin_tab(n_clicks):
     return "tab-admin"
+
+
+@app.callback(
+    Output("session-expired-redirect", "href"),
+    Input("session-heartbeat", "n_intervals"),
+    prevent_initial_call=True,
+)
+def check_session_alive(n):
+    """Redirect to login if session has expired (30-min idle timeout)."""
+    if not flask_login.current_user.is_authenticated:
+        return "/"
+    return dash.no_update
 
 
 @app.callback(

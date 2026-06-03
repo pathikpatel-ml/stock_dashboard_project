@@ -143,20 +143,30 @@ def get_all_active_sessions() -> list:
             headers=hdrs,
             params={
                 "expires_at": f"gt.{now_iso}",
-                "select": "id,user_id,last_active,expires_at,remember_me,ip_address,created_at",
+                "select": "id,data,last_active,expires_at,remember_me,ip_address,created_at",
                 "order": "last_active.desc",
             },
             timeout=5,
         )
         sessions = resp.json() if resp.ok else []
 
-        # Fetch user emails in one query
-        if sessions:
-            ids = ",".join(str(s["user_id"]) for s in sessions if s.get("user_id"))
+        # Extract user_id from session data JSON (Flask-Login stores it as "_user_id")
+        for s in sessions:
+            try:
+                data_dict = json.loads(s.get("data") or "{}")
+                raw_id = data_dict.get("_user_id")
+                s["user_id"] = int(raw_id) if raw_id else None
+            except Exception:
+                s["user_id"] = None
+
+        # Fetch user names/emails in one query
+        user_ids = [s["user_id"] for s in sessions if s.get("user_id")]
+        if user_ids:
+            ids_str = ",".join(str(i) for i in user_ids)
             users_resp = _r.get(
                 f"{base}/users",
                 headers=hdrs,
-                params={"id": f"in.({ids})", "select": "id,email,name"},
+                params={"id": f"in.({ids_str})", "select": "id,email,name"},
                 timeout=5,
             )
             users = {u["id"]: u for u in (users_resp.json() if users_resp.ok else [])}
@@ -164,6 +174,10 @@ def get_all_active_sessions() -> list:
                 u = users.get(s.get("user_id"), {})
                 s["email"] = u.get("email", "—")
                 s["name"] = u.get("name", "—")
+        else:
+            for s in sessions:
+                s["email"] = "—"
+                s["name"] = "—"
         return sessions
     except Exception as exc:
         logger.warning("get_all_active_sessions failed: %s", exc)
