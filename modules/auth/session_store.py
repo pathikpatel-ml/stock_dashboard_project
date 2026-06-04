@@ -200,6 +200,31 @@ def revoke_all_user_sessions(user_id: int):
         logger.warning("revoke_all_user_sessions failed: %s", exc)
 
 
+def clear_all_sessions():
+    """Delete every row from the sessions table.
+
+    Called once at startup so every redeploy forces all users to re-login.
+    Clears the in-process cache too so no stale entries survive.
+    """
+    global _session_cache
+    _session_cache = {}
+    try:
+        # Supabase REST: DELETE without a filter requires the special header
+        resp = requests.delete(
+            _url(),
+            headers={**_hdrs(), "Prefer": "return=minimal"},
+            # Match ALL rows — Supabase requires at least one filter; use id neq ''
+            params={"id": "neq."},
+            timeout=10,
+        )
+        if resp.ok or resp.status_code == 404:
+            logger.info("Startup: cleared all sessions (force re-login after redeploy).")
+        else:
+            logger.warning("Startup: session clear returned %s — %s", resp.status_code, resp.text[:200])
+    except Exception as exc:
+        logger.warning("Startup: clear_all_sessions failed: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # Flask session interface
 # ---------------------------------------------------------------------------

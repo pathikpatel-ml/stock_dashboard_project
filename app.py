@@ -18,7 +18,7 @@ from modules.admin import layout as admin_layout
 from modules.auth import callbacks as auth_callbacks
 from modules.auth import layout as auth_layout
 from modules.auth import user_store
-from modules.auth.session_store import SupabaseSessionInterface
+from modules.auth.session_store import SupabaseSessionInterface, clear_all_sessions
 from modules.auth.signup import register_signup_route
 from modules.breakout import callbacks as breakout_callbacks
 from modules.breakout import layout as breakout_layout
@@ -359,6 +359,11 @@ try:
     user_store.init_db()
 except Exception as _db_err:
     logger.warning("Database init failed (check SUPABASE env vars): %s", _db_err)
+
+# Force all users to re-login on every redeploy.
+# Sessions are stored in Supabase and survive restarts by default;
+# clearing them here makes redeploys behave like a clean restart.
+clear_all_sessions()
 
 try:
     from modules.kite.scheduler import create_scheduler
