@@ -1,0 +1,110 @@
+============================================================
+V20 SCREENING DATA VALIDATION REPORT
+Generated : 2026-05-16 21:22
+Stocks checked : 146
+Failed fetches : 0
+============================================================
+
+--- Status breakdown (all metrics combined) ---
+  CRITICAL             445
+  OK                   175
+  WARNING              109
+  MISSING_DATA         1
+
+--- Per-metric accuracy ---
+  Public Holding (%)         OK=34  WARN=39  CRIT=73  MISS=0
+  ROCE (%)                   OK=18  WARN=30  CRIT=98  MISS=0
+  ROE (%)                    OK=25  WARN=11  CRIT=109  MISS=1
+  Net Profit (Cr)            OK=96  WARN=28  CRIT=22  MISS=0
+  Debt to Equity             OK=2  WARN=1  CRIT=143  MISS=0
+
+--- FILTER FLIPS (data error changes pass/fail) : 62 ---
+  TITAN           ROCE (%)                  Stored=42.0  Live=18.7
+  DMART           ROCE (%)                  Stored=21.0  Live=17.5
+  MOTHERSON       ROCE (%)                  Stored=31.0  Live=5.16
+  AUROPHARMA      ROCE (%)                  Stored=29.0  Live=10.8
+  NAUKRI          ROCE (%)                  Stored=26.0  Live=4.91
+  INDUSINDBK      ROE (%)                   Stored=17.0  Live=1.44
+  INDUSINDBK      Net Profit (Cr)           Stored=2575.54  Live=933.0
+  COFORGE         Public Holding (%)        Stored=12.23  Live=32.26
+  IPCALAB         ROCE (%)                  Stored=27.0  Live=17.3
+  COCHINSHIP      ROCE (%)                  Stored=30.0  Live=14.3
+  AIAENG          ROCE (%)                  Stored=33.0  Live=18.8
+  JUBLFOOD        ROCE (%)                  Stored=38.0  Live=11.0
+  GLAND           ROCE (%)                  Stored=39.0  Live=17.4
+  ZFCVINDIA       ROCE (%)                  Stored=23.0  Live=20.0
+  APOLLOTYRE      ROCE (%)                  Stored=22.0  Live=15.6
+  PNBHOUSING      Public Holding (%)        Stored=39.53  Live=11.28
+  ATUL            ROCE (%)                  Stored=27.0  Live=13.2
+  GMDCLTD         ROCE (%)                  Stored=23.0  Live=11.3
+  ERIS            ROCE (%)                  Stored=56.0  Live=6.86
+  SAMMAANCAP      ROE (%)                   Stored=29.0  Live=4.63
+  RATNAMANI       ROCE (%)                  Stored=28.0  Live=15.4
+  SYNGENE         ROCE (%)                  Stored=23.0  Live=10.0
+  GRANULES        ROCE (%)                  Stored=24.0  Live=12.8
+  KANSAINER       ROCE (%)                  Stored=21.0  Live=13.6
+  ZYDUSWELL       ROCE (%)                  Stored=31.0  Live=1.08
+  ZYDUSWELL       Net Profit (Cr)           Stored=346.9  Live=29.0
+  VGUARD          ROCE (%)                  Stored=27.0  Live=17.0
+  INOXWIND        Public Holding (%)        Stored=26.1  Live=30.25
+  INOXWIND        ROCE (%)                  Stored=23.0  Live=11.8
+  POLYMED         ROCE (%)                  Stored=33.0  Live=18.2
+  ARE&M           Public Holding (%)        Stored=26.55  Live=32.88
+  ARE&M           ROCE (%)                  Stored=42.0  Live=16.8
+  APLLTD          ROCE (%)                  Stored=47.0  Live=12.2
+  J&KBANK         Public Holding (%)        Stored=31.69  Live=26.26
+  WHIRLPOOL       ROCE (%)                  Stored=26.0  Live=12.7
+  FINPIPE         ROCE (%)                  Stored=23.0  Live=8.77
+  MGL             ROCE (%)                  Stored=35.0  Live=18.3
+  CYIENT          ROCE (%)                  Stored=26.0  Live=16.8
+  CYIENT          Net Profit (Cr)           Stored=615.7  Live=155.0
+  BATAINDIA       ROCE (%)                  Stored=40.0  Live=15.2
+  BATAINDIA       Net Profit (Cr)           Stored=330.66  Live=175.0
+  BBOX            ROCE (%)                  Stored=30.0  Live=3.95
+  BBOX            Net Profit (Cr)           Stored=204.78  Live=19.0
+  SKFINDIA        ROCE (%)                  Stored=23.0  Live=13.3
+  RHIM            ROCE (%)                  Stored=64.0  Live=7.71
+  RHIM            Net Profit (Cr)           Stored=202.51  Live=193.0
+  ZEEL            Public Holding (%)        Stored=21.43  Live=59.78
+  ZEEL            ROCE (%)                  Stored=32.0  Live=9.83
+  DBL             ROCE (%)                  Stored=23.0  Live=8.17
+  ALOKINDS        ROCE (%)                  Stored=23.0  Live=-4.09
+  ALOKINDS        Net Profit (Cr)           Stored=816.43  Live=-780.0
+  CERA            ROCE (%)                  Stored=35.0  Live=19.3
+  MOIL            ROCE (%)                  Stored=26.0  Live=12.6
+  GALAXYSURF      ROCE (%)                  Stored=28.0  Live=14.4
+  GALAXYSURF      Net Profit (Cr)           Stored=304.91  Live=152.0
+  FDC             ROCE (%)                  Stored=25.0  Live=16.4
+  SYMPHONY        Net Profit (Cr)           Stored=212.5  Live=-166.0
+  JUSTDIAL        ROCE (%)                  Stored=27.0  Live=13.1
+  DBCORP          ROCE (%)                  Stored=36.0  Live=18.2
+  NAVNETEDUL      ROCE (%)                  Stored=28.0  Live=14.7
+  FUSION          ROE (%)                   Stored=15.0  Live=0.68
+  FUSION          Net Profit (Cr)           Stored=1224.54  Live=14.0
+
+--- Top 10 ROCE discrepancies ---
+  SHRIRAMFIN      Stored=0.0        Live=11.5       Diff=1150000.0%
+  BAJFINANCE      Stored=0.0        Live=11.1       Diff=1110000.0%
+  SUNDARMFIN      Stored=0.0        Live=9.71       Diff=971000.0%
+  CHOLAFIN        Stored=0.0        Live=9.7        Diff=970000.0%
+  PNBHOUSING      Stored=0.0        Live=9.46       Diff=946000.0%
+  SAMMAANCAP      Stored=0.0        Live=9.12       Diff=912000.0%
+  M&MFIN          Stored=0.0        Live=8.77       Diff=877000.0%
+  LICHSGFIN       Stored=0.0        Live=8.58       Diff=858000.0%
+  AUBANK          Stored=0.0        Live=7.66       Diff=766000.0%
+  KARURVYSYA      Stored=0.0        Live=7.64       Diff=764000.0%
+
+--- Top 10 Public Holding discrepancies ---
+  ZEEL            Stored=21.43      Live=59.78      Diff=179.0%
+  COFORGE         Stored=12.23      Live=32.26      Diff=163.8%
+  GODREJCP        Stored=5.95       Live=14.99      Diff=151.9%
+  ICICIBANK       Stored=10.48      Live=25.36      Diff=142.0%
+  FUSION          Stored=12.0       Live=26.43      Diff=120.2%
+  MOTHERSON       Stored=9.55       Live=17.6       Diff=84.3%
+  GODREJAGRO      Stored=11.23      Live=20.08      Diff=78.8%
+  DBL             Stored=16.12      Live=28.79      Diff=78.6%
+  PNBHOUSING      Stored=39.53      Live=11.28      Diff=71.5%
+  SHRIRAMFIN      Stored=12.96      Live=4.94       Diff=61.9%
+
+Full report: C:\Users\Pathik\MLEngineeringReo\stock_dashboard_project\output\validation_report_20260516_2122.csv
+============================================================

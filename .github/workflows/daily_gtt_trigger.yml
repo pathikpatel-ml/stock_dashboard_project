@@ -2,71 +2,43 @@ name: Daily GTT Creation (Pre-Market)
 
 on:
   schedule:
-    # 7:55 AM IST = 02:25 UTC — first wake-up ping
-    - cron: '25 2 * * 1-5'
-    # 8:25 AM IST = 02:55 UTC — second wake-up ping (Render sleeps after 15 min)
-    - cron: '55 2 * * 1-5'
-    # 9:05 AM IST = 03:35 UTC — safety-net GTT run (idempotent fallback)
-    - cron: '35 3 * * 1-5'
-  workflow_dispatch:   # manual trigger from GitHub Actions UI
+    # 8:00 AM IST = 02:30 UTC, Monday to Friday
+    - cron: '30 2 * * 1-5'
+  workflow_dispatch:   # allows manual trigger from GitHub Actions UI for testing
 
 jobs:
   trigger-gtt:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 10
 
     steps:
-      - name: Determine job type
-        id: job_type
+      - name: Wake up Render app
         run: |
-          MINUTE=$(date -u +"%M")
-          HOUR=$(date -u +"%H")
-          # 02:25 and 02:55 UTC = wake-up only; 03:35 UTC = GTT run
-          if [ "$HOUR" = "03" ] && [ "$MINUTE" -ge "30" ]; then
-            echo "type=gtt_run" >> $GITHUB_OUTPUT
-          else
-            echo "type=wake_up" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Wake up Render dyno
-        run: |
-          echo "Pinging app to wake Render dyno..."
-          curl -sf --max-time 60 \
+          echo "Pinging app to wake up Render dyno..."
+          curl -s --max-time 60 \
             -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
             https://stock-dashboard-project.onrender.com/api/health || true
-          echo "Wake ping sent."
 
-      - name: Wait for app data to be ready
-        if: steps.job_type.outputs.type == 'gtt_run'
+      - name: Wait for app to fully start and load signals
         run: |
-          echo "Waiting for app startup + data load..."
-          MAX_ATTEMPTS=18
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            STATUS=$(curl -sf --max-time 15 \
-              -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
-              https://stock-dashboard-project.onrender.com/api/ready \
-              | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','loading'))" \
-              2>/dev/null || echo "loading")
-            if [ "$STATUS" = "ready" ]; then
-              echo "App is ready (attempt $i/$MAX_ATTEMPTS)."
-              break
-            fi
-            echo "Still loading... attempt $i/$MAX_ATTEMPTS — sleeping 10s"
-            sleep 10
-          done
-          # Final check — if still not ready, abort
-          STATUS=$(curl -sf --max-time 15 \
+          echo "Waiting 90 seconds for app startup + yfinance data load..."
+          sleep 90
+
+      - name: Verify app is ready
+        run: |
+          RESPONSE=$(curl -s --max-time 30 \
             -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
-            https://stock-dashboard-project.onrender.com/api/ready \
-            | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','loading'))" \
-            2>/dev/null || echo "loading")
-          if [ "$STATUS" != "ready" ]; then
-            echo "ERROR: App did not become ready within 3 minutes. Aborting GTT run."
+            https://stock-dashboard-project.onrender.com/api/health)
+          echo "Health check: $RESPONSE"
+          STATUS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','error'))")
+          if [ "$STATUS" != "ok" ]; then
+            echo "App not ready after startup. Aborting."
             exit 1
           fi
+          SIGNALS=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('v20_signals',0))")
+          echo "V20 signals loaded: $SIGNALS"
 
       - name: Trigger GTT job
-        if: steps.job_type.outputs.type == 'gtt_run'
         run: |
           echo "Triggering pre-market GTT creation..."
           HTTP_CODE=$(curl -s -o /tmp/gtt_response.json -w "%{http_code}" --max-time 120 \
@@ -98,8 +70,3 @@ jobs:
           else
             echo "GTT job completed successfully."
           fi
-
-      - name: Wake-up only (no GTT run)
-        if: steps.job_type.outputs.type == 'wake_up'
-        run: |
-          echo "Wake-up ping complete. Dyno is awake for scheduled GTT run."

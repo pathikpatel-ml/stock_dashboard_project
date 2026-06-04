@@ -6,7 +6,6 @@ import flask_login
 from dash import ALL, Input, Output, State, html
 
 from modules.auth import user_store
-from modules.auth.session_store import get_all_active_sessions, revoke_session
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +19,10 @@ def _time_ago(ts_str: str) -> str:
         from datetime import datetime, timezone
         ts = datetime.fromisoformat(ts_str)
         if ts.tzinfo is None:
+            from datetime import timezone
             ts = ts.replace(tzinfo=timezone.utc)
-        s = int((datetime.now(timezone.utc) - ts).total_seconds())
+        delta = datetime.now(timezone.utc) - ts
+        s = int(delta.total_seconds())
         if s < 60:
             return f"{s}s ago"
         if s < 3600:
@@ -33,33 +34,11 @@ def _time_ago(ts_str: str) -> str:
         return ts_str[:10] if ts_str else "unknown"
 
 
-def _time_until(ts_str: str) -> str:
-    """Human-readable time until a future timestamp (for expires_at column)."""
-    if not ts_str:
-        return "—"
-    try:
-        from datetime import datetime, timezone
-        ts = datetime.fromisoformat(ts_str)
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        s = int((ts - datetime.now(timezone.utc)).total_seconds())
-        if s <= 0:
-            return "expired"
-        if s < 60:
-            return f"in {s}s"
-        if s < 3600:
-            return f"in {s // 60}m"
-        return f"in {s // 3600}h"
-    except Exception:
-        return "—"
-
-
 def register_admin_callbacks(app):
 
     @app.callback(
         Output("admin-pending-table", "children"),
         Output("admin-active-table", "children"),
-        Output("admin-sessions-table", "children"),
         Input("admin-refresh-btn", "n_clicks"),
         Input("admin-action-result", "children"),
         Input("strategy-tabs", "value"),
@@ -150,60 +129,7 @@ def register_admin_callbacks(app):
                 bordered=True, hover=True, size="sm", responsive=True,
             )
 
-        # ── Active sessions table ─────────────────────────────────────────
-        sessions = get_all_active_sessions()
-        if not sessions:
-            sessions_table = html.P("No active sessions.", className="text-muted small")
-        else:
-            rows = []
-            for s in sessions:
-                rows.append(html.Tr([
-                    html.Td(s.get("name") or "—"),
-                    html.Td(s.get("email", "—")),
-                    html.Td(s.get("ip_address") or "—"),
-                    html.Td(_time_ago(s.get("last_active", ""))),
-                    html.Td(_time_until(s.get("expires_at", ""))),
-                    html.Td(dbc.Badge("Remember Me", color="info") if s.get("remember_me")
-                            else dbc.Badge("Normal", color="secondary")),
-                    html.Td(dbc.Button(
-                        [html.I(className="fas fa-times me-1"), "Revoke"],
-                        id={"type": "admin-revoke-session", "sid": s["id"]},
-                        color="danger", size="sm", outline=True, n_clicks=0,
-                    )),
-                ]))
-            sessions_table = dbc.Table(
-                [
-                    html.Thead(html.Tr([
-                        html.Th("Name"), html.Th("Email"), html.Th("IP"),
-                        html.Th("Last Active"), html.Th("Expires"), html.Th("Type"), html.Th(""),
-                    ])),
-                    html.Tbody(rows),
-                ],
-                bordered=True, hover=True, size="sm", responsive=True,
-            )
-
-        return pending_table, active_table, sessions_table
-
-    @app.callback(
-        Output("admin-action-result", "children", allow_duplicate=True),
-        Input({"type": "admin-revoke-session", "sid": ALL}, "n_clicks"),
-        prevent_initial_call=True,
-    )
-    def revoke_session_cb(n_clicks_list):
-        ctx = dash.callback_context
-        if not ctx.triggered or not any(n for n in n_clicks_list if n):
-            raise dash.exceptions.PreventUpdate
-        triggered_id = ctx.triggered[0]["prop_id"]
-        import json
-        id_dict = json.loads(triggered_id.split(".")[0])
-        sid = id_dict["sid"]
-        try:
-            revoke_session(sid)
-            return dbc.Alert("Session revoked.", color="warning",
-                             duration=3000, dismissable=True)
-        except Exception:
-            logger.exception("Failed to revoke session %s", sid)
-            return dbc.Alert("Failed to revoke session.", color="danger", dismissable=True)
+        return pending_table, active_table
 
     # ── Approve ──────────────────────────────────────────────────────────
     @app.callback(

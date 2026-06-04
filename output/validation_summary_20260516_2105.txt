@@ -1,0 +1,50 @@
+============================================================
+V20 SCREENING DATA VALIDATION REPORT
+Generated : 2026-05-16 21:05
+Stocks checked : 12
+Failed fetches : 0
+============================================================
+
+--- Status breakdown (all metrics combined) ---
+  CRITICAL             18
+  OK                   16
+  WARNING              14
+  MISSING_DATA         12
+
+--- Per-metric accuracy ---
+  Public Holding (%)         OK=4  WARN=4  CRIT=4  MISS=0
+  ROCE (%)                   OK=0  WARN=4  CRIT=8  MISS=0
+  ROE (%)                    OK=4  WARN=2  CRIT=6  MISS=0
+  Net Profit (Cr)            OK=8  WARN=4  CRIT=0  MISS=0
+  Debt to Equity             OK=0  WARN=0  CRIT=0  MISS=12
+
+--- FILTER FLIPS (data error changes pass/fail) : 2 ---
+  TITAN           ROCE (%)                  Stored=42.0  Live=18.7
+  DMART           ROCE (%)                  Stored=21.0  Live=17.5
+
+--- Top 10 ROCE discrepancies ---
+  BAJFINANCE      Stored=0.0        Live=11.1       Diff=1110000.0%
+  KOTAKBANK       Stored=0.0        Live=6.28       Diff=628000.0%
+  HDFCBANK        Stored=1.75       Live=6.92       Diff=295.4%
+  AXISBANK        Stored=1.56       Live=6.07       Diff=289.1%
+  TCS             Stored=22.51      Live=76.7       Diff=240.7%
+  ICICIBANK       Stored=2.14       Live=6.92       Diff=223.4%
+  HINDUNILVR      Stored=154.0      Live=28.1       Diff=81.8%
+  TITAN           Stored=42.0       Live=18.7       Diff=55.5%
+  M&M             Stored=23.0       Live=31.1       Diff=35.2%
+  ITC             Stored=51.0       Live=36.9       Diff=27.6%
+
+--- Top 10 Public Holding discrepancies ---
+  ICICIBANK       Stored=10.48      Live=25.36      Diff=142.0%
+  AXISBANK        Stored=10.79      Live=6.44       Diff=40.3%
+  BAJFINANCE      Stored=11.75      Live=8.73       Diff=25.7%
+  DMART           Stored=9.37       Live=7.64       Diff=18.5%
+  KOTAKBANK       Stored=13.3       Live=11.54      Diff=13.2%
+  HDFCBANK        Stored=14.19      Live=15.64      Diff=10.2%
+  TITAN           Stored=18.19      Live=16.34      Diff=10.2%
+  ITC             Stored=14.52      Live=15.96      Diff=9.9%
+  HINDUNILVR      Stored=12.17      Live=11.6       Diff=4.7%
+  M&M             Stored=9.81       Live=10.25      Diff=4.5%
+
+Full report: C:\Users\Pathik\MLEngineeringReo\stock_dashboard_project\output\validation_report_20260516_2105.csv
+============================================================

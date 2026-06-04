@@ -19,13 +19,6 @@ def register_v20_callbacks(app):
     notification_engine = get_notification_engine()
     
     @app.callback(
-        Output('startup-data-poll', 'disabled'),
-        Input('startup-data-poll', 'n_intervals'),
-    )
-    def stop_startup_poll(_):
-        return data_manager.is_ready()
-
-    @app.callback(
         [
             Output('v20-signals-table-container', 'children'),
             Output('v20-sentiment-score', 'children'),
@@ -37,24 +30,15 @@ def register_v20_callbacks(app):
             Input('apply-v20-filter-button', 'n_clicks'),
             Input('refresh-v20-live-data-button', 'n_clicks'),
             Input('refresh-v20-indicators-button', 'n_clicks'),
-            Input('v20-auto-refresh-interval', 'n_intervals'),
-            Input('startup-data-poll', 'n_intervals'),
+            Input('v20-auto-refresh-interval', 'n_intervals')
         ],
         State('v20-proximity-filter-input', 'value'),
         prevent_initial_call=False
     )
-    def update_v20_comprehensive(_apply_clicks, _refresh_clicks, _indicator_clicks, _intervals, _startup_n, proximity_value):
-        # Show loading spinner while background startup is in progress
-        if data_manager.is_loading():
-            loading_msg = html.Div([
-                html.I(className="fas fa-spinner fa-spin me-2"),
-                "Fetching live prices for all signals — this takes about 60–90 seconds on first load...",
-            ], className="status-message info", style={"padding": "1.5rem", "color": "#64748b"})
-            return loading_msg, "Loading...", "", html.Div(), html.Div()
-
+    def update_v20_comprehensive(_apply_clicks, _refresh_clicks, _indicator_clicks, _intervals, proximity_value):
         try:
             ctx = dash.callback_context
-
+            
             # Check which button was clicked
             if ctx.triggered and 'refresh-v20-live-data-button' in ctx.triggered[0]['prop_id']:
                 print("V20 REFRESH: Re-processing with new live prices...")
@@ -866,25 +850,3 @@ def generate_v20_notifications(df, notification_engine):
     except Exception as e:
         print(f"Error generating notifications: {e}")
         return html.Div("Error loading notifications", style={'color': '#dc3545'})
-
-    # ── Collapse toggles for notifications and indicators panels ─────────────
-    from dash import Input as _In, Output as _Out, State as _St
-    import dash_bootstrap_components as _dbc
-
-    @app.callback(
-        _Out("v20-notifications-collapse", "is_open"),
-        _In("v20-notifications-toggle", "n_clicks"),
-        _St("v20-notifications-collapse", "is_open"),
-        prevent_initial_call=True,
-    )
-    def toggle_notifications(n, is_open):
-        return not is_open if n else is_open
-
-    @app.callback(
-        _Out("v20-indicators-collapse", "is_open"),
-        _In("v20-indicators-toggle", "n_clicks"),
-        _St("v20-indicators-collapse", "is_open"),
-        prevent_initial_call=True,
-    )
-    def toggle_indicators(n, is_open):
-        return not is_open if n else is_open

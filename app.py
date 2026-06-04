@@ -18,7 +18,6 @@ from modules.admin import layout as admin_layout
 from modules.auth import callbacks as auth_callbacks
 from modules.auth import layout as auth_layout
 from modules.auth import user_store
-from modules.auth.session_store import SupabaseSessionInterface
 from modules.auth.signup import register_signup_route
 from modules.breakout import callbacks as breakout_callbacks
 from modules.breakout import layout as breakout_layout
@@ -64,9 +63,6 @@ server.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 if os.environ.get("RENDER"):
     server.config["SESSION_COOKIE_SECURE"] = True
 
-# Server-side sessions backed by Supabase (survives restarts/redeploys)
-server.session_interface = SupabaseSessionInterface()
-
 # ---------------------------------------------------------------------------
 # Security headers via Flask-Talisman
 # ---------------------------------------------------------------------------
@@ -101,12 +97,40 @@ login_manager = flask_login.LoginManager()
 login_manager.init_app(server)
 login_manager.login_view = "/"
 
+SESSION_TIMEOUT_MINUTES = 30
+
+
 @login_manager.user_loader
 def load_user(user_id):
     try:
         return user_store.get_user_by_id(int(user_id))
     except Exception:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Session inactivity timeout (30 minutes)
+# ---------------------------------------------------------------------------
+
+@server.before_request
+def enforce_session_timeout():
+    """Log out users who have been idle for SESSION_TIMEOUT_MINUTES."""
+    # Skip Dash internals, static files, API endpoints
+    path = flask.request.path
+    if (path.startswith("/_dash") or path.startswith("/assets")
+            or path.startswith("/api/") or path in ("/logout", "/kite/callback")):
+        return
+    if not flask_login.current_user.is_authenticated:
+        return
+    last_active = flask.session.get("last_active")
+    now = datetime.now(timezone.utc).timestamp()
+    if last_active and (now - last_active) > (SESSION_TIMEOUT_MINUTES * 60):
+        logger.info("Session timed out for user %s", flask_login.current_user.id)
+        flask_login.logout_user()
+        flask.session.clear()
+        return flask.redirect("/")
+    flask.session["last_active"] = now
+    flask.session.modified = True
 
 
 # ---------------------------------------------------------------------------
@@ -137,15 +161,6 @@ def api_run_gtt():
         logger.exception("GTT job error in /api/run-gtt")
         return flask.jsonify({"status": "error",
                               "error": "Internal server error — check Render logs"}), 500
-
-
-@server.route("/api/ready")
-def api_ready():
-    """Returns 200/ready once startup data load is complete; 503/loading while in progress."""
-    if data_manager.is_ready():
-        v20_count = 0 if data_manager.v20_processed_df is None else len(data_manager.v20_processed_df)
-        return flask.jsonify({"status": "ready", "v20_signals": v20_count})
-    return flask.jsonify({"status": "loading"}), 503
 
 
 @server.route("/api/health")
@@ -264,10 +279,6 @@ def _main_dashboard_layout():
     return html.Div(
         className="app-container",
         children=[
-            # Session heartbeat: fires every 60s, redirects to login if session expired
-            dcc.Location(id="session-expired-redirect", refresh=True),
-            dcc.Interval(id="session-heartbeat", interval=60_000, n_intervals=0),
-
             html.Div(
                 className="d-flex justify-content-between align-items-center px-3 pt-2",
                 children=[
@@ -327,31 +338,10 @@ def go_to_admin_tab(n_clicks):
     return "tab-admin"
 
 
-@app.callback(
-    Output("session-expired-redirect", "href"),
-    Input("session-heartbeat", "n_intervals"),
-    prevent_initial_call=True,
-)
-def check_session_alive(n):
-    """Redirect to login if session has expired (30-min idle timeout)."""
-    if not flask_login.current_user.is_authenticated:
-        return "/"
-    return dash.no_update
-
-
-@app.callback(
-    Output("app-subtitle", "children"),
-    Input("v20-signals-table-container", "children"),
-    Input("strategy-tabs", "value"),
-)
-def update_status_display(_, active_tab):
-    # Only show the data-loaded badge on the V20 tab; hidden elsewhere
-    if active_tab != "tab-v20":
-        return ""
+@app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
+def update_status_display(_):
     loaded_date = data_manager.LOADED_V20_FILE_DATE or datetime.now().strftime("%Y%m%d")
-    if data_manager.v20_signals_df is None or (
-        hasattr(data_manager.v20_signals_df, "empty") and data_manager.v20_signals_df.empty
-    ):
+    if data_manager.v20_signals_df.empty:
         return html.Span("V20DataLoadedNotFound", className="status-error")
     return html.Span(f"V20DataLoaded{loaded_date}", className="status-loaded")
 
@@ -360,7 +350,7 @@ def update_status_display(_, active_tab):
 # Data load + scheduler startup
 # ---------------------------------------------------------------------------
 
-data_manager.start_background_load()
+data_manager.load_and_process_data_on_startup()
 
 try:
     user_store.init_db()
@@ -368,10 +358,9 @@ except Exception as _db_err:
     logger.warning("Database init failed (check SUPABASE env vars): %s", _db_err)
 
 try:
-    from modules.kite.scheduler import create_scheduler, rebuild_user_schedules
+    from modules.kite.scheduler import create_scheduler
     _scheduler = create_scheduler()
     _scheduler.start()
-    rebuild_user_schedules(_scheduler)
     atexit.register(lambda: _scheduler.shutdown(wait=False))
 except Exception as _sched_err:
     logger.warning("Scheduler failed to start: %s", _sched_err)

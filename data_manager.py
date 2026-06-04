@@ -1,7 +1,6 @@
 # data_manager.py
 import os
 import re
-import threading
 from datetime import datetime
 
 import numpy as np
@@ -54,27 +53,6 @@ breakout_positions_df = pd.DataFrame()
 LOADED_BREAKOUT_FILE_DATE = None
 LOADED_BREAKOUT_SOURCE = None
 
-# --- Startup loading state ---
-_startup_loading = False   # True while background thread is running
-_startup_done = False      # True once all data (including CMPs) is loaded
-
-
-def is_loading() -> bool:
-    return _startup_loading and not _startup_done
-
-
-def is_ready() -> bool:
-    return _startup_done
-
-
-def start_background_load():
-    """Start data loading in a daemon thread so WSGI can serve requests immediately."""
-    import threading
-    global _startup_loading
-    _startup_loading = True
-    t = threading.Thread(target=load_and_process_data_on_startup, daemon=True)
-    t.start()
-
 
 def _filter_out_psu_symbols(df):
     if df.empty or "Symbol" not in df.columns:
@@ -100,48 +78,39 @@ def process_v20_signals(signals_df_local):
         return pd.DataFrame()
 
     yf_symbols = [f"{symbol}.NS" for symbol in unique_symbols]
+    latest_prices_map = {}
 
-    # Fetch CMPs in a daemon thread with a 90-second hard timeout.
-    # Updates result_holder[0] after each successful chunk so partial data is
-    # preserved even if we time out mid-way.
-    result_holder = [{}]
-
-    def _fetch_chunks():
-        prices = {}
-        for i in range(0, len(yf_symbols), 50):
-            chunk = yf_symbols[i:i + 50]
-            try:
-                data = yf.download(
-                    tickers=chunk,
-                    period="2d",
-                    progress=False,
-                    auto_adjust=False,
-                    group_by="ticker",
-                    timeout=10,
-                )
-                if data is not None and not data.empty:
-                    for sym_ns in chunk:
-                        base_sym = sym_ns.replace(".NS", "")
-                        price_series = None
-                        if isinstance(data.columns, pd.MultiIndex):
-                            if (sym_ns, "Close") in data.columns:
-                                price_series = data[(sym_ns, "Close")]
-                            elif (sym_ns.upper(), "Close") in data.columns:
-                                price_series = data[(sym_ns.upper(), "Close")]
-                        elif "Close" in data.columns and len(chunk) == 1:
-                            price_series = data["Close"]
-                        if price_series is not None and not price_series.dropna().empty:
-                            prices[base_sym.upper()] = price_series.dropna().iloc[-1]
-                    result_holder[0] = dict(prices)  # persist partial progress
-            except Exception:
+    for i in range(0, len(yf_symbols), 50):
+        chunk = yf_symbols[i:i + 50]
+        try:
+            data = yf.download(
+                tickers=chunk,
+                period="2d",
+                progress=False,
+                auto_adjust=False,
+                group_by="ticker",
+                timeout=10,
+            )
+            if data is None or data.empty:
                 continue
 
-    t = threading.Thread(target=_fetch_chunks, daemon=True)
-    t.start()
-    t.join(timeout=90)
-    if t.is_alive():
-        print(f"WARNING: CMP fetch timed out after 90s — using {len(result_holder[0])} partial prices.")
-    latest_prices_map = result_holder[0]
+            for sym_ns in chunk:
+                base_sym = sym_ns.replace(".NS", "")
+                price_series = None
+
+                if isinstance(data.columns, pd.MultiIndex):
+                    if (sym_ns, "Close") in data.columns:
+                        price_series = data[(sym_ns, "Close")]
+                    elif (sym_ns.upper(), "Close") in data.columns:
+                        price_series = data[(sym_ns.upper(), "Close")]
+                elif "Close" in data.columns and len(chunk) == 1:
+                    price_series = data["Close"]
+
+                if price_series is not None and not price_series.dropna().empty:
+                    latest_prices_map[base_sym.upper()] = price_series.dropna().iloc[-1]
+        except Exception:
+            # Keep startup resilient when Yahoo is temporarily unavailable.
+            continue
 
     df_to_process["Latest Close Price"] = (
         df_to_process["Symbol"].astype(str).str.upper().map(latest_prices_map)
@@ -265,7 +234,6 @@ def get_v20_for_stock(symbol):
 def load_and_process_data_on_startup():
     global v20_signals_df, all_available_symbols, v20_processed_df
     global LOADED_V20_FILE_DATE, LOADED_V20_SOURCE
-    global _startup_loading, _startup_done
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -295,10 +263,6 @@ def load_and_process_data_on_startup():
     )
 
     load_breakout_data_on_startup()
-
-    _startup_loading = False
-    _startup_done = True
-    print("STARTUP: All data loaded and ready.")
 
 
 def load_breakout_data_on_startup():

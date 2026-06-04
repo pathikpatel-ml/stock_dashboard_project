@@ -35,25 +35,12 @@ def create_admin_layout():
             ])),
 
             # ── Active Users ────────────────────────────────────────────────
-            dbc.Card(className="mb-4 section-container", children=dbc.CardBody([
+            dbc.Card(className="section-container", children=dbc.CardBody([
                 html.H6([
                     html.I(className="fas fa-users me-2 text-success"),
                     "Active Users",
                 ], className="mb-3"),
                 html.Div(id="admin-active-table"),
-            ])),
-
-            # ── Active Sessions ─────────────────────────────────────────────
-            dbc.Card(className="section-container", children=dbc.CardBody([
-                html.H6([
-                    html.I(className="fas fa-lock me-2 text-info"),
-                    "Active Sessions",
-                ], className="mb-3"),
-                html.P(
-                    "All currently valid sessions. Revoking a session logs the user out immediately.",
-                    className="text-muted small mb-3",
-                ),
-                html.Div(id="admin-sessions-table"),
             ])),
 
             # Hidden store to trigger reload after approve/reject
