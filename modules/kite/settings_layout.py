@@ -473,7 +473,7 @@ def _step4_card(settings: dict, exclusions: list) -> html.Div:
                               html.Span("Runs at your scheduled time, Mon–Fri.",
                                         className="text-muted small")],
                        value=gtt_enabled, className="mb-0"),
-        ]), className="mb-4", style={"background": "#0f172a", "border": "1px solid #334155"}),
+        ]), className="mb-4", style={"background": "#1e293b", "border": "1px solid #334155", "color": "#f1f5f9"}),
         html.Div(id="kite-prefs-status", className="mb-3"),
         html.Div(className="d-flex justify-content-between", children=[
             dbc.Button([html.I(className="fas fa-arrow-left me-1"), "Back"],
@@ -699,7 +699,7 @@ def _prefs_section(settings: dict) -> html.Div:
                                         "Only BUY/STRONG BUY signals with MACD confirmation.",
                                         className="text-muted small")],
                        value=gtt_enabled, className="mb-0"),
-        ]), className="mb-4", style={"background": "#0f172a", "border": "1px solid #334155"}),
+        ]), className="mb-4", style={"background": "#1e293b", "border": "1px solid #334155", "color": "#f1f5f9"}),
         html.Div(id="kite-prefs-status", className="mb-3"),
         dbc.Button([html.I(className="fas fa-check me-1"), "Save Preferences"],
                    id="save-kite-prefs-btn", color="primary", n_clicks=0),
