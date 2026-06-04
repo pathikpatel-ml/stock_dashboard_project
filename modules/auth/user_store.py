@@ -149,13 +149,33 @@ def verify_password(email: str, password: str):
 
 def create_user(email: str, password: str, name: str = "",
                 status: str = "active") -> User:
-    rows = _post("users", {
+    payload = {
         "email": email.lower().strip(),
         "password_hash": generate_password_hash(password),
         "name": name.strip(),
         "is_active": status == "active",
         "status": status,
-    })
+    }
+    try:
+        rows = _post("users", payload)
+    except Exception as exc:
+        # If name/status columns don't exist yet (schema migration not run),
+        # fall back to creating with core fields only so signup still works.
+        err = str(exc).lower()
+        if "42703" in err or "column" in err or "name" in err or "status" in err:
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "create_user: name/status columns missing — falling back to core fields. "
+                "Run the schema migration in Supabase to fix this."
+            )
+            payload_core = {
+                "email": payload["email"],
+                "password_hash": payload["password_hash"],
+                "is_active": payload["is_active"],
+            }
+            rows = _post("users", payload_core)
+        else:
+            raise
     return _row_to_user(rows[0])
 
 
