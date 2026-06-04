@@ -332,6 +332,8 @@ def register_kite_settings_callbacks(app):
         prevent_initial_call=True,
     )
     def connect_zerodha(n_clicks):
+        if not n_clicks:          # prevent_initial_call doesn't guard dynamic mounts
+            raise dash.exceptions.PreventUpdate
         user_id = _current_user_id()
         if not user_id:
             return dash.no_update, "Not logged in."
