@@ -1,7 +1,8 @@
 """
-Zerodha GTT Settings — two-mode layout:
-  • Wizard mode  : first-time users (api_key_enc IS NULL)
-  • Dashboard mode: returning users (api_key_enc IS NOT NULL) — sidebar + content panel
+Zerodha GTT Settings — three-mode layout:
+  • Intro / landing : brand new users (api_key_enc IS NULL, step == 0)
+  • Wizard mode     : first-time setup steps 1–4 (api_key_enc IS NULL, step >= 1)
+  • Dashboard mode  : returning users (api_key_enc IS NOT NULL) — sidebar + content panel
 """
 import dash_bootstrap_components as dbc
 from dash import dcc, html
@@ -29,6 +30,86 @@ def _connection_badge_from_settings(settings: dict):
         [html.I(className="fas fa-exclamation-triangle me-1"), "Token Expired — Reconnect"],
         color="warning", className="fs-6 p-2",
     )
+
+
+# ── Intro / landing card ────────────────────────────────────────────────────
+
+def _intro_card() -> html.Div:
+    """Landing page shown to first-time users before they enter the wizard."""
+    return dbc.Card(className="section-container", children=dbc.CardBody([
+
+        # Hero
+        html.Div(className="text-center mb-4", children=[
+            html.Div(style={"fontSize": "3rem", "marginBottom": "0.75rem"},
+                     children=html.I(className="fas fa-robot text-primary")),
+            html.H4("Automate Your GTT Buy Orders", className="fw-bold mb-2"),
+            html.P(
+                "Place Zerodha GTT orders automatically at 8:30 AM IST — before the market "
+                "opens — based on your V20 STRONG BUY signals.",
+                className="text-muted",
+                style={"maxWidth": "500px", "margin": "0 auto", "fontSize": "0.95rem"},
+            ),
+        ]),
+
+        html.Hr(style={"borderColor": "#334155", "margin": "1.5rem 0"}),
+
+        # Two-column: what you get vs what you need
+        dbc.Row(className="mb-4", children=[
+            dbc.Col(md=6, className="mb-3 mb-md-0", children=[
+                html.H6([html.I(className="fas fa-check-circle text-success me-2"),
+                         "What you get"], className="mb-3 fw-semibold"),
+                html.Ul([
+                    html.Li("GTT orders placed automatically Mon–Fri at 8:30 AM IST"),
+                    html.Li("Only STRONG BUY signals with MACD confirmation are acted on"),
+                    html.Li("Email alert if you need to reconnect before the job runs"),
+                    html.Li("Full control — enable, disable, or adjust thresholds anytime"),
+                ], className="text-muted small",
+                   style={"paddingLeft": "18px", "lineHeight": "1.9"}),
+            ]),
+            dbc.Col(md=6, children=[
+                html.H6([html.I(className="fas fa-clipboard-list text-warning me-2"),
+                         "What you need"], className="mb-3 fw-semibold"),
+                html.Ul([
+                    html.Li([
+                        html.Strong("Active Zerodha trading account "),
+                        html.Span("(user ID like ZY1234)", className="text-muted"),
+                    ]),
+                    html.Li([
+                        "Free API key from ",
+                        html.A("developers.kite.trade", href="https://developers.kite.trade",
+                               target="_blank", style={"color": "#60a5fa"}),
+                    ]),
+                    html.Li("About 5 minutes for first-time setup"),
+                ], className="text-muted small",
+                   style={"paddingLeft": "18px", "lineHeight": "1.9"}),
+            ]),
+        ]),
+
+        # Daily reconnect notice
+        dbc.Alert([
+            html.I(className="fas fa-clock me-2"),
+            html.Strong("Daily reconnection required. "),
+            "Zerodha resets all tokens at 6 AM IST every day. You'll receive an email "
+            "reminder each morning so you can reconnect before the 8:30 AM job runs.",
+        ], color="info", style={"fontSize": "0.85rem"}, className="mb-4"),
+
+        # CTA
+        html.Div(className="d-flex flex-column align-items-center gap-2", children=[
+            dbc.Button(
+                [html.I(className="fas fa-rocket me-2"),
+                 "Get Started — Takes About 5 Minutes ",
+                 html.I(className="fas fa-arrow-right")],
+                id="wizard-intro-start-btn",
+                color="primary",
+                size="lg",
+                n_clicks=0,
+                className="px-5",
+            ),
+            html.P("Step-by-step guide — no technical knowledge required.",
+                   className="text-muted small mb-0"),
+        ]),
+
+    ]))
 
 
 # ── Wizard step helpers (unchanged) ────────────────────────────────────────

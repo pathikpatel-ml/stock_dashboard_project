@@ -15,6 +15,7 @@ from modules.kite.scheduler import run_premarket_gtt_job
 from modules.kite.settings_layout import (
     _connection_badge_from_settings,
     _expired_banner,
+    _intro_card,
     _progress_bar,
     _sidebar,
     _step1_card,
@@ -64,9 +65,13 @@ def _connection_status(settings: dict) -> tuple:
 
 
 def _determine_wizard_step(settings: dict) -> int:
-    """Return the step the user should land on based on their current state."""
+    """Return the step the user should land on based on their current state.
+
+    Step 0 = intro landing page (brand new user, no API key saved yet).
+    Steps 1–4 = wizard steps.
+    """
     if not settings.get("api_key_enc"):
-        return 1
+        return 0   # Show intro landing page for new users
     _, connected = _connection_status(settings)
     if not connected:
         return 3
@@ -76,6 +81,17 @@ def _determine_wizard_step(settings: dict) -> int:
 
 
 def register_kite_settings_callbacks(app):
+
+    # ── Intro landing page CTA ────────────────────────────────────────────────
+    @app.callback(
+        Output("kite-wizard-step", "data", allow_duplicate=True),
+        Input("wizard-intro-start-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def start_wizard_from_intro(n_clicks):
+        if not n_clicks:
+            raise dash.exceptions.PreventUpdate
+        return 1   # Advance from intro (step 0) to first wizard step
 
     # ── Master render: single callback, one set of elements in DOM ───────────
     # Replaces the old render_kite_mode + render_dashboard + render_wizard_step.
@@ -100,7 +116,13 @@ def register_kite_settings_callbacks(app):
 
         # ── Wizard mode: first-time setup ─────────────────────────────────
         if not api_key_saved:
-            step = wizard_step or _determine_wizard_step(settings)
+            step = wizard_step if wizard_step is not None else _determine_wizard_step(settings)
+
+            # Step 0: intro / landing page — shown to brand new users
+            if step == 0:
+                return [_intro_card()]
+
+            # Steps 1–4: guided wizard with progress bar
             exclusions = user_store.get_exclusions(user_id) if step == 4 else []
             if step == 1:   step_content = _step1_card()
             elif step == 2: step_content = _step2_card(False)
