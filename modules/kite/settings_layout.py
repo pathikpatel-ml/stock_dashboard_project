@@ -501,10 +501,14 @@ def _sidebar(active_panel: str, settings: dict) -> html.Div:
     items = []
     for panel_id, icon, label in _SIDEBAR_ITEMS:
         is_active = panel_id == active_panel
-        # Add connection badge next to Connection item when expired
+        # Add a small orange dot next to Connection when token is expired
         badge = None
         if panel_id == "connection" and settings.get("access_token_enc") and not connected:
-            badge = dbc.Badge("!", color="warning", className="ms-1", pill=True)
+            badge = html.Span(style={
+                "display": "inline-block", "width": "8px", "height": "8px",
+                "borderRadius": "50%", "background": "#f59e0b",
+                "marginLeft": "6px", "verticalAlign": "middle",
+            })
         items.append(
             html.Button(
                 [html.I(className=f"{icon} me-2"),
@@ -542,13 +546,23 @@ def _token_status(settings: dict) -> tuple:
 
 def _expired_banner() -> html.Div:
     return dbc.Alert(
-        [html.I(className="fas fa-exclamation-triangle me-2"),
-         html.Strong("Kite token expired. "),
-         "Reconnect before 9:15 AM IST to auto-place GTT orders today. ",
-         dbc.Button("Go to Connection →", id="banner-goto-connection",
-                    color="warning", size="sm", outline=True, n_clicks=0,
-                    className="ms-2")],
-        color="warning", className="mb-3", style={"fontSize": "0.88rem"},
+        className="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2",
+        color="warning",
+        style={"fontSize": "0.88rem"},
+        children=[
+            html.Div([
+                html.I(className="fas fa-exclamation-triangle me-2"),
+                html.Strong("Daily token expired. "),
+                "Zerodha resets all tokens at 6 AM IST. Click Reconnect to re-authorize.",
+            ]),
+            dbc.Button(
+                [html.I(className="fas fa-plug me-1"), "Reconnect Now"],
+                id="banner-goto-connection",
+                color="warning",
+                size="sm",
+                n_clicks=0,
+            ),
+        ],
     )
 
 
@@ -573,28 +587,55 @@ def _connection_section(settings: dict) -> html.Div:
     else:
         last_set_str = "Never connected"
 
+    if connected:
+        # ── Connected state ──
+        reconnect_section = html.Div([
+            dbc.Button(
+                [html.I(className="fas fa-sync-alt me-2"), "Refresh Token"],
+                id="connect-kite-btn",
+                color="outline-secondary",
+                size="sm",
+                n_clicks=0,
+            ),
+            html.P("Your token is valid for today. You can refresh it early if needed.",
+                   className="text-muted small mt-2 mb-0"),
+        ])
+    else:
+        # ── Expired / not connected state — make reconnect impossible to miss ──
+        reconnect_section = html.Div([
+            dbc.Alert(
+                [html.I(className="fas fa-info-circle me-2"),
+                 html.Strong("Why does this happen? "),
+                 "Zerodha resets all API tokens at 6 AM IST every day as a security measure. "
+                 "This is not a bug — you must reconnect each morning before your GTT job runs."],
+                color="info", style={"fontSize": "0.83rem"}, className="mb-3",
+            ),
+            html.P("Steps:", className="small fw-semibold mb-2"),
+            html.Ol([
+                html.Li("Click the button below"),
+                html.Li("Log in with your Zerodha User ID and password"),
+                html.Li("Complete 2FA (TOTP or SMS)"),
+                html.Li("You'll be redirected back automatically — done!"),
+            ], className="text-muted small mb-4",
+               style={"paddingLeft": "18px", "lineHeight": "1.8"}),
+            dbc.Button(
+                [html.I(className="fas fa-plug me-2"), "Reconnect Zerodha Account"],
+                id="connect-kite-btn",
+                color="success",
+                size="lg",
+                className="w-100",
+                n_clicks=0,
+            ),
+        ])
+
     return html.Div([
         html.H6("Zerodha Connection", className="mb-3 fw-semibold"),
-        html.Div(className="d-flex align-items-center mb-2", children=[
+        html.Div(className="d-flex align-items-center mb-1", children=[
             html.Span("Status: ", className="text-muted me-2 small"),
             badge,
         ]),
         html.P(last_set_str, className="text-muted small mb-4"),
-        dbc.Alert(
-            [html.I(className="fas fa-clock me-2"),
-             html.Strong("Daily reconnection required. "),
-             "Zerodha resets all access tokens at 6 AM IST every day. "
-             "You'll receive an email alert if reconnection is needed before your scheduled GTT run. "
-             "Once you reconnect, GTT orders are placed automatically."],
-            color="info", style={"fontSize": "0.85rem"}, className="mb-4",
-        ),
-        dbc.Button(
-            [html.I(className="fas fa-external-link-alt me-2"),
-             "Reconnect Zerodha" if connected else "Connect Zerodha"],
-            id="connect-kite-btn",
-            color="outline-secondary" if connected else "success",
-            n_clicks=0,
-        ),
+        reconnect_section,
         html.Div(id="kite-token-status", className="mt-3"),
     ])
 
