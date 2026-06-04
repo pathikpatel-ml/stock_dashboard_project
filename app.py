@@ -331,10 +331,20 @@ def check_session_alive(_):
     return dash.no_update
 
 
-@app.callback(Output("app-subtitle", "children"), [Input("v20-signals-table-container", "children")])
-def update_status_display(_):
+@app.callback(
+    Output("app-subtitle", "children"),
+    Input("v20-signals-table-container", "children"),
+    Input("strategy-tabs", "value"),
+)
+def update_status_display(_, active_tab):
+    # Only emit the CI health-check tag on the V20 tab; blank on all others
+    # so it doesn't bleed through as visible text on e.g. the Zerodha page.
+    if active_tab != "tab-v20":
+        return ""
     loaded_date = data_manager.LOADED_V20_FILE_DATE or datetime.now().strftime("%Y%m%d")
-    if data_manager.v20_signals_df.empty:
+    if data_manager.v20_signals_df is None or (
+        hasattr(data_manager.v20_signals_df, "empty") and data_manager.v20_signals_df.empty
+    ):
         return html.Span("V20DataLoadedNotFound", className="status-error")
     return html.Span(f"V20DataLoaded{loaded_date}", className="status-loaded")
 
