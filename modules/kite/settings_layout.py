@@ -771,6 +771,7 @@ def create_kite_settings_layout():
         dcc.Store(id="kite-wizard-step", data=None),
         dcc.Store(id="kite-settings-loaded"),
         dcc.Store(id="kite-panel", data="connection"),
-        dcc.Store(id="kite-oauth-result"),   # populated by app.py after OAuth redirect
+        dcc.Store(id="kite-oauth-result"),    # populated by app.py after OAuth redirect
+        dcc.Store(id="kite-oauth-url"),       # clientside callback opens this in a new tab
         dcc.Interval(id="kite-status-interval", interval=30_000, n_intervals=0),
     ])

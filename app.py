@@ -181,10 +181,52 @@ def kite_callback():
             access_token_set_at=datetime.now(timezone.utc),
         )
         logger.info("Kite token exchanged successfully for user %s", user_id)
-        return flask.redirect("/?tab=kite-settings&kite_connected=1")
+        return flask.redirect("/kite/connected")
     except Exception:
         logger.exception("Kite token exchange failed in /kite/callback for user %s", user_id)
-        return flask.redirect("/?tab=kite-settings&kite_error=exchange_failed")
+        return flask.redirect("/kite/connected?error=exchange_failed")
+
+
+@server.route("/kite/connected")
+def kite_connected_page():
+    """Minimal close-tab page shown after OAuth in a popup window completes."""
+    error = flask.request.args.get("error")
+    if error:
+        icon, heading, body, color = (
+            "❌", "Connection Failed",
+            "Token exchange failed — please check your API Key and Secret, then try again.",
+            "#f87171",
+        )
+    else:
+        icon, heading, body, color = (
+            "✅", "Zerodha Connected!",
+            "Your account is authorized. This tab will close automatically.",
+            "#4ade80",
+        )
+    return f"""<!DOCTYPE html><html><head><title>Kite {heading}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{{font-family:Inter,system-ui,sans-serif;margin:0;display:flex;
+       justify-content:center;align-items:center;min-height:100vh;
+       background:#0f172a;color:#f1f5f9;text-align:center;padding:2rem;}}
+  h2{{color:{color};margin:.5rem 0;}}
+  p{{color:#94a3b8;font-size:.9rem;margin:.5rem 0;}}
+  .icon{{font-size:4rem;margin-bottom:1rem;}}
+  button{{margin-top:1.5rem;padding:.6rem 1.5rem;border:none;border-radius:8px;
+          background:#334155;color:#f1f5f9;cursor:pointer;font-size:.9rem;}}
+</style>
+</head><body>
+<div>
+  <div class="icon">{icon}</div>
+  <h2>{heading}</h2>
+  <p>{body}</p>
+  <button onclick="window.close()">Close this tab</button>
+</div>
+<script>
+  // Try to auto-close; if blocked by browser, user clicks the button
+  try {{ setTimeout(function(){{ window.close(); }}, 2500); }} catch(e) {{}}
+</script>
+</body></html>"""
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +370,24 @@ breakout_callbacks.register_breakout_callbacks(app)
 kite_settings_callbacks.register_kite_settings_callbacks(app)
 admin_callbacks.register_admin_callbacks(app)
 register_signup_route(server)
+
+# Open Kite OAuth URL in a new tab without reloading the current page.
+# When connect_zerodha writes a URL to kite-oauth-url store, this JS opens
+# it in a popup, then resets the store to null so it fires again next time.
+app.clientside_callback(
+    """
+    function(url) {
+        if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return null;
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    dash.Output("kite-oauth-url", "data"),
+    dash.Input("kite-oauth-url", "data"),
+    prevent_initial_call=True,
+)
 
 
 # ---------------------------------------------------------------------------

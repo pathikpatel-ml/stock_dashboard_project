@@ -205,9 +205,9 @@ def register_kite_settings_callbacks(app):
         id_dict = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
         return id_dict["panel"]
 
-    # ── Banner "Reconnect Now" — triggers OAuth directly ─────────────────
+    # ── Banner "Reconnect Now" — opens OAuth in new tab ──────────────────
     @app.callback(
-        Output("kite-login-redirect", "href", allow_duplicate=True),
+        Output("kite-oauth-url", "data", allow_duplicate=True),
         Output("kite-panel", "data", allow_duplicate=True),
         Input("banner-goto-connection", "n_clicks"),
         prevent_initial_call=True,
@@ -220,7 +220,6 @@ def register_kite_settings_callbacks(app):
             raise dash.exceptions.PreventUpdate
         settings = user_store.get_kite_settings(user_id)
         if not settings.get("api_key_enc"):
-            # No credentials saved — just navigate to Connection panel
             return dash.no_update, "connection"
         try:
             api_key = decrypt(settings["api_key_enc"])
@@ -384,9 +383,9 @@ def register_kite_settings_callbacks(app):
             return dbc.Alert("Failed to save. Please try again.",
                              color="danger", dismissable=True)
 
-    # ── Connect Zerodha (step 3) ──────────────────────────────────────────
+    # ── Connect Zerodha — opens OAuth in a new tab (no page reload) ──────
     @app.callback(
-        Output("kite-login-redirect", "href"),
+        Output("kite-oauth-url", "data"),
         Output("kite-token-status", "children"),
         Input("connect-kite-btn", "n_clicks"),
         prevent_initial_call=True,
@@ -406,7 +405,10 @@ def register_kite_settings_callbacks(app):
             api_key = decrypt(settings["api_key_enc"])
             login_url = kite_auth.generate_login_url(api_key)
             return login_url, dbc.Alert(
-                "Redirecting to Zerodha login...", color="info", duration=3000
+                [html.I(className="fas fa-external-link-alt me-2"),
+                 "Zerodha login opened in a new tab. Complete authorization there — "
+                 "this page will update automatically within 30 seconds."],
+                color="info", duration=60000,
             )
         except Exception:
             logger.exception("Failed to generate Kite login URL for user %s", user_id)
