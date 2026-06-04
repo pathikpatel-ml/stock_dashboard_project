@@ -102,8 +102,9 @@ def register_kite_settings_callbacks(app):
         Input("kite-status-interval", "n_intervals"),
         Input("kite-wizard-step", "data"),
         Input("kite-panel", "data"),
+        Input("kite-oauth-result", "data"),
     )
-    def render_kite_root(active_tab, _, wizard_step, panel):
+    def render_kite_root(active_tab, _, wizard_step, panel, oauth_result):
         if active_tab != "tab-kite-settings":
             raise dash.exceptions.PreventUpdate
         user_id = _current_user_id()
@@ -114,13 +115,36 @@ def register_kite_settings_callbacks(app):
         badge, connected = _connection_status(settings)
         api_key_saved = bool(settings.get("api_key_enc"))
 
+        # ── OAuth result toast (shown once after redirect) ─────────────────
+        oauth_toast = None
+        if oauth_result == "connected":
+            oauth_toast = dbc.Alert(
+                [html.I(className="fas fa-check-circle me-2"),
+                 html.Strong("Zerodha connected successfully! "),
+                 "GTT orders will be placed automatically at your scheduled time."],
+                color="success", dismissable=True, duration=10000, className="mb-3",
+            )
+        elif oauth_result and oauth_result.startswith("error:"):
+            err_code = oauth_result.split(":", 1)[1]
+            msg = {
+                "cancelled": "OAuth was cancelled. Click 'Reconnect' to try again.",
+                "missing_creds": "API credentials not found. Please re-enter your API Key and Secret.",
+                "exchange_failed": "Token exchange failed — your API Key or Secret may be wrong. "
+                                   "Check them in Step 2 and try again.",
+            }.get(err_code, f"Connection failed ({err_code}). Please try again.")
+            oauth_toast = dbc.Alert(
+                [html.I(className="fas fa-exclamation-circle me-2"), msg],
+                color="danger", dismissable=True, className="mb-3",
+            )
+
         # ── Wizard mode: first-time setup ─────────────────────────────────
         if not api_key_saved:
             step = wizard_step if wizard_step is not None else _determine_wizard_step(settings)
 
             # Step 0: intro / landing page — shown to brand new users
             if step == 0:
-                return [_intro_card()]
+                prefix = [oauth_toast] if oauth_toast else []
+                return prefix + [_intro_card()]
 
             # Steps 1–4: guided wizard with progress bar
             exclusions = user_store.get_exclusions(user_id) if step == 4 else []
@@ -129,7 +153,7 @@ def register_kite_settings_callbacks(app):
             elif step == 3: step_content = _step3_card(badge)
             else:           step_content = _step4_card(settings, exclusions)
 
-            parts = [_progress_bar(step), step_content]
+            parts = ([oauth_toast] if oauth_toast else []) + [_progress_bar(step), step_content]
             if connected:
                 parts.append(dbc.Card(dbc.CardBody([
                     html.H6([html.I(className="fas fa-vial me-2"), "Test GTT Job"],
@@ -153,7 +177,7 @@ def register_kite_settings_callbacks(app):
         elif active_panel == "activity":   sec = _activity_section(user_id)
         else:                              sec = _connection_section(settings)
 
-        parts = []
+        parts = [oauth_toast] if oauth_toast else []
         if settings.get("access_token_enc") and not is_connected:
             parts.append(_expired_banner())
         parts.append(html.Div(
@@ -181,16 +205,30 @@ def register_kite_settings_callbacks(app):
         id_dict = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
         return id_dict["panel"]
 
-    # ── Banner "Go to Connection" shortcut ────────────────────────────────
+    # ── Banner "Reconnect Now" — triggers OAuth directly ─────────────────
     @app.callback(
+        Output("kite-login-redirect", "href", allow_duplicate=True),
         Output("kite-panel", "data", allow_duplicate=True),
         Input("banner-goto-connection", "n_clicks"),
         prevent_initial_call=True,
     )
-    def banner_goto_connection(n):
+    def banner_reconnect_now(n):
         if not n:
             raise dash.exceptions.PreventUpdate
-        return "connection"
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+        settings = user_store.get_kite_settings(user_id)
+        if not settings.get("api_key_enc"):
+            # No credentials saved — just navigate to Connection panel
+            return dash.no_update, "connection"
+        try:
+            api_key = decrypt(settings["api_key_enc"])
+            login_url = kite_auth.generate_login_url(api_key)
+            return login_url, "connection"
+        except Exception:
+            logger.exception("Banner reconnect: could not generate login URL for user %s", user_id)
+            return dash.no_update, "connection"
 
     # ── initialise_wizard: sets step store + signals settings are loaded ──
     # (kite-settings-loaded triggers auto_exchange_token after OAuth redirect)

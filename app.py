@@ -154,15 +154,37 @@ def api_health():
 
 @server.route("/kite/callback")
 def kite_callback():
-    """Zerodha OAuth redirect endpoint — captures request_token and stores in session."""
+    """Zerodha OAuth redirect — exchange request_token server-side and save access_token."""
     if not flask_login.current_user.is_authenticated:
         return flask.redirect("/")
     request_token = flask.request.args.get("request_token")
     status = flask.request.args.get("status")
     if status != "success" or not request_token:
-        return flask.redirect("/?kite_error=1#tab-kite-settings")
-    flask.session["kite_request_token"] = request_token
-    return flask.redirect("/?tab=kite-settings&token_ready=1")
+        return flask.redirect("/?tab=kite-settings&kite_error=cancelled")
+
+    user_id = flask_login.current_user.id
+    try:
+        from modules.kite import auth as kite_auth
+        from modules.auth.crypto import decrypt, encrypt
+        from datetime import datetime, timezone
+
+        settings = user_store.get_kite_settings(user_id)
+        if not settings.get("api_key_enc") or not settings.get("api_secret_enc"):
+            return flask.redirect("/?tab=kite-settings&kite_error=missing_creds")
+
+        api_key    = decrypt(settings["api_key_enc"])
+        api_secret = decrypt(settings["api_secret_enc"])
+        access_token = kite_auth.exchange_request_token(api_key, request_token, api_secret)
+        user_store.upsert_kite_settings(
+            user_id,
+            access_token_enc=encrypt(access_token),
+            access_token_set_at=datetime.now(timezone.utc),
+        )
+        logger.info("Kite token exchanged successfully for user %s", user_id)
+        return flask.redirect("/?tab=kite-settings&kite_connected=1")
+    except Exception:
+        logger.exception("Kite token exchange failed in /kite/callback for user %s", user_id)
+        return flask.redirect("/?tab=kite-settings&kite_error=exchange_failed")
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +278,8 @@ def _main_dashboard_layout():
     return html.Div(
         className="app-container",
         children=[
+            # Reads current URL — used to auto-switch tabs after Kite OAuth redirect
+            dcc.Location(id="app-url", refresh=False),
             # Heartbeat: fires every 60 s; redirects to login when session expires
             dcc.Location(id="session-expired-redirect", refresh=True),
             dcc.Interval(id="session-heartbeat", interval=60_000, n_intervals=0),
@@ -317,6 +341,36 @@ register_signup_route(server)
 )
 def go_to_admin_tab(n_clicks):
     return "tab-admin"
+
+
+@app.callback(
+    Output("strategy-tabs", "value", allow_duplicate=True),
+    Input("app-url", "search"),
+    prevent_initial_call=True,
+)
+def auto_switch_tab_from_url(search):
+    """Switch to Zerodha Settings tab automatically after OAuth redirect."""
+    if search and "tab=kite-settings" in search:
+        return "tab-kite-settings"
+    raise dash.exceptions.PreventUpdate
+
+
+@app.callback(
+    Output("kite-oauth-result", "data"),
+    Input("app-url", "search"),
+    prevent_initial_call=True,
+)
+def capture_oauth_result(search):
+    """Store the OAuth result (success/error) so render_kite_root can display it."""
+    if not search:
+        raise dash.exceptions.PreventUpdate
+    if "kite_connected=1" in search:
+        return "connected"
+    if "kite_error=" in search:
+        import urllib.parse
+        params = dict(urllib.parse.parse_qsl(search.lstrip("?")))
+        return f"error:{params.get('kite_error', 'unknown')}"
+    raise dash.exceptions.PreventUpdate
 
 
 @app.callback(
