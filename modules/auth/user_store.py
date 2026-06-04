@@ -156,26 +156,46 @@ def create_user(email: str, password: str, name: str = "",
         "is_active": status == "active",
         "status": status,
     }
-    try:
-        rows = _post("users", payload)
-    except Exception as exc:
-        # If name/status columns don't exist yet (schema migration not run),
-        # fall back to creating with core fields only so signup still works.
-        err = str(exc).lower()
-        if "42703" in err or "column" in err or "name" in err or "status" in err:
-            import logging as _log
-            _log.getLogger(__name__).warning(
-                "create_user: name/status columns missing — falling back to core fields. "
-                "Run the schema migration in Supabase to fix this."
-            )
-            payload_core = {
-                "email": payload["email"],
-                "password_hash": payload["password_hash"],
-                "is_active": payload["is_active"],
-            }
-            rows = _post("users", payload_core)
-        else:
-            raise
+    # Try fullest payload first, fall back progressively if schema columns are missing.
+    # requests.HTTPError puts the Supabase error body in exc.response.text (not str(exc)),
+    # so we must read that to detect the 42703 "column does not exist" code.
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
+    def _is_column_error(exc) -> bool:
+        try:
+            body = getattr(exc, "response", None)
+            body_text = (body.text if body is not None else str(exc)).lower()
+        except Exception:
+            body_text = str(exc).lower()
+        return any(k in body_text for k in ("42703", "column", "does not exist"))
+
+    fallbacks = [
+        payload,
+        # Without name/status (most likely missing columns)
+        {"email": payload["email"], "password_hash": payload["password_hash"],
+         "is_active": payload["is_active"]},
+        # Without is_active either (bare minimum)
+        {"email": payload["email"], "password_hash": payload["password_hash"]},
+    ]
+
+    rows = None
+    last_exc = None
+    for attempt, p in enumerate(fallbacks):
+        try:
+            rows = _post("users", p)
+            if attempt:
+                _logger.warning(
+                    "create_user: used fallback payload (attempt %d). "
+                    "Run the a2a721b schema migration in Supabase to fix this.", attempt
+                )
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < len(fallbacks) - 1 and _is_column_error(exc):
+                continue   # try next fallback
+            raise          # non-column error or exhausted fallbacks
+
     return _row_to_user(rows[0])
 
 
