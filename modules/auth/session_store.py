@@ -159,25 +159,25 @@ def get_all_active_sessions() -> list:
             except Exception:
                 s["user_id"] = None
 
+        # Only keep sessions that belong to a logged-in user
+        sessions = [s for s in sessions if s.get("user_id")]
+        if not sessions:
+            return []
+
         # Fetch user names/emails in one query
-        user_ids = [s["user_id"] for s in sessions if s.get("user_id")]
-        if user_ids:
-            ids_str = ",".join(str(i) for i in user_ids)
-            users_resp = _r.get(
-                f"{base}/users",
-                headers=hdrs,
-                params={"id": f"in.({ids_str})", "select": "id,email,name"},
-                timeout=5,
-            )
-            users = {u["id"]: u for u in (users_resp.json() if users_resp.ok else [])}
-            for s in sessions:
-                u = users.get(s.get("user_id"), {})
-                s["email"] = u.get("email", "—")
-                s["name"] = u.get("name", "—")
-        else:
-            for s in sessions:
-                s["email"] = "—"
-                s["name"] = "—"
+        user_ids = [s["user_id"] for s in sessions]
+        ids_str = ",".join(str(i) for i in user_ids)
+        users_resp = _r.get(
+            f"{base}/users",
+            headers=hdrs,
+            params={"id": f"in.({ids_str})", "select": "id,email,name"},
+            timeout=5,
+        )
+        users = {u["id"]: u for u in (users_resp.json() if users_resp.ok else [])}
+        for s in sessions:
+            u = users.get(s.get("user_id"), {})
+            s["email"] = u.get("email", "—")
+            s["name"] = u.get("name", "—")
         return sessions
     except Exception as exc:
         logger.warning("get_all_active_sessions failed: %s", exc)
