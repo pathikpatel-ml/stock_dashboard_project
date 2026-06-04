@@ -11,7 +11,7 @@ from modules.auth import user_store
 from modules.auth.crypto import decrypt, encrypt
 from modules.kite import auth as kite_auth
 from modules.kite import portfolio as kite_portfolio
-from modules.kite.scheduler import run_premarket_gtt_job, _maybe_trigger_gtt_for_user
+from modules.kite.scheduler import run_premarket_gtt_job
 from modules.kite.settings_layout import (
     _connection_badge_from_settings,
     _expired_banner,
@@ -314,15 +314,9 @@ def register_kite_settings_callbacks(app):
                 gtt_enabled=bool(gtt_enabled),
             )
             status = "enabled" if gtt_enabled else "disabled"
-            extra = ""
-            # Auto-trigger if user just enabled GTT for the first time during pre-market
-            if gtt_enabled and was_disabled:
-                trigger_msg = _maybe_trigger_gtt_for_user(user_id)
-                if trigger_msg:
-                    extra = f" {trigger_msg}"
             return dbc.Alert(
                 [html.I(className="fas fa-check me-2"),
-                 f"Saved. GTT auto-creation is {status}.{extra}"],
+                 f"Saved. GTT auto-creation is {status}."],
                 color="success", dismissable=True, duration=6000,
             )
         except Exception:
@@ -391,14 +385,10 @@ def register_kite_settings_callbacks(app):
                 access_token_enc=encrypt(access_token),
                 access_token_set_at=datetime.now(timezone.utc),
             )
-            # Auto-trigger GTT job if pre-market and GTT is enabled
-            trigger_msg = _maybe_trigger_gtt_for_user(user_id)
-            success_msg = "Zerodha connected successfully!"
-            if trigger_msg:
-                success_msg = f"Zerodha connected! {trigger_msg}"
             return (
                 dbc.Alert(
-                    [html.I(className="fas fa-check-circle me-2"), success_msg],
+                    [html.I(className="fas fa-check-circle me-2"),
+                     "Zerodha connected successfully!"],
                     color="success", duration=8000,
                 ),
                 4,  # advance to preferences step
