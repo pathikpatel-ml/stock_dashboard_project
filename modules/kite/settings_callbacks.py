@@ -179,7 +179,17 @@ def register_kite_settings_callbacks(app):
 
         parts = [oauth_toast] if oauth_toast else []
         if settings.get("access_token_enc") and not is_connected:
-            parts.append(_expired_banner())
+            # Pre-generate the OAuth URL at render time so the banner button is a
+            # plain <a href> link — popup blockers kill window.open() from async callbacks.
+            banner_url = ""
+            if settings.get("api_key_enc"):
+                try:
+                    banner_url = kite_auth.generate_login_url(
+                        decrypt(settings["api_key_enc"])
+                    )
+                except Exception:
+                    pass
+            parts.append(_expired_banner(banner_url))
         parts.append(html.Div(
             style={"display": "flex", "gap": "0", "alignItems": "flex-start"},
             children=[

@@ -46,6 +46,11 @@ app = dash.Dash(
 server = app.server
 app.title = "Stock Signal Dashboard"
 
+# Render (and most PaaS) sit behind a reverse proxy — without ProxyFix,
+# request.remote_addr is always 127.0.0.1, breaking per-IP rate limiting.
+from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: E402
+server.wsgi_app = ProxyFix(server.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # ---------------------------------------------------------------------------
 # Security — secret key (fail hard if not set in production)
 # ---------------------------------------------------------------------------

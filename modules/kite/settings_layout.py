@@ -545,7 +545,26 @@ def _token_status(settings: dict) -> tuple:
     return settings.get("access_token_enc"), valid
 
 
-def _expired_banner() -> html.Div:
+def _expired_banner(login_url: str = "") -> html.Div:
+    # Use a plain <a href> link so the browser opens the OAuth tab directly
+    # on the user's click — window.open() via async Dash callbacks gets blocked
+    # by popup blockers because it's outside the synchronous click event chain.
+    if login_url:
+        reconnect_btn = html.A(
+            [html.I(className="fas fa-plug me-1"), "Reconnect Now"],
+            href=login_url,
+            target="_blank",
+            rel="noopener noreferrer",
+            className="btn btn-warning btn-sm",
+        )
+    else:
+        reconnect_btn = dbc.Button(
+            [html.I(className="fas fa-plug me-1"), "Reconnect Now"],
+            id="banner-goto-connection",
+            color="warning",
+            size="sm",
+            n_clicks=0,
+        )
     return dbc.Alert(
         className="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2",
         color="warning",
@@ -556,13 +575,7 @@ def _expired_banner() -> html.Div:
                 html.Strong("Daily token expired. "),
                 "Zerodha resets all tokens at 6 AM IST. Click Reconnect to re-authorize.",
             ]),
-            dbc.Button(
-                [html.I(className="fas fa-plug me-1"), "Reconnect Now"],
-                id="banner-goto-connection",
-                color="warning",
-                size="sm",
-                n_clicks=0,
-            ),
+            reconnect_btn,
         ],
     )
 

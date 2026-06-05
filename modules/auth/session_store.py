@@ -52,8 +52,9 @@ class SupabaseSession(CallbackDict, SessionMixin):
         CallbackDict.__init__(self, initial or {}, on_update)
         self.sid = sid or str(uuid.uuid4())
         self.new = new
-        self.permanent = True  # SessionMixin.permanent.setter writes to dict → triggers on_update
-        self.modified = False  # must be last line
+        self.modified = False  # must be last line — do NOT set self.permanent here,
+        # it would write {"_permanent": True} into the dict making every empty session
+        # appear non-empty and causing a Supabase write on every unauthenticated request.
 
 
 # ---------------------------------------------------------------------------
