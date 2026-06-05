@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 import flask_login
 from dash import ALL, Input, Output, State, html
 
-from modules.auth import user_store
+from modules.auth import notifications, user_store
 from modules.auth.session_store import get_all_active_sessions, revoke_session
 
 logger = logging.getLogger(__name__)
@@ -77,9 +77,14 @@ def register_admin_callbacks(app):
         else:
             rows = []
             for u in pending:
+                reason = u.get("join_reason") or "—"
                 rows.append(html.Tr([
                     html.Td(u.get("name") or "—"),
                     html.Td(u.get("email", "")),
+                    html.Td(
+                        html.Span(reason, style={"fontSize": "0.82rem", "color": "#94a3b8"}),
+                        style={"maxWidth": "260px", "whiteSpace": "pre-wrap"},
+                    ),
                     html.Td(_time_ago(u.get("created_at", ""))),
                     html.Td([
                         dbc.Button(
@@ -104,7 +109,8 @@ def register_admin_callbacks(app):
                 [
                     html.Thead(html.Tr([
                         html.Th("Name"), html.Th("Email"),
-                        html.Th("Requested"), html.Th("Actions"),
+                        html.Th("Reason for joining"), html.Th("Requested"),
+                        html.Th("Actions"),
                     ])),
                     html.Tbody(rows),
                 ],
@@ -205,7 +211,7 @@ def register_admin_callbacks(app):
             logger.exception("Failed to revoke session %s", sid)
             return dbc.Alert("Failed to revoke session.", color="danger", dismissable=True)
 
-    # ── Approve ──────────────────────────────────────────────────────────
+    # ── Approve (+ notify user by email) ─────────────────────────────────
     @app.callback(
         Output("admin-action-result", "children"),
         Input({"type": "admin-approve", "user_id": ALL}, "n_clicks"),
@@ -215,41 +221,83 @@ def register_admin_callbacks(app):
         ctx = dash.callback_context
         if not ctx.triggered or not any(n for n in n_clicks_list if n):
             raise dash.exceptions.PreventUpdate
-        triggered_id = ctx.triggered[0]["prop_id"]
         import json
-        id_dict = json.loads(triggered_id.split(".")[0])
+        id_dict = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
         user_id = id_dict["user_id"]
         try:
+            user = user_store.get_user_by_id(user_id)
             user_store.approve_user(user_id)
             logger.info("Admin approved user_id=%s", user_id)
-            return dbc.Alert(f"User {user_id} approved.", color="success",
-                             duration=3000, dismissable=True)
+            if user:
+                try:
+                    notifications.notify_user_approved(
+                        user.email, user.name or user.email.split("@")[0]
+                    )
+                except Exception:
+                    logger.warning("Approval email failed for user_id=%s", user_id)
+            return dbc.Alert(
+                f"✓ {user.email if user else user_id} approved — notification email sent.",
+                color="success", duration=4000, dismissable=True,
+            )
         except Exception:
             logger.exception("Failed to approve user_id=%s", user_id)
             return dbc.Alert("Failed to approve user.", color="danger", dismissable=True)
 
-    # ── Reject ───────────────────────────────────────────────────────────
+    # ── Reject: clicking Reject button opens the modal ────────────────────
     @app.callback(
-        Output("admin-action-result", "children", allow_duplicate=True),
+        Output("admin-reject-user-id", "data"),
+        Output("reject-reason-modal", "is_open"),
         Input({"type": "admin-reject", "user_id": ALL}, "n_clicks"),
         prevent_initial_call=True,
     )
-    def reject_user(n_clicks_list):
+    def open_reject_modal(n_clicks_list):
         ctx = dash.callback_context
         if not ctx.triggered or not any(n for n in n_clicks_list if n):
             raise dash.exceptions.PreventUpdate
-        triggered_id = ctx.triggered[0]["prop_id"]
         import json
-        id_dict = json.loads(triggered_id.split(".")[0])
-        user_id = id_dict["user_id"]
+        id_dict = json.loads(ctx.triggered[0]["prop_id"].split(".")[0])
+        return id_dict["user_id"], True
+
+    # ── Reject: confirm or cancel modal ──────────────────────────────────
+    @app.callback(
+        Output("admin-action-result", "children", allow_duplicate=True),
+        Output("reject-reason-modal", "is_open", allow_duplicate=True),
+        Input("reject-confirm-btn", "n_clicks"),
+        Input("reject-cancel-btn", "n_clicks"),
+        State("admin-reject-user-id", "data"),
+        State("reject-reason-input", "value"),
+        prevent_initial_call=True,
+    )
+    def handle_reject_modal(confirm_clicks, cancel_clicks, user_id, reason):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            raise dash.exceptions.PreventUpdate
+        triggered = ctx.triggered[0]["prop_id"].split(".")[0]
+        if triggered == "reject-cancel-btn":
+            return dash.no_update, False
+        if not confirm_clicks or not user_id:
+            raise dash.exceptions.PreventUpdate
+        reason = (reason or "").strip()
         try:
+            user = user_store.get_user_by_id(user_id)
             user_store.reject_user(user_id)
-            logger.info("Admin rejected user_id=%s", user_id)
-            return dbc.Alert(f"User {user_id} rejected.", color="warning",
-                             duration=3000, dismissable=True)
+            logger.info("Admin rejected user_id=%s, reason=%s", user_id, reason)
+            if user:
+                try:
+                    notifications.notify_user_rejected(
+                        user.email,
+                        user.name or user.email.split("@")[0],
+                        reason,
+                    )
+                except Exception:
+                    logger.warning("Rejection email failed for user_id=%s", user_id)
+            msg = f"✗ {user.email if user else user_id} rejected."
+            if reason:
+                msg += f" Reason sent: \"{reason[:60]}{'…' if len(reason) > 60 else ''}\""
+            return dbc.Alert(msg, color="warning", duration=5000, dismissable=True), False
         except Exception:
             logger.exception("Failed to reject user_id=%s", user_id)
-            return dbc.Alert("Failed to reject user.", color="danger", dismissable=True)
+            return dbc.Alert("Failed to reject user.", color="danger", dismissable=True), False
 
     # ── Toggle activate/deactivate ────────────────────────────────────────
     @app.callback(

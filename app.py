@@ -121,8 +121,15 @@ def load_user(user_id):
 
 @server.route("/logout")
 def logout():
+    from modules.auth.session_store import _delete as _delete_session
+    sid = getattr(flask.session, "sid", None)
+    # Call logout_user() BEFORE any session manipulation so Flask-Login can set
+    # session['_remember'] = 'clear', which its after_request handler uses to
+    # delete the remember_token cookie. Calling session.clear() first wipes that
+    # flag and leaves the remember_token cookie alive, auto-logging the user back in.
     flask_login.logout_user()
-    flask.session.clear()
+    if sid:
+        _delete_session(sid)   # remove the server-side session row from Supabase
     return flask.redirect("/")
 
 

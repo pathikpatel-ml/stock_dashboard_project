@@ -1,5 +1,5 @@
 import dash_bootstrap_components as dbc
-from dash import html
+from dash import dcc, html
 
 
 def create_admin_layout():
@@ -56,7 +56,36 @@ def create_admin_layout():
                 html.Div(id="admin-sessions-table"),
             ])),
 
-            # Hidden store to trigger reload after approve/reject
+            # ── Reject-with-reason modal ─────────────────────────────────────
+            dbc.Modal(
+                id="reject-reason-modal",
+                is_open=False,
+                children=[
+                    dbc.ModalHeader(dbc.ModalTitle([
+                        html.I(className="fas fa-times-circle me-2 text-danger"),
+                        "Reject Access Request",
+                    ])),
+                    dbc.ModalBody([
+                        html.P("Provide a reason — this will be emailed to the user.",
+                               className="text-muted small"),
+                        dbc.Textarea(
+                            id="reject-reason-input",
+                            placeholder="e.g. We're not accepting new members at this time.",
+                            rows=3,
+                            maxLength=500,
+                        ),
+                    ]),
+                    dbc.ModalFooter([
+                        dbc.Button("Cancel", id="reject-cancel-btn",
+                                   color="secondary", outline=True, n_clicks=0),
+                        dbc.Button([html.I(className="fas fa-times me-1"), "Confirm Reject"],
+                                   id="reject-confirm-btn", color="danger", n_clicks=0),
+                    ]),
+                ],
+            ),
+
+            # Stores and result
+            dcc.Store(id="admin-reject-user-id"),
             html.Div(id="admin-action-result", className="mt-2 small"),
         ],
     )

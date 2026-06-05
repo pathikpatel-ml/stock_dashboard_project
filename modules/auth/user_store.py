@@ -148,13 +148,14 @@ def verify_password(email: str, password: str):
 
 
 def create_user(email: str, password: str, name: str = "",
-                status: str = "active") -> User:
+                status: str = "active", join_reason: str = "") -> User:
     payload = {
         "email": email.lower().strip(),
         "password_hash": generate_password_hash(password),
         "name": name.strip(),
         "is_active": status == "active",
         "status": status,
+        "join_reason": join_reason.strip() if join_reason else None,
     }
     # Try fullest payload first, fall back progressively if schema columns are missing.
     # requests.HTTPError puts the Supabase error body in exc.response.text (not str(exc)),
@@ -172,10 +173,12 @@ def create_user(email: str, password: str, name: str = "",
 
     fallbacks = [
         payload,
-        # Without name/status (most likely missing columns)
+        # Without join_reason (column may not exist yet)
+        {k: v for k, v in payload.items() if k != "join_reason"},
+        # Without name/status/join_reason
         {"email": payload["email"], "password_hash": payload["password_hash"],
          "is_active": payload["is_active"]},
-        # Without is_active either (bare minimum)
+        # Bare minimum
         {"email": payload["email"], "password_hash": payload["password_hash"]},
     ]
 
@@ -199,9 +202,11 @@ def create_user(email: str, password: str, name: str = "",
     return _row_to_user(rows[0])
 
 
-def create_pending_user(name: str, email: str, password: str) -> User:
+def create_pending_user(name: str, email: str, password: str,
+                        join_reason: str = "") -> User:
     """Create a user with status='pending' — requires admin approval before login."""
-    return create_user(email, password, name=name, status="pending")
+    return create_user(email, password, name=name, status="pending",
+                       join_reason=join_reason)
 
 
 # ---------------------------------------------------------------------------
@@ -214,11 +219,19 @@ def get_pending_users_count() -> int:
 
 
 def get_pending_users() -> list:
-    return _get("users", {
-        "status": "eq.pending",
-        "select": "id,name,email,created_at",
-        "order": "created_at.asc",
-    })
+    try:
+        return _get("users", {
+            "status": "eq.pending",
+            "select": "id,name,email,join_reason,created_at",
+            "order": "created_at.asc",
+        })
+    except Exception:
+        # join_reason column doesn't exist yet — fall back without it
+        return _get("users", {
+            "status": "eq.pending",
+            "select": "id,name,email,created_at",
+            "order": "created_at.asc",
+        })
 
 
 def get_all_active_users() -> list:

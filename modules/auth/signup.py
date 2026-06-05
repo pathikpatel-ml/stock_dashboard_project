@@ -103,6 +103,12 @@ _FORM_HTML = """
     <input type="password" name="password" class="form-control"
            placeholder="Minimum 8 characters" required minlength="8">
   </div>
+  <div class="mb-3">
+    <label class="form-label">Why do you want access? <span style="color:#94a3b8;font-size:0.82rem">(required)</span></label>
+    <textarea name="join_reason" class="form-control" rows="3"
+              placeholder="Brief description of how you plan to use the dashboard..."
+              required maxlength="500">{reason_val}</textarea>
+  </div>
   <button type="submit" class="btn btn-primary w-100 mt-2">
     <i class="fas fa-paper-plane me-2"></i>Request Access
   </button>
@@ -124,24 +130,29 @@ def _render_page(message: str = "", form: str = "") -> str:
     return _SIGNUP_PAGE.replace("{message}", message).replace("{form}", form)
 
 
+def _blank_form(name_val: str = "", email_val: str = "", reason_val: str = "") -> str:
+    return _FORM_HTML.format(name_val=name_val, email_val=email_val, reason_val=reason_val)
+
+
 def register_signup_route(server):
     @server.route("/signup", methods=["GET", "POST"])
     def signup():
         ip = flask.request.remote_addr or "unknown"
 
         if flask.request.method == "GET":
-            return _render_page(form=_FORM_HTML.format(name_val="", email_val=""))
+            return _render_page(form=_blank_form())
 
         # POST — process signup form
         if _is_signup_rate_limited(ip):
             return _render_page(
                 message='<div class="alert-error-custom mb-3">Too many requests. Try again later.</div>',
-                form=_FORM_HTML.format(name_val="", email_val=""),
+                form=_blank_form(),
             ), 429
 
         name = flask.request.form.get("name", "").strip()
         email = flask.request.form.get("email", "").strip().lower()
         password = flask.request.form.get("password", "")
+        join_reason = flask.request.form.get("join_reason", "").strip()
 
         # Validation
         errors = []
@@ -151,12 +162,14 @@ def register_signup_route(server):
             errors.append("Enter a valid email address.")
         if len(password) < 8:
             errors.append("Password must be at least 8 characters.")
+        if not join_reason or len(join_reason) < 10:
+            errors.append("Please tell us why you want access (at least 10 characters).")
 
         if errors:
             error_html = '<div class="alert-error-custom mb-3">' + "<br>".join(errors) + "</div>"
             return _render_page(
                 message=error_html,
-                form=_FORM_HTML.format(name_val=name, email_val=email),
+                form=_blank_form(name_val=name, email_val=email, reason_val=join_reason),
             ), 400
 
         # Check duplicate email
@@ -166,19 +179,28 @@ def register_signup_route(server):
                 error_html = '<div class="alert-error-custom mb-3">An account with this email already exists.</div>'
                 return _render_page(
                     message=error_html,
-                    form=_FORM_HTML.format(name_val=name, email_val=""),
+                    form=_blank_form(name_val=name, email_val="", reason_val=join_reason),
                 ), 400
 
             _record_signup_attempt(ip)
-            user_store.create_pending_user(name, email, password)
+            user_store.create_pending_user(name, email, password, join_reason=join_reason)
             logger.info("New signup request from %s (IP: %s)", email, ip)
+
+            # Notify admin — fire and forget (never crash the signup flow)
+            try:
+                import os
+                from modules.auth import notifications
+                admin_email = os.environ.get("ADMIN_EMAIL", "pathikc129@gmail.com")
+                notifications.notify_admin_new_signup(admin_email, name, email, join_reason)
+            except Exception:
+                logger.warning("Admin notification failed for new signup %s", email, exc_info=True)
 
         except Exception:
             logger.exception("Signup failed for email %s", email)
             error_html = '<div class="alert-error-custom mb-3">Something went wrong. Please try again.</div>'
             return _render_page(
                 message=error_html,
-                form=_FORM_HTML.format(name_val=name, email_val=email),
+                form=_blank_form(name_val=name, email_val=email, reason_val=join_reason),
             ), 500
 
         # Success — show message, no form
