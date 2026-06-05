@@ -79,6 +79,30 @@ def notify_user_approved(user_email: str, name: str):
     _send(user_email, "Your Stock Dashboard access has been approved", html)
 
 
+def notify_user_gtt_reminder(user_email: str):
+    """Pre-flight reminder sent at 8:00 AM IST — 30 min before the 8:30 AM GTT job."""
+    html = f"""
+    <html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;">
+      <h2 style="color:#f59e0b;">&#9203; Reconnect Zerodha — GTT job in 30 minutes</h2>
+      <p>Your Zerodha access token has expired (Zerodha resets tokens at 6:00 AM IST daily).</p>
+      <p>The <strong>GTT automation job runs at 8:30 AM IST</strong>. If you reconnect now,
+         your orders will be placed automatically before market open (9:15 AM IST).</p>
+      <p style="margin-top:20px;">
+        <a href="{_DASHBOARD_URL}/?tab=kite-settings"
+           style="background:#f59e0b;color:#1e293b;padding:10px 20px;border-radius:6px;
+                  text-decoration:none;font-weight:bold;">
+          Reconnect Zerodha Now
+        </a>
+      </p>
+      <p style="color:#64748b;font-size:0.82em;margin-top:16px;">
+        If you reconnect after 8:30 AM, use the <strong>"Run GTT Job Now"</strong> button
+        in the Zerodha Settings → Connection panel to trigger the job manually.
+      </p>
+    </body></html>
+    """
+    _send(user_email, "Action required: Reconnect Zerodha before 8:30 AM IST — GTT job in 30 min", html)
+
+
 def notify_user_rejected(user_email: str, name: str, reason: str = ""):
     reason_html = (
         f"<p><strong>Reason:</strong> {reason}</p>"

@@ -133,6 +133,36 @@ def logout():
     return flask.redirect("/")
 
 
+@server.route("/api/notify-gtt-reminder", methods=["POST"])
+def api_notify_gtt_reminder():
+    """Pre-flight: called at 8:00 AM IST by GitHub Actions, 30 min before the GTT job.
+    Sends reconnect reminder emails to all GTT-enabled users whose tokens are expired."""
+    token = flask.request.headers.get("X-Trigger-Token", "")
+    expected = os.environ.get("GTT_TRIGGER_TOKEN", "")
+    if not expected or token != expected:
+        return flask.jsonify({"error": "unauthorized"}), 401
+    try:
+        from modules.kite.portfolio import is_token_valid
+        from modules.auth.notifications import notify_user_gtt_reminder
+        users = user_store.get_all_gtt_enabled_users()
+        reminded, connected = [], []
+        for u in users:
+            if not is_token_valid(u.get("access_token_set_at")):
+                notify_user_gtt_reminder(u["email"])
+                reminded.append(u["email"])
+                logger.warning("GTT reminder sent to %s — token expired", u["email"])
+            else:
+                connected.append(u["email"])
+        return flask.jsonify({
+            "status": "ok",
+            "reminded": len(reminded),
+            "already_connected": len(connected),
+        })
+    except Exception:
+        logger.exception("GTT reminder endpoint error")
+        return flask.jsonify({"status": "error", "error": "check logs"}), 500
+
+
 @server.route("/api/run-gtt", methods=["POST"])
 def api_run_gtt():
     """GitHub Actions calls this endpoint to trigger the pre-market GTT job."""

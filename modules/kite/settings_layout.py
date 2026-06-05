@@ -393,8 +393,9 @@ def _step3_card(connection_badge) -> html.Div:
             [html.I(className="fas fa-clock me-2 text-warning"),
              html.Strong("Daily reconnection required. "),
              "Zerodha resets all access tokens at ", html.Strong("6:00 AM IST"),
-             " every day. You'll receive an email each morning if reconnection is needed "
-             "before your scheduled GTT run."],
+             " every day. You'll receive a reminder email at ", html.Strong("8:00 AM IST"),
+             " if reconnection is needed before the ", html.Strong("8:30 AM IST"),
+             " GTT job runs."],
             color="warning", className="mb-4", style={"fontSize": "0.85rem"},
         ),
 
@@ -471,7 +472,7 @@ def _step4_card(settings: dict, exclusions: list) -> html.Div:
             dbc.Switch(id="gtt-enabled-switch",
                        label=[html.Strong("Enable Automatic GTT Creation",
                                           style={"color": "#f1f5f9"}), html.Br(),
-                              html.Span("Runs at your scheduled time, Mon–Fri.",
+                              html.Span("Runs at 8:30 AM IST, Mon–Fri.",
                                         style={"color": "#94a3b8", "fontSize": "0.82rem"})],
                        value=gtt_enabled, className="mb-0"),
         ]), className="mb-4", style={"background": "#1e293b", "border": "1px solid #334155", "color": "#f1f5f9"}),
@@ -655,25 +656,49 @@ def _connection_section(settings: dict) -> html.Div:
 
 
 def _schedule_section(settings: dict) -> html.Div:
-    schedule_time = settings.get("schedule_time", "08:30")
-    options = [
-        {"value": "08:30",
-         "label": "8:30 AM IST  —  45 min before open (Recommended)"},
-        {"value": "08:45", "label": "8:45 AM IST  —  30 min before open"},
-        {"value": "09:00", "label": "9:00 AM IST  —  15 min before open"},
-        {"value": "09:10", "label": "9:10 AM IST  —  5 min before open (Latest)"},
-    ]
     return html.Div([
         html.H6("GTT Job Schedule", className="mb-3 fw-semibold"),
-        html.P("When should the GTT job run each weekday morning? "
-               "Pick a time that gives you enough chance to reconnect if the token "
-               "expires overnight.",
-               className="text-muted small mb-4"),
-        dbc.RadioItems(id="schedule-time-radio", options=options,
-                       value=schedule_time, className="mb-4"),
-        dbc.Button([html.I(className="fas fa-save me-1"), "Save Schedule"],
-                   id="save-schedule-btn", color="primary", n_clicks=0),
-        html.Div(id="schedule-save-status", className="mt-3"),
+
+        dbc.Card(dbc.CardBody([
+            html.Div(className="d-flex align-items-center mb-3", children=[
+                html.I(className="fas fa-clock fa-2x me-3", style={"color": "#3b82f6"}),
+                html.Div([
+                    html.H5("8:30 AM IST — Fixed", className="mb-0 fw-bold",
+                            style={"color": "#f1f5f9"}),
+                    html.Small("Monday to Friday, every market day",
+                               style={"color": "#94a3b8"}),
+                ]),
+            ]),
+            html.Hr(style={"borderColor": "#334155"}),
+            html.Div([
+                html.Div(className="d-flex align-items-start mb-2", children=[
+                    html.I(className="fas fa-bell me-2 mt-1", style={"color": "#f59e0b", "fontSize": "0.85rem"}),
+                    html.Span([html.Strong("8:00 AM IST — Pre-flight reminder email "),
+                               "sent to you if your Zerodha token is expired, "
+                               "giving you 30 minutes to reconnect."],
+                              style={"color": "#94a3b8", "fontSize": "0.85rem"}),
+                ]),
+                html.Div(className="d-flex align-items-start mb-2", children=[
+                    html.I(className="fas fa-robot me-2 mt-1", style={"color": "#3b82f6", "fontSize": "0.85rem"}),
+                    html.Span([html.Strong("8:30 AM IST — GTT job runs "),
+                               "automatically. Checks all BUY/STRONG BUY signals "
+                               "and places GTT orders with MACD confirmation."],
+                              style={"color": "#94a3b8", "fontSize": "0.85rem"}),
+                ]),
+                html.Div(className="d-flex align-items-start", children=[
+                    html.I(className="fas fa-store me-2 mt-1", style={"color": "#10b981", "fontSize": "0.85rem"}),
+                    html.Span([html.Strong("9:15 AM IST — Market opens. "),
+                               "GTT orders are already placed and waiting."],
+                              style={"color": "#94a3b8", "fontSize": "0.85rem"}),
+                ]),
+            ]),
+        ]), style={"background": "#0f172a", "border": "1px solid #1e3a5f"}),
+
+        html.P(
+            "The run time is fixed at 8:30 AM IST for all users. This ensures the app "
+            "is reliably awake and all signals are loaded before placing orders.",
+            className="text-muted small mt-3 mb-0",
+        ),
     ])
 
 
@@ -710,7 +735,7 @@ def _prefs_section(settings: dict) -> html.Div:
             dbc.Switch(id="gtt-enabled-switch",
                        label=[html.Strong("Enable Automatic GTT Creation",
                                           style={"color": "#f1f5f9"}), html.Br(),
-                              html.Span("Runs at your scheduled time, Mon–Fri. "
+                              html.Span("Runs at 8:30 AM IST, Mon–Fri. "
                                         "Only BUY/STRONG BUY signals with MACD confirmation.",
                                         style={"color": "#94a3b8", "fontSize": "0.82rem"})],
                        value=gtt_enabled, className="mb-0"),

@@ -256,51 +256,6 @@ def register_kite_settings_callbacks(app):
         step = _determine_wizard_step(settings)
         return step, True
 
-    # ── Save schedule preference ──────────────────────────────────────────
-    @app.callback(
-        Output("schedule-save-status", "children"),
-        Input("save-schedule-btn", "n_clicks"),
-        State("schedule-time-radio", "value"),
-        prevent_initial_call=True,
-    )
-    def save_schedule(n_clicks, schedule_time):
-        user_id = _current_user_id()
-        if not user_id:
-            return "Not logged in."
-        try:
-            user_store.upsert_kite_settings(user_id, schedule_time=schedule_time)
-        except Exception as exc:
-            err = str(exc).lower()
-            logger.exception("Failed to save schedule for user %s", user_id)
-            if "schedule_time" in err or "42703" in err or "column" in err:
-                return dbc.Alert([
-                    html.Strong("Database migration required. "),
-                    "Please run this SQL in the ",
-                    html.A("Supabase SQL editor",
-                           href="https://supabase.com/dashboard/project/_/sql/new",
-                           target="_blank", className="alert-link"),
-                    ":", html.Br(),
-                    html.Code(
-                        "ALTER TABLE kite_settings ADD COLUMN IF NOT EXISTS schedule_time TEXT NOT NULL DEFAULT '08:30';",
-                        style={"fontSize": "0.8rem", "wordBreak": "break-all"},
-                    ),
-                ], color="warning", dismissable=True)
-            return dbc.Alert("Failed to save schedule — check server logs.", color="danger", dismissable=True)
-
-        # Reschedule APScheduler job for this user
-        try:
-            from app import _scheduler
-            from modules.kite.scheduler import reschedule_user
-            reschedule_user(_scheduler, user_id, schedule_time)
-        except Exception as e:
-            logger.warning("Could not reschedule APScheduler job: %s", e)
-
-        return dbc.Alert(
-            [html.I(className="fas fa-check me-2"),
-             f"Schedule saved — GTT job will run at {schedule_time} IST on weekdays."],
-            color="success", dismissable=True, duration=4000,
-        )
-
     # ── Step navigation ───────────────────────────────────────────────────
     for btn_id, direction in [
         ("wizard-step1-next", +1),

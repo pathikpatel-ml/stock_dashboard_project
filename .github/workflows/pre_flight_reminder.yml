@@ -1,0 +1,38 @@
+name: GTT Pre-flight Reconnect Reminder
+
+on:
+  schedule:
+    # 8:00 AM IST = 02:30 UTC, Monday to Friday (30 min before GTT job at 03:00 UTC)
+    - cron: '30 2 * * 1-5'
+  workflow_dispatch:  # allow manual trigger for testing
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Wake up Render app
+        run: |
+          echo "Pinging app to wake up Render dyno..."
+          curl -s --max-time 60 \
+            -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
+            https://stock-dashboard-project.onrender.com/api/health || true
+
+      - name: Send reconnect reminders to users with expired tokens
+        run: |
+          echo "Sending pre-flight GTT reminder emails..."
+          RESPONSE=$(curl -s --max-time 30 \
+            -X POST \
+            -H "X-Trigger-Token: ${{ secrets.GTT_TRIGGER_TOKEN }}" \
+            https://stock-dashboard-project.onrender.com/api/notify-gtt-reminder)
+
+          echo "Response: $RESPONSE"
+          REMINDED=$(echo "$RESPONSE" | python3 -c \
+            "import sys,json; d=json.load(sys.stdin); print(d.get('reminded',0))" 2>/dev/null || echo "0")
+          CONNECTED=$(echo "$RESPONSE" | python3 -c \
+            "import sys,json; d=json.load(sys.stdin); print(d.get('already_connected',0))" 2>/dev/null || echo "0")
+
+          echo "Reminders sent: $REMINDED user(s) with expired tokens"
+          echo "Already connected: $CONNECTED user(s) — no reminder needed"
+          echo "GTT job will run in 30 minutes at 8:30 AM IST."
