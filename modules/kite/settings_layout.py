@@ -469,9 +469,10 @@ def _step4_card(settings: dict, exclusions: list) -> html.Div:
         html.Hr(),
         dbc.Card(dbc.CardBody([
             dbc.Switch(id="gtt-enabled-switch",
-                       label=[html.Strong("Enable Automatic GTT Creation"), html.Br(),
+                       label=[html.Strong("Enable Automatic GTT Creation",
+                                          style={"color": "#f1f5f9"}), html.Br(),
                               html.Span("Runs at your scheduled time, Mon–Fri.",
-                                        className="text-muted small")],
+                                        style={"color": "#94a3b8", "fontSize": "0.82rem"})],
                        value=gtt_enabled, className="mb-0"),
         ]), className="mb-4", style={"background": "#1e293b", "border": "1px solid #334155", "color": "#f1f5f9"}),
         html.Div(id="kite-prefs-status", className="mb-3"),
@@ -694,10 +695,11 @@ def _prefs_section(settings: dict) -> html.Div:
         html.Hr(),
         dbc.Card(dbc.CardBody([
             dbc.Switch(id="gtt-enabled-switch",
-                       label=[html.Strong("Enable Automatic GTT Creation"), html.Br(),
+                       label=[html.Strong("Enable Automatic GTT Creation",
+                                          style={"color": "#f1f5f9"}), html.Br(),
                               html.Span("Runs at your scheduled time, Mon–Fri. "
                                         "Only BUY/STRONG BUY signals with MACD confirmation.",
-                                        className="text-muted small")],
+                                        style={"color": "#94a3b8", "fontSize": "0.82rem"})],
                        value=gtt_enabled, className="mb-0"),
         ]), className="mb-4", style={"background": "#1e293b", "border": "1px solid #334155", "color": "#f1f5f9"}),
         html.Div(id="kite-prefs-status", className="mb-3"),

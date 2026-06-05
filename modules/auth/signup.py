@@ -119,25 +119,25 @@ _SUCCESS_HTML = """
 """
 
 
+def _render_page(message: str = "", form: str = "") -> str:
+    """Render the signup page — uses .replace() to avoid CSS braces clashing with str.format()."""
+    return _SIGNUP_PAGE.replace("{message}", message).replace("{form}", form)
+
+
 def register_signup_route(server):
     @server.route("/signup", methods=["GET", "POST"])
     def signup():
         ip = flask.request.remote_addr or "unknown"
 
         if flask.request.method == "GET":
-            page = _SIGNUP_PAGE.format(
-                message="",
-                form=_FORM_HTML.format(name_val="", email_val=""),
-            )
-            return page
+            return _render_page(form=_FORM_HTML.format(name_val="", email_val=""))
 
         # POST — process signup form
         if _is_signup_rate_limited(ip):
-            page = _SIGNUP_PAGE.format(
+            return _render_page(
                 message='<div class="alert-error-custom mb-3">Too many requests. Try again later.</div>',
                 form=_FORM_HTML.format(name_val="", email_val=""),
-            )
-            return page, 429
+            ), 429
 
         name = flask.request.form.get("name", "").strip()
         email = flask.request.form.get("email", "").strip().lower()
@@ -154,22 +154,20 @@ def register_signup_route(server):
 
         if errors:
             error_html = '<div class="alert-error-custom mb-3">' + "<br>".join(errors) + "</div>"
-            page = _SIGNUP_PAGE.format(
+            return _render_page(
                 message=error_html,
                 form=_FORM_HTML.format(name_val=name, email_val=email),
-            )
-            return page, 400
+            ), 400
 
         # Check duplicate email
         try:
             existing = user_store.get_user_by_email(email)
             if existing:
                 error_html = '<div class="alert-error-custom mb-3">An account with this email already exists.</div>'
-                page = _SIGNUP_PAGE.format(
+                return _render_page(
                     message=error_html,
                     form=_FORM_HTML.format(name_val=name, email_val=""),
-                )
-                return page, 400
+                ), 400
 
             _record_signup_attempt(ip)
             user_store.create_pending_user(name, email, password)
@@ -178,12 +176,10 @@ def register_signup_route(server):
         except Exception:
             logger.exception("Signup failed for email %s", email)
             error_html = '<div class="alert-error-custom mb-3">Something went wrong. Please try again.</div>'
-            page = _SIGNUP_PAGE.format(
+            return _render_page(
                 message=error_html,
                 form=_FORM_HTML.format(name_val=name, email_val=email),
-            )
-            return page, 500
+            ), 500
 
         # Success — show message, no form
-        page = _SIGNUP_PAGE.format(message=_SUCCESS_HTML, form="")
-        return page
+        return _render_page(message=_SUCCESS_HTML)
