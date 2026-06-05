@@ -178,6 +178,23 @@ def place_buy_gtt(kite, symbol: str, buy_price: float,
     return resp["trigger_id"]
 
 
+def delete_gtt(kite, gtt_id) -> bool:
+    """
+    Delete a GTT we previously created.
+    Returns True on success, False if the GTT is already triggered/gone (safe to ignore).
+    Raises on unexpected errors so the caller can log them.
+    """
+    try:
+        kite.delete_gtt(int(gtt_id))
+        return True
+    except Exception as exc:
+        msg = str(exc).lower()
+        # GTT already fired or was manually deleted — not an error for us
+        if any(k in msg for k in ("not found", "does not exist", "invalid", "no gtt")):
+            return False
+        raise
+
+
 def calculate_quantity(portfolio_value: float, allocation_pct: float,
                        buy_price: float) -> int:
     if buy_price <= 0:

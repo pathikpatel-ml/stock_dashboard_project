@@ -407,6 +407,46 @@ def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
             raise
 
 
+def get_last_gtt_run_date(user_id: int):
+    """Return the most recent run_date in gtt_log for this user, or None if never run."""
+    try:
+        rows = _get("gtt_log", {
+            "user_id": f"eq.{user_id}",
+            "select": "run_date",
+            "order": "run_date.desc",
+            "limit": "1",
+        })
+        return rows[0]["run_date"] if rows else None
+    except Exception:
+        return None
+
+
+def get_previous_gtt_ids(user_id: int, broker: str = "zerodha") -> list:
+    """
+    Return rows from gtt_log for GTTs we successfully created on PREVIOUS days
+    (run_date < today, status='created'). Used by the daily refresh to delete stale orders.
+    Each row contains: gtt_id, symbol, strategy, run_date.
+    """
+    from datetime import date
+    today = str(date.today())
+    base_params = {
+        "user_id": f"eq.{user_id}",
+        "status": "eq.created",
+        "run_date": f"lt.{today}",
+        "gtt_id": "not.is.null",
+        "select": "gtt_id,symbol,strategy,run_date",
+        "order": "run_date.desc",
+    }
+    try:
+        return _get("gtt_log", {**base_params, "broker": f"eq.{broker}"})
+    except Exception:
+        # broker column may not exist yet — fall back without broker filter
+        try:
+            return _get("gtt_log", base_params)
+        except Exception:
+            return []
+
+
 def get_gtt_log_today(user_id: int) -> list:
     rows = _get("gtt_log", {
         "user_id": f"eq.{user_id}",

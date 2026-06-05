@@ -46,6 +46,21 @@ def place_buy_smart_order(groww, symbol: str, buy_price: float,
     return str(order_id)
 
 
+def cancel_smart_order_by_id(groww, order_id: str) -> bool:
+    """
+    Cancel a Groww Smart Order we previously created.
+    Returns True on success, False if order is already executed/gone (safe to ignore).
+    """
+    try:
+        groww.cancel_smart_order(order_id=str(order_id))
+        return True
+    except Exception as exc:
+        msg = str(exc).lower()
+        if any(k in msg for k in ("not found", "does not exist", "invalid", "executed")):
+            return False
+        raise
+
+
 def calculate_quantity(portfolio_value: float, allocation_pct: float,
                        buy_price: float) -> int:
     if buy_price <= 0:
