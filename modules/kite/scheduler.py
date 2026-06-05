@@ -122,8 +122,9 @@ def run_premarket_gtt_job() -> dict:
         # ── 3. Token check ───────────────────────────────────────────────────
         token_set_at = user.get("access_token_set_at")
         if not portfolio.is_token_valid(token_set_at):
-            log(f"  TOKEN_EXPIRED: Kite token not connected today — please reconnect before 8 AM IST.", "error")
+            log(f"  TOKEN_EXPIRED: Kite token not connected today — please reconnect before 8:30 AM IST.", "error")
             token_expired = True
+            _send_reauth_email(email)
             continue
         log("  Token valid [OK]")
 

@@ -2,8 +2,10 @@ name: Daily GTT Creation (Pre-Market)
 
 on:
   schedule:
-    # 8:00 AM IST = 02:30 UTC, Monday to Friday
-    - cron: '30 2 * * 1-5'
+    # 8:30 AM IST = 03:00 UTC, Monday to Friday
+    # NOTE: intentionally 30 min after generate_ma_data (02:30 UTC) to avoid
+    # GitHub dropping one when two workflows fire at the exact same second.
+    - cron: '0 3 * * 1-5'
   workflow_dispatch:   # allows manual trigger from GitHub Actions UI for testing
 
 jobs:
