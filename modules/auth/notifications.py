@@ -33,7 +33,7 @@ def _send(to_email: str, subject: str, html_body: str):
             srv.starttls()
             srv.login(sender, password)
             srv.sendmail(sender, to_email, msg.as_string())
-        logger.info("Notification sent to %s: %s", to_email, subject)
+        logger.warning("EMAIL SENT to %s: %s", to_email, subject)
     except Exception as exc:
         logger.error("Failed to send notification to %s: %s", to_email, exc)
 
