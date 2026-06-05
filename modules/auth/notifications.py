@@ -1,6 +1,7 @@
 import logging
 import os
 import smtplib
+import socket
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -24,8 +25,11 @@ def _send(to_email: str, subject: str, html_body: str):
         msg["From"] = sender
         msg["To"] = to_email
         msg.attach(MIMEText(html_body, "html"))
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as srv:
-            srv.ehlo()
+        # Force IPv4 — Render free-tier containers have no IPv6 routing.
+        # smtplib tries IPv6 first (ENETUNREACH) and doesn't fall back to IPv4.
+        smtp_ip = socket.getaddrinfo("smtp.gmail.com", 587, socket.AF_INET)[0][4][0]
+        with smtplib.SMTP(smtp_ip, 587, timeout=15) as srv:
+            srv.ehlo("smtp.gmail.com")
             srv.starttls()
             srv.login(sender, password)
             srv.sendmail(sender, to_email, msg.as_string())
