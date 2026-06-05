@@ -507,4 +507,4 @@ except Exception as _sched_err:
 if __name__ == "__main__":
     print("DASH APP: Application ready. Starting server...")
     _debug = os.environ.get("DEBUG", "false").lower() == "true"
-    app.run_server(debug=_debug, host="0.0.0.0", port=8050)
+    app.run(debug=_debug, host="0.0.0.0", port=8050)
