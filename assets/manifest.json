@@ -1,0 +1,9 @@
+{
+  "name": "Stock Signal Dashboard",
+  "short_name": "Signals",
+  "display": "standalone",
+  "background_color": "#0c0c10",
+  "theme_color": "#0c0c10",
+  "start_url": "/",
+  "icons": [{"src": "/assets/favicon.ico", "sizes": "any"}]
+}

@@ -1,3 +1,1 @@
-/* Redirect to enhanced styles - this file is kept for compatibility */
-@import url("enhanced_styles.css");
-@import url("dashboard.css");
+/* All styles are in dashboard.css — loaded automatically by Dash from assets/ */

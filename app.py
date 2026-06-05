@@ -298,15 +298,16 @@ app.index_string = """
     <head>
         {%metas%}
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="theme-color" content="#0c0c10">
+        <meta name="mobile-web-app-capable" content="yes">
         <title>{%title%}</title>
         {%favicon%}
+        <link rel="manifest" href="/assets/manifest.json">
         {%css%}
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Onest:wght@100..900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-        <link rel="stylesheet" href="/assets/enhanced_styles.css?v=4.0">
-        <link rel="stylesheet" href="/assets/dashboard.css?v=4.0">
     </head>
     <body>
         {%app_entry%}

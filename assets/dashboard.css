@@ -1,417 +1,806 @@
-/* Stock Dashboard CSS */
+/* Stock Signal Dashboard — Obsidian Terminal v5.0 */
 
-/* Global Styles */
+/* =====================================================================
+   1. CSS Custom Properties
+   ===================================================================== */
+:root {
+  /* Backgrounds */
+  --bg-base:      #0c0c10;
+  --bg-surface:   #14141a;
+  --bg-elevated:  #1c1c25;
+  --border:       #2c2c38;
+  --border-focus: #4c4c60;
+
+  /* Accents */
+  --accent:       #e8a000;
+  --accent-dim:   #a06800;
+  --bullish:      #10d9aa;
+  --bearish:      #ff5a6e;
+
+  /* Text */
+  --text-primary: #f0f0f8;
+  --text-muted:   #9090c0;
+  --text-dim:     #5858a0;
+
+  /* Spacing (4-multiple rhythm) */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+
+  /* Border radius */
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  16px;
+
+  /* Typography */
+  --font-ui:   'Onest', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* =====================================================================
+   2. Global Reset & Base
+   ===================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 body {
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #f0f2f5;
-    color: #333;
-    font-size: 15px;
-    line-height: 1.6;
+  font-family: var(--font-ui);
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.6;
 }
 
+/* =====================================================================
+   3. App Container
+   ===================================================================== */
 .app-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
-    background-color: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
-    border-radius: 12px;
-    min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--sp-6);
+  background-color: var(--bg-base);
+  min-height: 100vh;
 }
 
-/* Header Styles */
-h1.main-title {
-    color: #1e293b;
-    text-align: center;
-    margin-bottom: 8px;
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+/* =====================================================================
+   4. Typography
+   ===================================================================== */
+h1.main-title,
+.app-container h1 {
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: var(--sp-2);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 #app-subtitle {
-    text-align: center;
-    margin-bottom: 28px;
-    padding: 6px 12px;
-    background-color: #f1f5f9;
-    border-radius: 20px;
-    font-size: 13px;
-    display: inline-block;
-    width: 100%;
+  text-align: center;
+  margin-bottom: 28px;
+  padding: var(--sp-1) var(--sp-3);
+  background-color: var(--bg-elevated);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  display: inline-block;
+  width: 100%;
 }
 
-/* Status Indicators */
+/* =====================================================================
+   5. Status Badges
+   ===================================================================== */
 .status-loaded {
-    color: #16a34a;
-    font-weight: 600;
-    background-color: #dcfce7;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+  color: var(--bullish);
+  font-weight: 600;
+  background-color: rgba(16, 217, 170, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
 }
 
 .status-error {
-    color: #dc2626;
-    font-weight: 600;
-    background-color: #fee2e2;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+  color: var(--bearish);
+  font-weight: 600;
+  background-color: rgba(255, 90, 110, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
 }
 
 .status-unavailable {
-    color: #d97706;
-    font-weight: 600;
-    background-color: #fef3c7;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  background-color: rgba(232, 160, 0, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
 }
 
-/* Section Containers */
+/* =====================================================================
+   6. Section Containers
+   ===================================================================== */
 .section-container {
-    margin-bottom: 32px;
-    padding: 24px;
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  margin-bottom: var(--sp-8);
+  padding: var(--sp-6);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .section-container h3 {
-    color: #1e293b;
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.2rem;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-    border-bottom: 2px solid #3b82f6;
-    padding-bottom: 10px;
+  color: var(--text-primary);
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 10px;
 }
 
 .section-container h4 {
-    color: #374151;
-    margin-top: 20px;
-    margin-bottom: 12px;
-    font-size: 1rem;
-    font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 20px;
+  margin-bottom: var(--sp-3);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
-/* Control Bar */
+/* =====================================================================
+   7. Control Bar
+   ===================================================================== */
 .control-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding: 12px 16px;
-    background-color: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background-color: var(--bg-elevated);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
 .action-buttons {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
 }
 
 .filter-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: white;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    padding: 6px 12px;
-    margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-1) var(--sp-3);
+  margin-left: auto;
 }
 
 .filter-group label {
-    font-weight: 500;
-    color: #475569;
-    font-size: 13px;
-    white-space: nowrap;
-    margin: 0;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  margin: 0;
 }
 
 .filter-group input[type="number"] {
-    width: 80px !important;
-    padding: 4px 8px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 13px;
-    flex-shrink: 0;
+  width: 80px !important;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
-/* Buttons */
+.filter-group input[type="number"]:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+/* =====================================================================
+   8. Buttons
+   ===================================================================== */
 .btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    font-size: 14px;
-    white-space: nowrap;
+  padding: var(--sp-2) var(--sp-4);
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .btn-sm {
-    padding: 5px 12px;
-    font-size: 13px;
+  padding: 5px 12px;
+  font-size: 13px;
 }
 
 .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .btn-primary {
-    background-color: #3b82f6;
-    color: white;
+  background-color: var(--accent);
+  color: #000;
 }
 
 .btn-primary:hover {
-    background-color: #2563eb;
+  background-color: #f0aa10;
 }
 
 .btn-success {
-    background-color: #22c55e;
-    color: white;
+  background-color: var(--bullish);
+  color: #000;
 }
 
 .btn-success:hover {
-    background-color: #16a34a;
+  background-color: #0ec090;
 }
 
 .btn-secondary {
-    background-color: #64748b;
-    color: white;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-    background-color: #475569;
+  background-color: var(--border);
 }
 
-/* Dropdown Styles */
+/* =====================================================================
+   9. Dash Dropdown (react-select / dcc.Dropdown)
+   ===================================================================== */
 .Select-control {
-    min-height: 36px;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
+  min-height: 36px;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important;
+  background-color: var(--bg-surface) !important;
 }
 
-/* Notifications */
+.Select-value-label,
+.Select-placeholder {
+  color: var(--text-primary) !important;
+}
+
+.Select-input input {
+  color: var(--text-primary) !important;
+}
+
+.Select-menu-outer {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.Select-option {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+.Select-option.is-focused {
+  background-color: var(--border) !important;
+}
+
+.Select-option.is-selected {
+  background-color: var(--accent) !important;
+  color: #000 !important;
+}
+
+/* Dash 2.x VirtualizedSelect */
+.dash-dropdown .Select-control { background-color: var(--bg-surface) !important; }
+
+/* =====================================================================
+   10. Dash Tabs (dcc.Tabs)
+   ===================================================================== */
+.tab-container {
+  background-color: var(--bg-base);
+}
+
+.tabs-top {
+  border-bottom: 1px solid var(--border) !important;
+  background-color: var(--bg-base) !important;
+}
+
+.tab {
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+.tab:hover {
+  background-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+.tab--selected {
+  background-color: var(--bg-surface) !important;
+  border-top-color: var(--accent) !important;
+  border-bottom-color: var(--bg-surface) !important;
+  color: var(--accent) !important;
+}
+
+/* =====================================================================
+   11. Notifications
+   ===================================================================== */
 .notifications-container {
-    max-height: 280px;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 8px;
-    background-color: #fafafa;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2);
+  background-color: var(--bg-surface);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-elevated);
 }
 
 .notification-item {
-    margin-bottom: 8px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border-left: 4px solid #ccc;
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  margin-bottom: var(--sp-2);
+  padding: 10px var(--sp-3);
+  border-radius: var(--r-sm);
+  border-left: 4px solid var(--border);
+  background-color: var(--bg-elevated);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.notification-high   { border-left-color: #ef4444; background-color: #fef2f2; }
-.notification-medium { border-left-color: #f59e0b; background-color: #fffbeb; }
-.notification-low    { border-left-color: #3b82f6; background-color: #eff6ff; }
+.notification-panel {
+  border-radius: var(--r-md) !important;
+}
+
+.notification-high   { border-left-color: var(--bearish); background-color: rgba(255, 90, 110, 0.08); }
+.notification-medium { border-left-color: var(--accent);  background-color: rgba(232, 160, 0, 0.08); }
+.notification-low    { border-left-color: var(--bullish); background-color: rgba(16, 217, 170, 0.08); }
 
 .notification-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-1);
 }
 
 .notification-type {
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    color: #64748b;
-    letter-spacing: 0.4px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
 }
 
-.notification-time    { font-size: 11px; color: #94a3b8; }
-.notification-content { font-size: 13px; color: #334155; }
+.notification-time    { font-size: 11px; color: var(--text-dim); }
+.notification-content { font-size: 13px; color: var(--text-primary); }
 
-/* Status Messages */
+/* =====================================================================
+   12. Status Messages
+   ===================================================================== */
 .status-message {
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin: 10px 0;
-    font-weight: 500;
-    font-size: 14px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-sm);
+  margin: 10px 0;
+  font-weight: 500;
+  font-size: 14px;
 }
 
-.status-message.info    { background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
-.status-message.warning { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-.status-message.error   { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.status-message.info {
+  background-color: rgba(16, 217, 170, 0.08);
+  color: var(--bullish);
+  border: 1px solid rgba(16, 217, 170, 0.25);
+}
 
-/* ---- TABLE — MOBILE FIX ---- */
+.status-message.warning {
+  background-color: rgba(232, 160, 0, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(232, 160, 0, 0.25);
+}
+
+.status-message.error {
+  background-color: rgba(255, 90, 110, 0.08);
+  color: var(--bearish);
+  border: 1px solid rgba(255, 90, 110, 0.25);
+}
+
+.status-message.success {
+  background-color: rgba(16, 217, 170, 0.08);
+  color: var(--bullish);
+  border: 1px solid rgba(16, 217, 170, 0.25);
+}
+
+/* =====================================================================
+   13. DataTable
+   ===================================================================== */
 .dash-table-container {
-    margin: 16px 0;
-    border-radius: 8px;
-    overflow-x: scroll !important;
-    -webkit-overflow-scrolling: touch;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  margin: var(--sp-4) 0;
+  border-radius: var(--r-sm);
+  overflow-x: scroll !important;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .dash-table-container .dash-spreadsheet-container {
-    max-height: 480px;
-    overflow-y: auto;
-    border-radius: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  border-radius: var(--r-sm);
 }
 
-/* Ensure table is wide enough to not collapse on mobile */
 .dash-spreadsheet-inner table {
-    min-width: 700px;
+  min-width: 700px;
 }
 
 .dash-table-container .dash-table {
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    font-size: 13px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
 }
 
 .dash-table-container .dash-header {
-    background-color: #2c3e50 !important;
-    color: white !important;
-    font-weight: 600;
-    text-align: center;
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid var(--border) !important;
 }
 
 .dash-table-container .dash-cell {
-    text-align: center;
-    padding: 9px 12px;
-    border-bottom: 1px solid #f1f5f9;
+  text-align: center;
+  padding: 9px var(--sp-3);
+  border-bottom: 1px solid var(--border) !important;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .dash-table-container .dash-cell:hover {
-    background-color: #f8fafc;
+  background-color: var(--bg-elevated) !important;
 }
 
-/* Chart Styles */
+/* =====================================================================
+   14. Plotly Charts
+   ===================================================================== */
 .js-plotly-plot {
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  border-radius: var(--r-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Footer */
+/* =====================================================================
+   15. Footer
+   ===================================================================== */
 footer {
-    text-align: center;
-    margin-top: 40px;
-    padding: 20px;
-    color: #94a3b8;
-    font-size: 13px;
-    border-top: 1px solid #e2e8f0;
+  text-align: center;
+  margin-top: var(--sp-8);
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
 }
 
-/* Loading Spinner */
+/* =====================================================================
+   16. Loading
+   ===================================================================== */
 ._dash-loading          { margin: 20px 0; }
 ._dash-loading-callback { display: flex; justify-content: center; align-items: center; min-height: 100px; }
 
-/* Indicators grid — flex wrap, no sparse spacing */
+/* =====================================================================
+   17. Indicators Grid
+   ===================================================================== */
 .indicators-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 100px;
 }
 
-/* ---- RESPONSIVE — 768px ---- */
-@media (max-width: 768px) {
-    .app-container {
-        padding: 12px;
-        margin: 8px;
-        border-radius: 8px;
-    }
-
-    .control-bar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-
-    .action-buttons {
-        width: 100%;
-    }
-
-    .action-buttons .btn {
-        flex: 1;
-        justify-content: center;
-    }
-
-    .filter-group {
-        margin-left: 0;
-        width: 100%;
-        justify-content: flex-start;
-    }
-
-    h1.main-title {
-        font-size: 1.5rem;
-    }
-
-    .section-container {
-        padding: 14px;
-        margin-bottom: 16px;
-    }
+.indicators-grid > div > div {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: var(--r-sm) !important;
+  background-color: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
 }
 
-/* ---- RESPONSIVE — 576px (small phones) ---- */
-@media (max-width: 576px) {
-    .app-container {
-        padding: 8px;
-        margin: 4px;
-        border-radius: 0;
-        box-shadow: none;
-    }
-
-    h1.main-title {
-        font-size: 1.3rem;
-    }
-
-    .section-container {
-        padding: 10px;
-        border-radius: 8px;
-    }
-
-    .notification-item {
-        padding: 8px;
-        font-size: 12px;
-    }
+.indicators-grid > div > div:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: var(--accent) !important;
 }
 
-/* Custom scrollbar */
+/* =====================================================================
+   18. Sentiment & Indicators Summary
+   ===================================================================== */
+.sentiment-display {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-radius: var(--r-md) !important;
+  padding: var(--sp-3) 18px !important;
+  font-size: 15px;
+  font-weight: 500;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.sentiment-display:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.indicators-summary {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-radius: var(--r-md) !important;
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+.indicators-summary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* =====================================================================
+   19. Bootstrap Dark Overrides
+   ===================================================================== */
+
+/* Base */
+.card {
+  background-color: var(--bg-surface);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.card-header,
+.card-footer {
+  background-color: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+/* Forms */
+.form-control,
+.form-select {
+  background-color: var(--bg-base);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--bg-base);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 0.2rem rgba(232, 160, 0, 0.2);
+}
+
+.form-control::placeholder { color: var(--text-dim); }
+
+.input-group-text {
+  background-color: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+/* Labels */
+.form-label,
+label {
+  color: var(--text-muted);
+}
+
+/* Nav/Tabs (Bootstrap) */
+.nav-link         { color: var(--text-muted); }
+.nav-link:hover   { color: var(--text-primary); }
+.nav-link.active  { color: var(--accent) !important; }
+.nav-tabs         { border-bottom-color: var(--border); }
+
+.nav-tabs .nav-item .nav-link {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.nav-tabs .nav-item .nav-link.active {
+  background-color: var(--bg-surface);
+  border-color: var(--border) var(--border) var(--bg-surface);
+  color: var(--accent) !important;
+}
+
+/* Alerts */
+.alert-info    { background-color: rgba(16, 217, 170, 0.08); color: var(--bullish); border-color: rgba(16, 217, 170, 0.25); }
+.alert-danger  { background-color: rgba(255, 90, 110, 0.08); color: var(--bearish); border-color: rgba(255, 90, 110, 0.25); }
+.alert-warning { background-color: rgba(232, 160, 0, 0.08);  color: var(--accent);  border-color: rgba(232, 160, 0, 0.25); }
+.alert-success { background-color: rgba(16, 217, 170, 0.08); color: var(--bullish); border-color: rgba(16, 217, 170, 0.25); }
+
+/* Modals */
+.modal-content {
+  background-color: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.modal-header,
+.modal-footer { border-color: var(--border); }
+
+/* Dropdowns */
+.dropdown-menu {
+  background-color: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.dropdown-item            { color: var(--text-primary); }
+.dropdown-item:hover,
+.dropdown-item:focus      { background-color: var(--border); color: var(--text-primary); }
+.dropdown-divider         { border-color: var(--border); }
+
+/* Misc */
+hr { border-color: var(--border); opacity: 0.4; }
+
+.badge {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   20. Breakout tab
+   ===================================================================== */
+.module-help {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: var(--sp-1) 0 14px 0;
+}
+
+#bo-inner-tabs { margin-top: var(--sp-3); }
+#bo-inner-tabs .tab { font-size: 14px; }
+
+/* =====================================================================
+   21. Utility
+   ===================================================================== */
+.text-center { text-align: center; }
+.text-left   { text-align: left; }
+.text-right  { text-align: right; }
+
+/* Ensure all mono-font spans get tabular nums */
+.font-mono,
+[class*="price"],
+[class*="ltp"],
+[class*="pnl"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================================
+   22. Animations (all wrapped in prefers-reduced-motion)
+   ===================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideInRight {
+    from { transform: translateX(60px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  .notification-panel {
+    animation: fadeIn 0.4s ease-in;
+  }
+
+  .notification-item {
+    animation: slideInRight 0.25s ease-out;
+  }
+}
+
+/* =====================================================================
+   23. Custom Scrollbars
+   ===================================================================== */
 .dash-table-container .dash-spreadsheet-container::-webkit-scrollbar,
 .notifications-container::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 
 .dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-track,
 .notifications-container::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 4px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
 }
 
 .dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-thumb,
 .notifications-container::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
+  background: var(--border);
+  border-radius: 4px;
 }
 
 .dash-table-container .dash-spreadsheet-container::-webkit-scrollbar-thumb:hover,
 .notifications-container::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+  background: var(--border-focus);
+}
+
+/* =====================================================================
+   24. Responsive — 768px
+   ===================================================================== */
+@media (max-width: 768px) {
+  .app-container {
+    padding: var(--sp-3);
+    margin: var(--sp-2);
+    border-radius: var(--r-sm);
+  }
+
+  .control-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-2);
+  }
+
+  .action-buttons { width: 100%; }
+
+  .action-buttons .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .filter-group {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  h1.main-title { font-size: 1.5rem; }
+
+  .section-container {
+    padding: 14px;
+    margin-bottom: var(--sp-4);
+  }
+}
+
+/* =====================================================================
+   25. Responsive — 576px (small phones)
+   ===================================================================== */
+@media (max-width: 576px) {
+  .app-container {
+    padding: var(--sp-2);
+    margin: var(--sp-1);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  h1.main-title { font-size: 1.3rem; }
+
+  .section-container {
+    padding: 10px;
+    border-radius: var(--r-sm);
+  }
+
+  .notification-item {
+    padding: var(--sp-2);
+    font-size: 12px;
+  }
+
+  .sentiment-display {
+    padding: 10px var(--sp-3) !important;
+    font-size: 13px;
+  }
 }
