@@ -103,6 +103,30 @@ def notify_user_gtt_reminder(user_email: str):
     _send(user_email, "Action required: Reconnect Zerodha before 8:30 AM IST — GTT job in 30 min", html)
 
 
+def notify_user_gtt_reminder_groww(user_email: str):
+    """Pre-flight reminder for Groww manual-mode users (no TOTP auto-refresh)."""
+    html = f"""
+    <html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;">
+      <h2 style="color:#f59e0b;">&#9203; Reconnect Groww — GTT job in 30 minutes</h2>
+      <p>Your Groww access token has expired (Groww resets tokens at 6:00 AM IST daily).</p>
+      <p>The <strong>GTT automation job runs at 8:30 AM IST</strong>. If you reconnect now,
+         your Smart Orders will be placed automatically before market open (9:15 AM IST).</p>
+      <p style="margin-top:20px;">
+        <a href="{_DASHBOARD_URL}/?tab=kite-settings"
+           style="background:#00D09C;color:#0f172a;padding:10px 20px;border-radius:6px;
+                  text-decoration:none;font-weight:bold;">
+          Reconnect Groww Now
+        </a>
+      </p>
+      <p style="color:#64748b;font-size:0.82em;margin-top:16px;">
+        <strong>Tip:</strong> Enable TOTP auto-refresh in your Broker Automation Setup
+        to never need to reconnect manually again.
+      </p>
+    </body></html>
+    """
+    _send(user_email, "Action required: Reconnect Groww before 8:30 AM IST — GTT job in 30 min", html)
+
+
 def notify_user_rejected(user_email: str, name: str, reason: str = ""):
     reason_html = (
         f"<p><strong>Reason:</strong> {reason}</p>"

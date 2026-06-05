@@ -282,15 +282,19 @@ def get_kite_settings(user_id: int) -> dict:
             "proximity_threshold_pct": 2.0,
             "max_allocation_pct": 3.0,
             "gtt_enabled": False,
+            "broker_choice": None,
         }
-    return rows[0]
+    r = rows[0]
+    if "broker_choice" not in r:
+        r["broker_choice"] = None  # column may not exist yet
+    return r
 
 
 def upsert_kite_settings(user_id: int, **kwargs):
     allowed = {
         "api_key_enc", "api_secret_enc", "access_token_enc",
         "access_token_set_at", "proximity_threshold_pct",
-        "max_allocation_pct", "gtt_enabled",
+        "max_allocation_pct", "gtt_enabled", "broker_choice",
     }
     data = {k: v for k, v in kwargs.items() if k in allowed}
     if not data:
@@ -299,7 +303,17 @@ def upsert_kite_settings(user_id: int, **kwargs):
         data["access_token_set_at"] = data["access_token_set_at"].isoformat()
     data["user_id"] = user_id
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    _upsert("kite_settings", data, on_conflict="user_id")
+    try:
+        _upsert("kite_settings", data, on_conflict="user_id")
+    except Exception as exc:
+        # broker_choice column may not exist yet (PGRST204 = column not in schema cache)
+        body = getattr(getattr(exc, "response", None), "text", str(exc))
+        if ("broker_choice" in body or "PGRST204" in body) and "broker_choice" in data:
+            data.pop("broker_choice")
+            if data:
+                _upsert("kite_settings", data, on_conflict="user_id")
+        else:
+            raise
 
 
 def get_all_gtt_enabled_users() -> list:
@@ -370,8 +384,8 @@ def remove_exclusion(user_id: int, symbol: str):
 # ---------------------------------------------------------------------------
 
 def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
-                   gtt_id, status: str, error_msg):
-    _post("gtt_log", {
+                   gtt_id, status: str, error_msg, broker: str = "zerodha"):
+    payload = {
         "user_id": user_id,
         "run_date": str(run_date),
         "symbol": symbol,
@@ -379,7 +393,18 @@ def insert_gtt_log(user_id: int, run_date, symbol: str, strategy: str,
         "gtt_id": gtt_id,
         "status": status,
         "error_msg": error_msg,
-    }, prefer="return=minimal")
+        "broker": broker,
+    }
+    try:
+        _post("gtt_log", payload, prefer="return=minimal")
+    except Exception as exc:
+        # broker column may not exist yet (PGRST204 = column not in schema cache)
+        body = getattr(getattr(exc, "response", None), "text", str(exc))
+        if ("broker" in body or "PGRST204" in body) and "broker" in payload:
+            payload.pop("broker")
+            _post("gtt_log", payload, prefer="return=minimal")
+        else:
+            raise
 
 
 def get_gtt_log_today(user_id: int) -> list:
@@ -396,3 +421,129 @@ def get_gtt_log_today(user_id: int) -> list:
             seen.add(r["symbol"])
             deduped.append(r)
     return deduped
+
+
+# ---------------------------------------------------------------------------
+# Groww settings
+# ---------------------------------------------------------------------------
+
+def get_groww_settings(user_id: int) -> dict:
+    rows = _get("groww_settings", {"user_id": f"eq.{user_id}", "select": "*"})
+    if not rows:
+        return {
+            "user_id": user_id,
+            "app_id_enc": None,
+            "app_secret_enc": None,
+            "totp_secret_enc": None,
+            "access_token_enc": None,
+            "access_token_set_at": None,
+            "totp_auto_refresh": False,
+            "proximity_threshold_pct": 2.0,
+            "max_allocation_pct": 3.0,
+            "gtt_enabled": False,
+        }
+    return rows[0]
+
+
+def upsert_groww_settings(user_id: int, **kwargs):
+    allowed = {
+        "app_id_enc", "app_secret_enc", "totp_secret_enc",
+        "access_token_enc", "access_token_set_at", "totp_auto_refresh",
+        "proximity_threshold_pct", "max_allocation_pct", "gtt_enabled",
+    }
+    data = {k: v for k, v in kwargs.items() if k in allowed}
+    if not data:
+        return
+    if "access_token_set_at" in data and hasattr(data["access_token_set_at"], "isoformat"):
+        data["access_token_set_at"] = data["access_token_set_at"].isoformat()
+    data["user_id"] = user_id
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _upsert("groww_settings", data, on_conflict="user_id")
+
+
+def get_all_groww_gtt_enabled_users() -> list:
+    """Return all active users who have Groww GTT enabled with a token."""
+    settings = _get("groww_settings", {
+        "gtt_enabled": "eq.true",
+        "app_id_enc": "not.is.null",
+        "select": "*",
+    })
+    if not settings:
+        return []
+
+    user_ids = ",".join(str(s["user_id"]) for s in settings)
+    users = _get("users", {
+        "id": f"in.({user_ids})",
+        "is_active": "eq.true",
+        "status": "eq.active",
+        "select": "id,email",
+    })
+    users_by_id = {u["id"]: u for u in users}
+
+    result = []
+    for s in settings:
+        user = users_by_id.get(s["user_id"])
+        if user:
+            result.append({
+                "id": user["id"],
+                "email": user["email"],
+                "broker": "groww",
+                "app_id_enc": s["app_id_enc"],
+                "app_secret_enc": s.get("app_secret_enc"),
+                "totp_secret_enc": s.get("totp_secret_enc"),
+                "access_token_enc": s.get("access_token_enc"),
+                "access_token_set_at": s.get("access_token_set_at"),
+                "totp_auto_refresh": s.get("totp_auto_refresh", False),
+                "proximity_threshold_pct": s["proximity_threshold_pct"],
+                "max_allocation_pct": s["max_allocation_pct"],
+            })
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Groww stock exclusions
+# ---------------------------------------------------------------------------
+
+def get_groww_exclusions(user_id: int) -> list:
+    try:
+        rows = _get("groww_exclusions", {"user_id": f"eq.{user_id}", "select": "symbol"})
+        return [r["symbol"] for r in rows]
+    except Exception:
+        return []  # table may not exist yet
+
+
+def add_groww_exclusion(user_id: int, symbol: str):
+    symbol = symbol.strip().upper()
+    if not symbol:
+        return
+    try:
+        _post("groww_exclusions",
+              {"user_id": user_id, "symbol": symbol},
+              prefer="return=minimal")
+    except Exception:
+        pass  # ignore duplicate or missing table
+
+
+def remove_groww_exclusion(user_id: int, symbol: str):
+    try:
+        _delete("groww_exclusions", {
+            "user_id": f"eq.{user_id}",
+            "symbol": f"eq.{symbol.upper()}",
+        })
+    except Exception:
+        pass  # table may not exist yet
+
+
+# ---------------------------------------------------------------------------
+# Broker choice (stored in kite_settings for backward compatibility)
+# ---------------------------------------------------------------------------
+
+def get_broker_choice(user_id: int) -> str:
+    """Returns 'zerodha' or 'groww'. Falls back to 'zerodha' if column not set or missing."""
+    try:
+        rows = _get("kite_settings", {"user_id": f"eq.{user_id}", "select": "broker_choice"})
+        if not rows or not rows[0].get("broker_choice"):
+            return "zerodha"
+        return rows[0]["broker_choice"]
+    except Exception:
+        return "zerodha"

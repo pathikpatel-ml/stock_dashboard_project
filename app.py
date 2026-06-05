@@ -136,23 +136,40 @@ def logout():
 @server.route("/api/notify-gtt-reminder", methods=["POST"])
 def api_notify_gtt_reminder():
     """Pre-flight: called at 8:00 AM IST by GitHub Actions, 30 min before the GTT job.
-    Sends reconnect reminder emails to all GTT-enabled users whose tokens are expired."""
+    Sends reconnect reminder emails to all GTT-enabled users whose tokens are expired
+    (both Zerodha and Groww manual-mode users)."""
     token = flask.request.headers.get("X-Trigger-Token", "")
     expected = os.environ.get("GTT_TRIGGER_TOKEN", "")
     if not expected or token != expected:
         return flask.jsonify({"error": "unauthorized"}), 401
     try:
-        from modules.kite.portfolio import is_token_valid
-        from modules.auth.notifications import notify_user_gtt_reminder
-        users = user_store.get_all_gtt_enabled_users()
+        from modules.kite.portfolio import is_token_valid as kite_token_valid
+        from modules.groww.portfolio import is_token_valid as groww_token_valid
+        from modules.auth.notifications import (
+            notify_user_gtt_reminder,
+            notify_user_gtt_reminder_groww,
+        )
         reminded, connected = [], []
-        for u in users:
-            if not is_token_valid(u.get("access_token_set_at")):
+
+        # Zerodha users
+        for u in user_store.get_all_gtt_enabled_users():
+            if not kite_token_valid(u.get("access_token_set_at")):
                 notify_user_gtt_reminder(u["email"])
-                reminded.append(u["email"])
-                logger.warning("GTT reminder sent to %s — token expired", u["email"])
+                reminded.append(f"{u['email']}(zerodha)")
+                logger.warning("GTT reminder sent to %s (Zerodha) — token expired", u["email"])
             else:
                 connected.append(u["email"])
+
+        # Groww users — only manual-mode ones (TOTP auto-refresh handled in scheduler)
+        for u in user_store.get_all_groww_gtt_enabled_users():
+            is_auto = u.get("totp_auto_refresh", False) and u.get("totp_secret_enc")
+            if not is_auto and not groww_token_valid(u.get("access_token_set_at")):
+                notify_user_gtt_reminder_groww(u["email"])
+                reminded.append(f"{u['email']}(groww-manual)")
+                logger.warning("GTT reminder sent to %s (Groww manual) — token expired", u["email"])
+            elif is_auto:
+                connected.append(u["email"])  # TOTP will handle it in scheduler
+
         return flask.jsonify({
             "status": "ok",
             "reminded": len(reminded),
@@ -350,7 +367,7 @@ def _main_dashboard_layout():
                 children=[v20_layout.create_v20_layout()]),
         dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
                 children=[breakout_layout.create_breakout_layout()]),
-        dcc.Tab(label="Zerodha Settings", value="tab-kite-settings",
+        dcc.Tab(label="Broker Automation Setup", value="tab-kite-settings",
                 children=[kite_settings_layout.create_kite_settings_layout()]),
     ]
     if is_admin:
@@ -451,7 +468,7 @@ def go_to_admin_tab(n_clicks):
     prevent_initial_call=True,
 )
 def auto_switch_tab_from_url(search):
-    """Switch to Zerodha Settings tab automatically after OAuth redirect."""
+    """Switch to Broker Automation Setup tab automatically after OAuth redirect."""
     if search and "tab=kite-settings" in search:
         return "tab-kite-settings"
     raise dash.exceptions.PreventUpdate

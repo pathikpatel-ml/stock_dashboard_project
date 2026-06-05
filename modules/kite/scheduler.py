@@ -1,83 +1,24 @@
 import logging
 import os
-import smtplib
 import traceback
 from datetime import date, datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from modules.auth import user_store
-from modules.auth.crypto import decrypt
+from modules.auth.crypto import decrypt, encrypt
 from modules.kite import auth as kite_auth
 from modules.kite import gtt_manager, portfolio
+from modules.auth.notifications import notify_user_gtt_reminder, notify_user_gtt_reminder_groww
 
 logger = logging.getLogger(__name__)
-
-
-def _send_reauth_email(to_email: str):
-    """
-    Send a Kite token-expired alert via Gmail SMTP.
-
-    Required env vars:
-        NOTIFY_EMAIL          — Gmail address that sends the alert (e.g. yourname@gmail.com)
-        NOTIFY_EMAIL_PASSWORD — Gmail App Password (16-char, not your regular password)
-                                Generate at: myaccount.google.com → Security → App Passwords
-    """
-    sender = os.environ.get("NOTIFY_EMAIL", "")
-    password = os.environ.get("NOTIFY_EMAIL_PASSWORD", "")
-
-    if not sender or not password:
-        logger.warning(
-            "NOTIFY_EMAIL or NOTIFY_EMAIL_PASSWORD not set — skipping email to %s.", to_email
-        )
-        return
-
-    subject = "Action Required: Reconnect Zerodha before market open"
-    html_body = f"""
-    <html><body style="font-family: Arial, sans-serif; color: #1e293b;">
-      <h2 style="color:#ef4444;">Kite Access Token Expired</h2>
-      <p>Your Zerodha Kite access token has expired (tokens reset every day at 6 AM IST).</p>
-      <p>The pre-market GTT job could <strong>not create orders</strong> today because
-         no valid token was found.</p>
-      <h3>What to do:</h3>
-      <ol>
-        <li>Open your <a href="https://stock-dashboard-project.onrender.com">Stock Dashboard</a></li>
-        <li>Go to the <strong>Zerodha Settings</strong> tab</li>
-        <li>Click <strong>Connect Zerodha</strong> and log in with your Kite User ID</li>
-        <li>You will be redirected back automatically — token is saved</li>
-      </ol>
-      <p style="color:#64748b; font-size:0.85em;">
-        Please reconnect <strong>before 8:00 AM IST</strong> so tomorrow's GTT job runs successfully.
-      </p>
-    </body></html>
-    """
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = sender
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
-
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, to_email, msg.as_string())
-
-        logger.info("Reauth email sent to %s.", to_email)
-    except Exception as exc:
-        logger.error("Failed to send reauth email to %s: %s", to_email, exc)
 
 
 def run_premarket_gtt_job() -> dict:
     """
     Runs daily before market open (03:00 UTC = 08:30 IST, Mon-Fri).
+    Processes both Zerodha and Groww users.
     Returns {"logs": [...], "success": bool, "token_expired": bool}
-    success=False when a token is expired — causes the GitHub Action to fail
-    and send an automatic email notification.
     """
     import data_manager  # avoid circular import at module load
 
@@ -90,20 +31,7 @@ def run_premarket_gtt_job() -> dict:
 
     log(f"GTT job started at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
 
-    # ── 1. Load users ────────────────────────────────────────────────────────
-    try:
-        users = user_store.get_all_gtt_enabled_users()
-    except Exception as exc:
-        log(f"ERROR fetching users from DB: {exc}", "error")
-        log(traceback.format_exc(), "error")
-        return {"logs": logs, "success": False, "token_expired": False}
-
-    if not users:
-        log("No users with GTT enabled and a connected Kite account.")
-        return {"logs": logs, "success": True, "token_expired": False}
-    log(f"Found {len(users)} user(s) with GTT enabled.")
-
-    # ── 2. Load today's signals ──────────────────────────────────────────────
+    # ── 1. Load today's signals (shared across brokers) ──────────────────
     v20_df = data_manager.v20_processed_df
     breakout_df = data_manager.breakout_signals_df
     v20_count = 0 if v20_df is None or v20_df.empty else len(v20_df)
@@ -112,112 +40,262 @@ def run_premarket_gtt_job() -> dict:
 
     today = date.today()
 
-    for user in users:
-        user_id = user["id"]
-        email = user["email"]
-        # Email stays in server log only, not in browser-visible output
-        logger.info("Processing GTT for user %s (id=%s)", email, user_id)
-        log(f"--- Processing user (id={user_id}) ---")
+    # ── 2. Process Zerodha users ─────────────────────────────────────────
+    try:
+        zerodha_users = user_store.get_all_gtt_enabled_users()
+    except Exception as exc:
+        log(f"ERROR fetching Zerodha users: {exc}", "error")
+        zerodha_users = []
 
-        # ── 3. Token check ───────────────────────────────────────────────────
-        token_set_at = user.get("access_token_set_at")
-        if not portfolio.is_token_valid(token_set_at):
-            log(f"  TOKEN_EXPIRED: Kite token not connected today — please reconnect before 8:30 AM IST.", "error")
+    if zerodha_users:
+        log(f"Zerodha: {len(zerodha_users)} user(s) with GTT enabled.")
+    else:
+        log("Zerodha: no users with GTT enabled.")
+
+    for user in zerodha_users:
+        token_expired_this = _process_zerodha_user(
+            user, v20_df, breakout_df, today, logs
+        )
+        if token_expired_this:
             token_expired = True
-            _send_reauth_email(email)
-            continue
-        log("  Token valid [OK]")
 
-        # ── 4. Build Kite client ─────────────────────────────────────────────
-        try:
-            kite = kite_auth.build_authenticated_client(
-                user["api_key_enc"], user["access_token_enc"]
-            )
-            log("  Kite client built [OK]")
-        except Exception as exc:
-            log(f"  ERROR building Kite client: {exc}", "error")
-            _send_reauth_email(email)
-            continue
+    # ── 3. Process Groww users ───────────────────────────────────────────
+    try:
+        groww_users = user_store.get_all_groww_gtt_enabled_users()
+    except Exception as exc:
+        log(f"ERROR fetching Groww users: {exc}", "error")
+        groww_users = []
 
-        # ── 5. Portfolio value ───────────────────────────────────────────────
-        try:
-            portfolio_value = portfolio.get_portfolio_value(kite)
-            # Portfolio value is financial data — keep it in server log only
-            logger.info("Portfolio value for user %s: Rs.%.0f", email, portfolio_value)
-            log("  Portfolio loaded [OK]")
-        except Exception as exc:
-            log(f"  ERROR fetching portfolio: {exc}", "error")
-            _send_reauth_email(email)
-            continue
+    if groww_users:
+        log(f"Groww: {len(groww_users)} user(s) with GTT enabled.")
+    else:
+        log("Groww: no users with GTT enabled.")
 
-        if portfolio_value <= 0:
-            log("  WARN: Portfolio value is zero — skipping GTT creation.")
-            continue
-
-        # ── 6. GTT candidates ────────────────────────────────────────────────
-        settings = user_store.get_kite_settings(user_id)
-        proximity_pct = settings.get("proximity_threshold_pct", 2.0)
-        allocation_pct = settings.get("max_allocation_pct", 3.0)
-        log(f"  Proximity threshold: {proximity_pct}% | Max allocation: {allocation_pct}%")
-
-        exclusions = set(user_store.get_exclusions(user_id))
-        if exclusions:
-            log(f"  Excluded symbols: {', '.join(sorted(exclusions))}")
-
-        try:
-            candidates = gtt_manager.build_candidates(v20_df, breakout_df, proximity_pct,
-                                                       excluded_symbols=exclusions)
-        except Exception as exc:
-            log(f"  ERROR building candidates: {exc}", "error")
-            continue
-
-        log(f"  Candidates within threshold (bullish signals only): {len(candidates)}")
-        for c in candidates:
-            log(f"    -> {c['symbol']} ({c['strategy']}) signal={c.get('signal_strength','?')} buy@Rs.{c['buy_price']}")
-        if not candidates:
-            log("  No signals close enough to buy target — nothing to do.")
-            continue
-
-        # ── 7. Existing GTTs ─────────────────────────────────────────────────
-        try:
-            existing_symbols = gtt_manager.get_existing_gtt_symbols(kite)
-            log(f"  Existing GTT symbols: {existing_symbols or 'none'}")
-        except Exception as exc:
-            log(f"  ERROR fetching existing GTTs: {exc}", "error")
-            existing_symbols = set()
-
-        # ── 8. Place GTTs ────────────────────────────────────────────────────
-        for c in candidates:
-            symbol = c["symbol"]
-
-            if symbol in existing_symbols:
-                user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
-                                          None, "skipped_exists", None)
-                log(f"  [{symbol}] skipped — GTT already exists.")
-                continue
-
-            qty = gtt_manager.calculate_quantity(portfolio_value, allocation_pct, c["buy_price"])
-            if qty < 1:
-                note = f"Rs.{portfolio_value:.0f} x {allocation_pct}% / Rs.{c['buy_price']} < 1 share"
-                user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
-                                          None, "skipped_low_qty", note)
-                log(f"  [{symbol}] skipped — qty < 1 ({note}).")
-                continue
-
-            try:
-                gtt_id = gtt_manager.place_buy_gtt(kite, symbol, c["buy_price"],
-                                                    qty, c["current_ltp"])
-                user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
-                                          gtt_id, "created", None)
-                log(f"  [{symbol}] GTT CREATED [OK] id={gtt_id} qty={qty} @Rs.{c['buy_price']}")
-                existing_symbols.add(symbol)
-            except Exception as exc:
-                user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
-                                          None, "failed", str(exc))
-                log(f"  [{symbol}] ERROR: {exc}", "error")
+    for user in groww_users:
+        token_expired_this = _process_groww_user(
+            user, v20_df, breakout_df, today, logs
+        )
+        if token_expired_this:
+            token_expired = True
 
     log("GTT job finished.")
     return {"logs": logs, "success": not token_expired, "token_expired": token_expired}
+
+
+def _process_zerodha_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
+    """Process one Zerodha user. Returns True if token was expired."""
+    user_id = user["id"]
+    email = user["email"]
+    logger.info("Processing Zerodha GTT for user %s (id=%s)", email, user_id)
+    logs.append(f"--- [Zerodha] user id={user_id} ---")
+
+    def log(msg: str, level: str = "info"):
+        logger.info(msg) if level == "info" else logger.error(msg)
+        logs.append(msg)
+
+    if not portfolio.is_token_valid(user.get("access_token_set_at")):
+        log("  TOKEN_EXPIRED: Zerodha token not valid today.", "error")
+        notify_user_gtt_reminder(email)
+        return True
+    log("  Token valid [OK]")
+
+    try:
+        kite = kite_auth.build_authenticated_client(
+            user["api_key_enc"], user["access_token_enc"]
+        )
+        log("  Kite client built [OK]")
+    except Exception as exc:
+        log(f"  ERROR building Kite client: {exc}", "error")
+        notify_user_gtt_reminder(email)
+        return False
+
+    try:
+        portfolio_value = portfolio.get_portfolio_value(kite)
+        logger.info("Zerodha portfolio for user %s: Rs.%.0f", email, portfolio_value)
+        log("  Portfolio loaded [OK]")
+    except Exception as exc:
+        log(f"  ERROR fetching portfolio: {exc}", "error")
+        return False
+
+    if portfolio_value <= 0:
+        log("  WARN: Portfolio is zero — skipping.")
+        return False
+
+    settings = user_store.get_kite_settings(user_id)
+    proximity_pct = settings.get("proximity_threshold_pct", 2.0)
+    allocation_pct = settings.get("max_allocation_pct", 3.0)
+    exclusions = set(user_store.get_exclusions(user_id))
+    log(f"  Proximity: {proximity_pct}% | Allocation: {allocation_pct}%")
+
+    try:
+        candidates = gtt_manager.build_candidates(
+            v20_df, breakout_df, proximity_pct, excluded_symbols=exclusions
+        )
+    except Exception as exc:
+        log(f"  ERROR building candidates: {exc}", "error")
+        return False
+
+    log(f"  Candidates: {len(candidates)}")
+    if not candidates:
+        log("  No signals close enough — nothing to do.")
+        return False
+
+    try:
+        existing_symbols = gtt_manager.get_existing_gtt_symbols(kite)
+    except Exception as exc:
+        log(f"  ERROR fetching existing GTTs: {exc}", "error")
+        existing_symbols = set()
+
+    for c in candidates:
+        symbol = c["symbol"]
+        if symbol in existing_symbols:
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "skipped_exists", None, broker="zerodha")
+            log(f"  [{symbol}] skipped — GTT already exists.")
+            continue
+        qty = gtt_manager.calculate_quantity(portfolio_value, allocation_pct, c["buy_price"])
+        if qty < 1:
+            note = f"Rs.{portfolio_value:.0f} x {allocation_pct}% / Rs.{c['buy_price']} < 1 share"
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "skipped_low_qty", note, broker="zerodha")
+            log(f"  [{symbol}] skipped — qty < 1.")
+            continue
+        try:
+            gtt_id = gtt_manager.place_buy_gtt(kite, symbol, c["buy_price"],
+                                                qty, c["current_ltp"])
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      gtt_id, "created", None, broker="zerodha")
+            log(f"  [{symbol}] GTT CREATED id={gtt_id} qty={qty} @Rs.{c['buy_price']}")
+            existing_symbols.add(symbol)
+        except Exception as exc:
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "failed", str(exc), broker="zerodha")
+            log(f"  [{symbol}] ERROR: {exc}", "error")
+    return False
+
+
+def _process_groww_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
+    """
+    Process one Groww user.
+    If TOTP auto-refresh is enabled and token is expired, auto-refreshes it first.
+    Returns True if token was expired and could not be refreshed.
+    """
+    from modules.groww import auth as groww_auth, gtt_manager as groww_gtt, portfolio as groww_portfolio
+
+    user_id = user["id"]
+    email = user["email"]
+    logger.info("Processing Groww GTT for user %s (id=%s)", email, user_id)
+    logs.append(f"--- [Groww] user id={user_id} ---")
+
+    def log(msg: str, level: str = "info"):
+        logger.info(msg) if level == "info" else logger.error(msg)
+        logs.append(msg)
+
+    # ── Auto-refresh token if TOTP mode and token expired ────────────────
+    is_auto = user.get("totp_auto_refresh", False) and user.get("totp_secret_enc")
+    token_valid = groww_portfolio.is_token_valid(user.get("access_token_set_at"))
+
+    if not token_valid:
+        if is_auto:
+            try:
+                log("  Token expired — attempting TOTP auto-refresh...")
+                new_token = groww_auth.auto_refresh_token(
+                    user["app_id_enc"], user["totp_secret_enc"]
+                )
+                user_store.upsert_groww_settings(
+                    user_id,
+                    access_token_enc=encrypt(new_token),
+                    access_token_set_at=datetime.now(timezone.utc),
+                )
+                # Reload updated token into user dict
+                user["access_token_enc"] = encrypt(new_token)
+                log("  Token auto-refreshed via TOTP [OK]")
+            except Exception as exc:
+                log(f"  TOTP auto-refresh failed: {exc}", "error")
+                notify_user_gtt_reminder_groww(email)
+                return True
+        else:
+            log("  TOKEN_EXPIRED: Groww token not valid today (manual mode).", "error")
+            notify_user_gtt_reminder_groww(email)
+            return True
+
+    log("  Token valid [OK]")
+
+    try:
+        groww = groww_auth.build_authenticated_client(
+            user["app_id_enc"], user["access_token_enc"]
+        )
+        log("  Groww client built [OK]")
+    except Exception as exc:
+        log(f"  ERROR building Groww client: {exc}", "error")
+        return False
+
+    try:
+        portfolio_value = groww_portfolio.get_portfolio_value(groww)
+        logger.info("Groww portfolio for user %s: Rs.%.0f", email, portfolio_value)
+        log("  Portfolio loaded [OK]")
+    except Exception as exc:
+        log(f"  ERROR fetching portfolio: {exc}", "error")
+        return False
+
+    if portfolio_value <= 0:
+        log("  WARN: Portfolio is zero — skipping.")
+        return False
+
+    settings = user_store.get_groww_settings(user_id)
+    proximity_pct = settings.get("proximity_threshold_pct", 2.0)
+    allocation_pct = settings.get("max_allocation_pct", 3.0)
+    exclusions = set(user_store.get_groww_exclusions(user_id))
+    log(f"  Proximity: {proximity_pct}% | Allocation: {allocation_pct}%")
+
+    # Reuse the same candidate builder (signals are broker-agnostic)
+    try:
+        candidates = gtt_manager.build_candidates(
+            v20_df, breakout_df, proximity_pct, excluded_symbols=exclusions
+        )
+    except Exception as exc:
+        log(f"  ERROR building candidates: {exc}", "error")
+        return False
+
+    log(f"  Candidates: {len(candidates)}")
+    if not candidates:
+        log("  No signals close enough — nothing to do.")
+        return False
+
+    try:
+        existing_symbols = groww_gtt.get_existing_smart_order_symbols(groww)
+        log(f"  Existing Smart Orders: {existing_symbols or 'none'}")
+    except Exception as exc:
+        log(f"  ERROR fetching existing Smart Orders: {exc}", "error")
+        existing_symbols = set()
+
+    for c in candidates:
+        symbol = c["symbol"]
+        if symbol in existing_symbols:
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "skipped_exists", None, broker="groww")
+            log(f"  [{symbol}] skipped — Smart Order already exists.")
+            continue
+        qty = groww_gtt.calculate_quantity(portfolio_value, allocation_pct, c["buy_price"])
+        if qty < 1:
+            note = f"Rs.{portfolio_value:.0f} x {allocation_pct}% / Rs.{c['buy_price']} < 1 share"
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "skipped_low_qty", note, broker="groww")
+            log(f"  [{symbol}] skipped — qty < 1.")
+            continue
+        try:
+            order_id = groww_gtt.place_buy_smart_order(
+                groww, symbol, c["buy_price"], qty, c["current_ltp"]
+            )
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      order_id, "created", None, broker="groww")
+            log(f"  [{symbol}] SMART ORDER CREATED id={order_id} qty={qty} @Rs.{c['buy_price']}")
+            existing_symbols.add(symbol)
+        except Exception as exc:
+            user_store.insert_gtt_log(user_id, today, symbol, c["strategy"],
+                                      None, "failed", str(exc), broker="groww")
+            log(f"  [{symbol}] ERROR: {exc}", "error")
+    return False
 
 
 def create_scheduler() -> BackgroundScheduler:

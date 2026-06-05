@@ -788,23 +788,20 @@ def _activity_section(user_id: int) -> html.Div:
 
 def create_kite_settings_layout():
     """
-    Minimal shell — all content is rendered into kite-settings-root by a
-    single master callback (render_kite_root). This prevents duplicate IDs
-    from wizard + dashboard elements being in the DOM simultaneously.
-
-    dcc.Location is kept at top level (outside the rendered content) so
-    the Kite OAuth redirect works regardless of which mode is active.
+    Unified Broker Automation Setup shell — supports both Zerodha and Groww.
+    All mode-specific content is rendered into kite-settings-root by the
+    master callback (render_kite_root). Only one broker's UI is in the DOM.
     """
     return dbc.Container(fluid=True, className="p-4", style={"maxWidth": "900px"}, children=[
-        html.H4([html.I(className="fas fa-chart-line me-2"), "Zerodha GTT Automation"],
+        html.H4([html.I(className="fas fa-robot me-2"), "Broker Automation Setup"],
                 className="mb-1"),
-        html.P("Set up automatic GTT buy orders before market open.",
+        html.P("Automate GTT buy orders before market open using Zerodha or Groww.",
                className="text-muted mb-4"),
 
         # All mode-specific content rendered here (wizard OR dashboard, never both)
         html.Div(id="kite-settings-root"),
 
-        # dcc.Location must be always in DOM for OAuth redirect to work
+        # dcc.Location must always be in DOM for Zerodha OAuth redirect to work
         dcc.Location(id="kite-login-redirect", refresh=True),
 
         # Shared stores and interval
@@ -813,5 +810,6 @@ def create_kite_settings_layout():
         dcc.Store(id="kite-panel", data="connection"),
         dcc.Store(id="kite-oauth-result"),    # populated by app.py after OAuth redirect
         dcc.Store(id="kite-oauth-url"),       # clientside callback opens this in a new tab
+        dcc.Store(id="active-broker-store", data=None),  # 'zerodha' | 'groww' | None
         dcc.Interval(id="kite-status-interval", interval=30_000, n_intervals=0),
     ])
