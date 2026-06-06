@@ -16,15 +16,19 @@ from modules.stock_name_resolver import stock_resolver
 def _build_signal_card(row) -> html.Div:
     """Build a mobile signal card from one row of the processed V20 dataframe."""
     signal = str(row.get("Signal Strength", "")).upper()
-    strength_map = {"STRONG BUY": 5, "BUY NOW": 4, "BUY": 3, "NEUTRAL": 2, "OVERBOUGHT": 1}
+    strength_map = {
+        "STRONG BUY": 5, "BUY NOW": 4, "BUY": 3,
+        "WATCH": 2, "NEUTRAL": 2,
+        "OVERBOUGHT": 1, "WAIT (BEARISH)": 1,
+    }
     strength = strength_map.get(signal, 2)
     icon = "↑" if strength >= 3 else ("→" if strength == 2 else "↓")
     is_bullish = strength >= 3
-    is_neutral = not is_bullish and signal not in ("OVERBOUGHT",)
+    is_neutral = strength == 2
 
     proximity = float(row.get("Closeness (%)", 0) or 0)
-    ltp = float(row.get("Current Price", 0) or 0)
-    target = float(row.get("Buy Price", 0) or 0)
+    ltp = float(row.get("Latest Close Price", 0) or 0)
+    target = float(row.get("Target Buy Price (Low)", 0) or 0)
     symbol = str(row.get("Symbol", ""))
 
     meter = "■" * strength + "□" * (5 - strength)
@@ -192,12 +196,15 @@ def register_v20_callbacks(app):
                 tooltip_duration=None
             )
             
-            # Build mobile signal cards (buy signals only)
-            buy_signals_df = enhanced_df[
-                enhanced_df['Signal Strength'].str.upper().isin(['STRONG BUY', 'BUY NOW', 'BUY'])
-            ] if 'Signal Strength' in enhanced_df.columns else pd.DataFrame()
-            mobile_cards = [_build_signal_card(row) for _, row in buy_signals_df.iterrows()]
-            signal_count_val = len(buy_signals_df)
+            # Build mobile signal cards — all rows visible, filter chips narrow client-side
+            mobile_cards = [_build_signal_card(row) for _, row in enhanced_df.iterrows()]
+            # Badge count = actionable buy signals only
+            if 'Signal Strength' in enhanced_df.columns:
+                signal_count_val = int(enhanced_df['Signal Strength'].str.upper().isin(
+                    ['STRONG BUY', 'BUY NOW', 'BUY']
+                ).sum())
+            else:
+                signal_count_val = 0
 
             return (
                 table,

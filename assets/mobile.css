@@ -388,4 +388,22 @@
     flex-shrink: 0;
   }
 
+  /* ── dcc.Slider mark labels (GTT preferences, proximity/allocation sliders) ── */
+  /* On mobile the marks are cramped — shrink font and force visibility */
+  .rc-slider-mark-text {
+    font-size: 9px !important;
+    color: var(--text-muted) !important;
+    white-space: nowrap;
+  }
+
+  .rc-slider-mark-text-active {
+    color: var(--accent) !important;
+    font-weight: 600;
+  }
+
+  /* Give sliders a bit more bottom breathing room so marks don't clip */
+  .rc-slider {
+    margin-bottom: 28px !important;
+  }
+
 }
