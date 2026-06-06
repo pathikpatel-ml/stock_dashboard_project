@@ -176,10 +176,11 @@ def register_v20_callbacks(app):
         visible = {
             'display': 'block',
             'marginTop': '24px',
-            'backgroundColor': '#f8f9fa',
-            'border': '1px solid #dee2e6',
+            'backgroundColor': '#14141a',
+            'border': '1px solid #2c2c38',
             'borderRadius': '8px',
             'padding': '20px',
+            'color': '#f0f0f8',
         }
         if not selected_rows or not table_data:
             return html.Div(), hidden
@@ -725,7 +726,7 @@ def build_stock_history_panel(symbol, current_row, outcomes):
             html.Th('Ann. Return', style=th_style),
         ])),
         html.Tbody(trows),
-    ], style={'width': '100%', 'borderCollapse': 'collapse', 'fontSize': '13px'})
+    ], style={'width': '100%', 'borderCollapse': 'collapse', 'fontSize': '13px', 'color': '#f0f0f8'})
 
     notes = html.Div([
         html.Div('Buy trigger: price Low ≤ buy target +5% after sequence ends  |  '

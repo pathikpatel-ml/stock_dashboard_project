@@ -855,6 +855,49 @@ strong, b, em { color: inherit; }
 }
 
 /* =====================================================================
+   29. Bootstrap .table dark override (used by dbc.Table)
+   ===================================================================== */
+.table {
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+  --bs-table-color: var(--text-primary);
+  --bs-table-bg: var(--bg-surface);
+  --bs-table-border-color: var(--border);
+  --bs-table-striped-bg: var(--bg-elevated);
+  --bs-table-hover-bg: var(--bg-elevated);
+  --bs-table-hover-color: var(--text-primary);
+}
+
+.table > :not(caption) > * > * {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.table thead th,
+.table thead td {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.table-hover > tbody > tr:hover > * {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+/* =====================================================================
+   30. Dash dcc.Slider (rc-slider) — dark theme
+   ===================================================================== */
+.rc-slider-mark-text        { color: var(--text-muted) !important; }
+.rc-slider-mark-text-active { color: var(--text-primary) !important; }
+.rc-slider-rail             { background-color: var(--border) !important; }
+.rc-slider-track            { background-color: var(--accent) !important; }
+.rc-slider-handle           { border-color: var(--accent) !important; background-color: var(--accent) !important; }
+.rc-slider-dot              { border-color: var(--border) !important; background-color: var(--bg-surface) !important; }
+.rc-slider-dot-active       { border-color: var(--accent) !important; }
+
+/* =====================================================================
    28. Responsive — 576px (small phones)
    ===================================================================== */
 @media (max-width: 576px) {
