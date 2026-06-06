@@ -176,15 +176,33 @@ def register_signup_route(server):
         try:
             existing = user_store.get_user_by_email(email)
             if existing:
-                error_html = '<div class="alert-error-custom mb-3">An account with this email already exists.</div>'
-                return _render_page(
-                    message=error_html,
-                    form=_blank_form(name_val=name, email_val="", reason_val=join_reason),
-                ), 400
-
-            _record_signup_attempt(ip)
-            user_store.create_pending_user(name, email, password, join_reason=join_reason)
-            logger.info("New signup request from %s (IP: %s)", email, ip)
+                if existing.status in ("rejected", "deactivated"):
+                    # Allow re-application — reset the existing record to pending
+                    _record_signup_attempt(ip)
+                    user_store.reset_to_pending(existing.id, name, password,
+                                                join_reason=join_reason)
+                    logger.info("Re-application from %s (was %s, IP: %s)",
+                                email, existing.status, ip)
+                elif existing.status == "pending":
+                    error_html = (
+                        '<div class="alert-error-custom mb-3">'
+                        'Your request is already pending review. '
+                        'You will be notified once approved.</div>'
+                    )
+                    return _render_page(
+                        message=error_html,
+                        form=_blank_form(name_val=name, email_val="", reason_val=join_reason),
+                    ), 400
+                else:
+                    error_html = '<div class="alert-error-custom mb-3">An account with this email already exists.</div>'
+                    return _render_page(
+                        message=error_html,
+                        form=_blank_form(name_val=name, email_val="", reason_val=join_reason),
+                    ), 400
+            else:
+                _record_signup_attempt(ip)
+                user_store.create_pending_user(name, email, password, join_reason=join_reason)
+                logger.info("New signup request from %s (IP: %s)", email, ip)
 
             # Notify admin — fire and forget (never crash the signup flow)
             try:

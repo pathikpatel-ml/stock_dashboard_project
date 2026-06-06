@@ -248,6 +248,19 @@ def approve_user(user_id: int):
            {"status": "active", "is_active": True})
 
 
+def reset_to_pending(user_id: int, name: str, password: str,
+                     join_reason: str = "") -> "User":
+    """Reset a rejected/deactivated user to pending with new credentials."""
+    rows = _patch("users", {"id": f"eq.{user_id}"}, {
+        "name": name.strip(),
+        "password_hash": generate_password_hash(password),
+        "status": "pending",
+        "is_active": False,
+        "join_reason": join_reason.strip() if join_reason else None,
+    })
+    return _row_to_user(rows[0])
+
+
 def reject_user(user_id: int):
     _patch("users",
            {"id": f"eq.{user_id}"},

@@ -235,6 +235,26 @@ def notify_user_gtt_reminder_groww(user_email: str):
     _send(user_email, "Action required: Reconnect Groww before 8:30 AM IST — GTT job in 30 min", html)
 
 
+def notify_user_deactivated(user_email: str, name: str):
+    html = f"""
+    <html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;">
+      <h2 style="color:#f59e0b;">Your account has been deactivated</h2>
+      <p>Hi {name},</p>
+      <p>Your access to the <strong>Stock Signal Dashboard</strong> has been
+         <strong>deactivated</strong> by the administrator.</p>
+      <p>If you believe this is a mistake, or you would like to request access again,
+         you can re-submit a request using the signup page below.</p>
+      <p style="margin-top:20px;">
+        <a href="{_DASHBOARD_URL}/signup" style="background:#f59e0b;color:#1e293b;
+           padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
+          Request Access Again
+        </a>
+      </p>
+    </body></html>
+    """
+    _send(user_email, "Your Stock Dashboard access has been deactivated", html)
+
+
 def notify_user_rejected(user_email: str, name: str, reason: str = ""):
     reason_html = (f"<p><strong>Reason:</strong> {reason}</p>") if reason else ""
     html = f"""

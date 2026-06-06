@@ -325,9 +325,18 @@ def register_admin_callbacks(app):
             raise dash.exceptions.PreventUpdate
         try:
             if label == "Deactivate":
+                user = user_store.get_user_by_id(user_id)
                 user_store.deactivate_user(user_id)
-                return dbc.Alert(f"User {user_id} deactivated.", color="warning",
-                                 duration=3000, dismissable=True)
+                if user:
+                    try:
+                        notifications.notify_user_deactivated(
+                            user.email,
+                            user.name or user.email.split("@")[0],
+                        )
+                    except Exception:
+                        logger.warning("Deactivation email failed for user_id=%s", user_id)
+                msg = f"User {user.email if user else user_id} deactivated — notification sent."
+                return dbc.Alert(msg, color="warning", duration=4000, dismissable=True)
             else:
                 user_store.reactivate_user(user_id)
                 return dbc.Alert(f"User {user_id} reactivated.", color="success",
