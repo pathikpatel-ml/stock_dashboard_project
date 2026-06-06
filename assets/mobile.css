@@ -1,0 +1,391 @@
+/* Phase 2 — Mobile Layout + Information Architecture
+ * All layout rules are scoped to max-width: 768px so desktop is untouched.
+ * .mobile-only elements are hidden at all widths and revealed inside the
+ * media query below.
+ */
+
+/* Hidden on desktop; revealed on mobile by the rules below */
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+
+  /* Generic reveal — specific overrides follow for flex containers */
+  .mobile-only                    { display: block  !important; }
+  .summary-strip.mobile-only      { display: flex   !important; }
+  .filter-bar.mobile-only         { display: flex   !important; }
+  .signal-cards-list.mobile-only  { display: flex   !important; }
+
+  /* ── 2a. Viewport + iOS safe areas ──────────────────────────────────── */
+
+  .app-container {
+    min-height: 100dvh;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 16px));
+  }
+
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  .sticky-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* ── 2b. Bottom navigation ───────────────────────────────────────────── */
+
+  /* Hide Dash tab-strip labels; keep the tab content panels */
+  #strategy-tabs .tabs-top { display: none !important; }
+
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 1000;
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--accent);
+  }
+
+  .bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 24px; height: 2px;
+    background: var(--accent);
+    border-radius: 0 0 2px 2px;
+  }
+
+  .bottom-nav-item i {
+    font-size: 16px;
+  }
+
+  /* Signal count badge — JS caps the text at "99+" */
+  .nav-badge {
+    position: absolute;
+    top: 6px; right: calc(50% - 20px);
+    background: var(--accent);
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 8px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* Hide badge when empty (count = 0) */
+  .nav-badge:empty { display: none; }
+
+  /* ── Sticky header ───────────────────────────────────────────────────── */
+
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    height: 52px;
+    background: rgba(12, 12, 16, 0.92);
+    border-bottom: 1px solid var(--border);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--sp-4);
+    /* Override Bootstrap's pt-2 on mobile */
+    padding-top: 0 !important;
+  }
+
+  @supports (backdrop-filter: blur(12px)) {
+    .sticky-header {
+      background: rgba(12, 12, 16, 0.6);
+      backdrop-filter: blur(12px);
+    }
+  }
+
+  .sticky-header .main-title {
+    font-size: 14px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 55%;
+  }
+
+  .sticky-header .btn-sm { font-size: 10px; padding: 2px 6px; }
+  .sticky-header .small  { font-size: 10px; }
+
+  /* ── 2c. Summary strip ───────────────────────────────────────────────── */
+
+  .summary-strip {
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    align-items: stretch;
+  }
+
+  .summary-strip::-webkit-scrollbar { display: none; }
+
+  .summary-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: var(--sp-1) var(--sp-3);
+    min-width: 72px;
+    flex-shrink: 0;
+  }
+
+  .summary-number {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  .summary-status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+  }
+
+  /* ── 2d. Market status chip ──────────────────────────────────────────── */
+
+  .market-live {
+    color: var(--bullish);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .market-pre {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .market-closed {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  /* ── 2e. Signal cards ────────────────────────────────────────────────── */
+
+  .signal-cards-list {
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    padding-bottom: var(--sp-4);
+  }
+
+  .signal-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+    min-height: 80px;
+    touch-action: pan-y;
+  }
+
+  .signal-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--sp-2);
+  }
+
+  .signal-symbol {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .signal-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--r-sm);
+    font-family: var(--font-ui);
+  }
+
+  .signal-badge.bullish {
+    background: rgba(16, 217, 170, 0.15);
+    color: var(--bullish);
+  }
+
+  .signal-badge.bearish {
+    background: rgba(255, 90, 110, 0.15);
+    color: var(--bearish);
+  }
+
+  .signal-badge.neutral {
+    background: rgba(144, 144, 192, 0.12);
+    color: var(--text-muted);
+  }
+
+  .signal-card-prices {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-2);
+  }
+
+  .signal-ltp {
+    font-family: var(--font-mono);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .signal-proximity {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .signal-card-meter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .meter-bar {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .signal-target {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── 2f. Filter + sort chips ─────────────────────────────────────────── */
+
+  .filter-bar {
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: var(--bg-base);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 52px;
+    z-index: 100;
+    align-items: center;
+  }
+
+  .filter-bar::-webkit-scrollbar { display: none; }
+
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 32px;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+
+  .filter-chip.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(232, 160, 0, 0.1);
+  }
+
+  .sort-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .sort-control {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .mobile-sort-select {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 4px 8px;
+    min-height: 30px;
+    cursor: pointer;
+  }
+
+  .mobile-sort-select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ── Connection pill ─────────────────────────────────────────────────── */
+
+  #connection-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+}

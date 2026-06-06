@@ -13,6 +13,47 @@ from src.indicators import AdvancedIndicatorCalculator, identify_signals
 from modules.notification_engine import get_notification_engine, AlertType, NotificationPriority
 from modules.stock_name_resolver import stock_resolver
 
+def _build_signal_card(row) -> html.Div:
+    """Build a mobile signal card from one row of the processed V20 dataframe."""
+    signal = str(row.get("Signal Strength", "")).upper()
+    strength_map = {"STRONG BUY": 5, "BUY NOW": 4, "BUY": 3, "NEUTRAL": 2, "OVERBOUGHT": 1}
+    strength = strength_map.get(signal, 2)
+    icon = "↑" if strength >= 3 else ("→" if strength == 2 else "↓")
+    is_bullish = strength >= 3
+    is_neutral = not is_bullish and signal not in ("OVERBOUGHT",)
+
+    proximity = float(row.get("Closeness (%)", 0) or 0)
+    ltp = float(row.get("Current Price", 0) or 0)
+    target = float(row.get("Buy Price", 0) or 0)
+    symbol = str(row.get("Symbol", ""))
+
+    meter = "■" * strength + "□" * (5 - strength)
+    badge_class = "signal-badge bullish" if is_bullish else ("signal-badge neutral" if is_neutral else "signal-badge bearish")
+
+    return html.Div(
+        className="signal-card",
+        **{
+            "data-symbol": symbol,
+            "data-signal": signal,
+            "data-proximity": str(proximity),
+        },
+        children=[
+            html.Div(className="signal-card-header", children=[
+                html.Span(symbol, className="signal-symbol"),
+                html.Span(f"{icon} {signal}", className=badge_class),
+            ]),
+            html.Div(className="signal-card-prices", children=[
+                html.Span(f"₹{ltp:,.2f}", className="signal-ltp"),
+                html.Span(f"{proximity:+.1f}% to target", className="signal-proximity"),
+            ]),
+            html.Div(className="signal-card-meter", children=[
+                html.Span(meter, className="meter-bar"),
+                html.Span(f"Target ₹{target:,.2f}", className="signal-target"),
+            ]),
+        ]
+    )
+
+
 def register_v20_callbacks(app):
     # Initialize components
     indicator_calc = AdvancedIndicatorCalculator(cache_enabled=True)
@@ -24,7 +65,9 @@ def register_v20_callbacks(app):
             Output('v20-sentiment-score', 'children'),
             Output('v20-sentiment-label', 'children'),
             Output('v20-indicators-grid', 'children'),
-            Output('v20-notifications-container', 'children')
+            Output('v20-notifications-container', 'children'),
+            Output('v20-mobile-cards', 'children'),
+            Output('signal-count', 'data'),
         ],
         [
             Input('apply-v20-filter-button', 'n_clicks'),
@@ -50,9 +93,10 @@ def register_v20_callbacks(app):
             if processed_df.empty:
                 return (
                     html.Div("No active V20 signals found.", className="status-message info"),
-                    "N/A", "", 
+                    "N/A", "",
                     html.Div("No data available for indicators"),
-                    html.Div("No notifications")
+                    html.Div("No notifications"),
+                    [], 0,
                 )
             
             # Apply proximity filter
@@ -68,7 +112,8 @@ def register_v20_callbacks(app):
                     html.Div(f"No active V20 signals within {proximity_threshold}% of buy price.", className="status-message info"),
                     "N/A", "",
                     html.Div("No data available for indicators"),
-                    html.Div("No notifications")
+                    html.Div("No notifications"),
+                    [], 0,
                 )
             
             # Calculate market sentiment
@@ -147,12 +192,21 @@ def register_v20_callbacks(app):
                 tooltip_duration=None
             )
             
+            # Build mobile signal cards (buy signals only)
+            buy_signals_df = enhanced_df[
+                enhanced_df['Signal Strength'].str.upper().isin(['STRONG BUY', 'BUY NOW', 'BUY'])
+            ] if 'Signal Strength' in enhanced_df.columns else pd.DataFrame()
+            mobile_cards = [_build_signal_card(row) for _, row in buy_signals_df.iterrows()]
+            signal_count_val = len(buy_signals_df)
+
             return (
                 table,
                 sentiment_score,
                 html.Span(sentiment_label, style={'color': sentiment_color, 'fontWeight': 'bold'}),
                 indicators_grid,
-                notifications
+                notifications,
+                mobile_cards,
+                signal_count_val,
             )
         except Exception as e:
             print(f"V20 callback error: {e}")
@@ -161,7 +215,8 @@ def register_v20_callbacks(app):
                 "Error",
                 html.Span("Error", style={'color': 'red'}),
                 html.Div("Error loading indicators"),
-                html.Div("Error loading notifications")
+                html.Div("Error loading notifications"),
+                [], 0,
             )
 
     @app.callback(

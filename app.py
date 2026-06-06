@@ -8,7 +8,7 @@ import dash
 import dash_bootstrap_components as dbc
 import flask
 import flask_login
-from dash import Input, Output, dcc, html
+from dash import ALL, Input, Output, dcc, html
 from flask_talisman import Talisman
 
 import data_manager
@@ -377,6 +377,39 @@ def _main_dashboard_layout():
                     children=[admin_layout.create_admin_layout()])
         )
 
+    # Bottom nav buttons — conditionally includes Admin for admin users
+    nav_buttons = [
+        html.Button(
+            [html.I(className="fas fa-chart-line"),
+             html.Span("Signals"),
+             html.Span(id="signal-count-badge", className="nav-badge")],
+            id={"type": "bottom-nav-btn", "tab": "tab-v20"},
+            n_clicks=0,
+            className="bottom-nav-item",
+        ),
+        html.Button(
+            [html.I(className="fas fa-rocket"), html.Span("Breakout")],
+            id={"type": "bottom-nav-btn", "tab": "tab-breakout"},
+            n_clicks=0,
+            className="bottom-nav-item",
+        ),
+        html.Button(
+            [html.I(className="fas fa-robot"), html.Span("Auto")],
+            id={"type": "bottom-nav-btn", "tab": "tab-kite-settings"},
+            n_clicks=0,
+            className="bottom-nav-item",
+        ),
+    ]
+    if is_admin:
+        nav_buttons.append(
+            html.Button(
+                [html.I(className="fas fa-user-shield"), html.Span("Admin")],
+                id={"type": "bottom-nav-btn", "tab": "tab-admin"},
+                n_clicks=0,
+                className="bottom-nav-item",
+            )
+        )
+
     return html.Div(
         className="app-container",
         children=[
@@ -385,19 +418,45 @@ def _main_dashboard_layout():
             # Heartbeat: fires every 60 s; redirects to login when session expires
             dcc.Location(id="session-expired-redirect", refresh=True),
             dcc.Interval(id="session-heartbeat", interval=60_000, n_intervals=0),
+            # Signal count store — updated by v20 refresh callback; drives mobile badge
+            dcc.Store(id="signal-count", data=0),
 
+            # Header — doubles as sticky-header on mobile (CSS handles it)
             html.Div(
-                className="d-flex justify-content-between align-items-center px-3 pt-2",
+                className="d-flex justify-content-between align-items-center px-3 pt-2 sticky-header",
                 children=[
                     html.H1("Stock Signal Dashboard", className="main-title mb-0"),
-                    html.Div(header_right, className="d-flex align-items-center"),
+                    html.Div(
+                        [*header_right, html.Span(id="connection-pill", className="ms-2")],
+                        className="d-flex align-items-center",
+                    ),
                 ],
             ),
+
+            # Mobile-only summary strip (hidden on desktop via CSS)
+            html.Div(id="mobile-summary-strip", className="summary-strip mobile-only", children=[
+                html.Div([
+                    html.Span(id="summary-signal-count", children="—", className="summary-number"),
+                    html.Span("SIGNALS", className="summary-label"),
+                ], className="summary-chip"),
+                html.Div([
+                    html.Span(id="summary-broker-status", children="—", className="summary-status"),
+                    html.Span("BROKER", className="summary-label"),
+                ], className="summary-chip"),
+                html.Div([
+                    html.Span(id="market-status-chip", children="—"),
+                ], className="summary-chip"),
+            ]),
+
             dcc.Tabs(
                 id="strategy-tabs",
                 value="tab-v20",
                 children=tabs,
             ),
+
+            # Mobile-only bottom navigation (hidden on desktop via CSS)
+            html.Div(id="bottom-nav", className="bottom-nav mobile-only", children=nav_buttons),
+
             html.Div(id="app-subtitle"),
             html.Footer(
                 f"Stock Signal Dashboard © {datetime.now().year}",
@@ -473,6 +532,66 @@ def auto_switch_tab_from_url(search):
     if search and "tab=kite-settings" in search:
         return "tab-kite-settings"
     raise dash.exceptions.PreventUpdate
+
+
+@app.callback(
+    Output("strategy-tabs", "value", allow_duplicate=True),
+    Input({"type": "bottom-nav-btn", "tab": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def bottom_nav_click(n_clicks_list):
+    ctx = dash.callback_context
+    if not ctx.triggered or not any(n for n in n_clicks_list if n):
+        raise dash.exceptions.PreventUpdate
+    import json
+    id_str = ctx.triggered[0]["prop_id"].rsplit(".", 1)[0]
+    id_dict = json.loads(id_str)
+    return id_dict["tab"]
+
+
+# Sync active class on bottom nav buttons to match the active tab
+app.clientside_callback(
+    """
+    function(tabValue, ids) {
+        return ids.map(function(id) {
+            return id.tab === tabValue ? 'bottom-nav-item active' : 'bottom-nav-item';
+        });
+    }
+    """,
+    Output({"type": "bottom-nav-btn", "tab": ALL}, "className"),
+    Input("strategy-tabs", "value"),
+    dash.dependencies.State({"type": "bottom-nav-btn", "tab": ALL}, "id"),
+)
+
+# Update signal count badge + summary strip count from the signal-count store
+app.clientside_callback(
+    """
+    function(count) {
+        if (count === null || count === undefined) return ['', '—'];
+        var label = count >= 100 ? '99+' : String(count);
+        var badge = count > 0 ? label : '';
+        return [badge, label];
+    }
+    """,
+    [Output("signal-count-badge", "children"),
+     Output("summary-signal-count", "children")],
+    Input("signal-count", "data"),
+)
+
+# Update broker status chip from the broker stores
+app.clientside_callback(
+    """
+    function(loaded, broker) {
+        if (!loaded) return '—';
+        if (broker === 'zerodha') return '● ZRD';
+        if (broker === 'groww')   return '● GRW';
+        return '● OK';
+    }
+    """,
+    Output("summary-broker-status", "children"),
+    Input("kite-settings-loaded", "data"),
+    dash.dependencies.State("active-broker-store", "data"),
+)
 
 
 @app.callback(

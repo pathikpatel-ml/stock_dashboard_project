@@ -64,6 +64,29 @@ def create_v20_layout():
             html.Div(id='v20-signals-table-container', className='dash-table-container')
         ]),
 
+        # Mobile-only: filter chips + signal cards (desktop shows DataTable above instead)
+        html.Div(id="mobile-filter-bar", className="filter-bar mobile-only", children=[
+            html.Button("All", id="filter-all-btn", n_clicks=0, className="filter-chip active",
+                        **{"data-filter": "all"}),
+            html.Button("Strong Buy", id="filter-strong-btn", n_clicks=0, className="filter-chip",
+                        **{"data-filter": "strong"}),
+            html.Button("Buy", id="filter-buy-btn", n_clicks=0, className="filter-chip",
+                        **{"data-filter": "buy"}),
+            html.Div([
+                html.Span("Sort:", className="sort-label"),
+                html.Select(
+                    id="mobile-sort-select",
+                    className="mobile-sort-select",
+                    children=[
+                        html.Option("Proximity", value="proximity"),
+                        html.Option("Symbol", value="symbol"),
+                        html.Option("Strength", value="strength"),
+                    ],
+                ),
+            ], className="sort-control"),
+        ]),
+        html.Div(id="v20-mobile-cards", className="signal-cards-list mobile-only"),
+
         # Historical Performance Panel — revealed when a BUY signal row is clicked
         dcc.Loading(type="dot", children=[
             html.Div(id='v20-stock-history-panel', style={'display': 'none'})
