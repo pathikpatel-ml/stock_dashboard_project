@@ -109,29 +109,31 @@ def register_v20_callbacks(app):
                     'whiteSpace': 'normal',
                     'padding': '10px 12px',
                     'fontSize': '13px',
-                    'fontFamily': 'Inter, Segoe UI, sans-serif',
+                    'fontFamily': 'Onest, sans-serif',
                     'textAlign': 'center',
-                    'border': '1px solid #e9ecef',
+                    'border': '1px solid #2c2c38',
+                    'backgroundColor': '#14141a',
+                    'color': '#f0f0f8',
                 },
                 style_header={
-                    'backgroundColor': '#2c3e50',
-                    'color': 'white',
+                    'backgroundColor': '#1c1c25',
+                    'color': '#f0f0f8',
                     'fontWeight': '600',
                     'textAlign': 'center',
                     'padding': '12px',
                     'fontSize': '12px',
-                    'border': '1px solid #34495e',
+                    'border': '1px solid #2c2c38',
                     'whiteSpace': 'normal',
                     'height': 'auto',
                 },
                 style_data_conditional=[
-                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#f8f9fa'},
-                    {'if': {'state': 'active'}, 'backgroundColor': '#e3f2fd', 'border': '1px solid #2196f3'},
-                    {'if': {'filter_query': '{Signal Strength} = "STRONG BUY"'}, 'backgroundColor': '#d4edda', 'color': '#155724'},
-                    {'if': {'filter_query': '{Signal Strength} = "BUY NOW"'}, 'backgroundColor': '#d1ecf1', 'color': '#0c5460'},
-                    {'if': {'filter_query': '{Signal Strength} = "OVERBOUGHT"'}, 'backgroundColor': '#f8d7da', 'color': '#721c24'},
-                    {'if': {'filter_query': '{Sell Trigger} = "SELL NOW"'}, 'backgroundColor': '#f8d7da', 'color': '#721c24'},
-                    {'if': {'filter_query': '{Sell Trigger} = "SELL SOON"'}, 'backgroundColor': '#ffe8cc', 'color': '#8a4a00'},
+                    {'if': {'row_index': 'odd'}, 'backgroundColor': '#1c1c25'},
+                    {'if': {'state': 'active'}, 'backgroundColor': '#1c1c25', 'border': '1px solid #e8a000'},
+                    {'if': {'filter_query': '{Signal Strength} = "STRONG BUY"'}, 'backgroundColor': 'rgba(16,217,170,0.12)', 'color': '#10d9aa'},
+                    {'if': {'filter_query': '{Signal Strength} = "BUY NOW"'}, 'backgroundColor': 'rgba(16,217,170,0.08)', 'color': '#10d9aa'},
+                    {'if': {'filter_query': '{Signal Strength} = "OVERBOUGHT"'}, 'backgroundColor': 'rgba(255,90,110,0.12)', 'color': '#ff5a6e'},
+                    {'if': {'filter_query': '{Sell Trigger} = "SELL NOW"'}, 'backgroundColor': 'rgba(255,90,110,0.12)', 'color': '#ff5a6e'},
+                    {'if': {'filter_query': '{Sell Trigger} = "SELL SOON"'}, 'backgroundColor': 'rgba(232,160,0,0.12)', 'color': '#e8a000'},
                 ],
                 fixed_rows={'headers': True},
                 tooltip_data=[
@@ -190,12 +192,12 @@ def register_v20_callbacks(app):
             return html.Div([
                 html.Div(f'Historical panel only available for BUY signals. '
                          f'{symbol} is currently {signal_strength}.',
-                         style={'color': '#6c757d', 'fontStyle': 'italic', 'padding': '12px'})
+                         style={'color': '#9090c0', 'fontStyle': 'italic', 'padding': '12px'})
             ]), visible
 
         all_signals = data_manager.v20_signals_df
         if all_signals.empty or 'Symbol' not in all_signals.columns:
-            return html.Div('No historical data loaded.', style={'color': '#6c757d'}), visible
+            return html.Div('No historical data loaded.', style={'color': '#9090c0'}), visible
 
         symbol_signals = all_signals[
             all_signals['Symbol'].astype(str).str.upper() == symbol
@@ -256,44 +258,44 @@ def create_indicators_grid(df, indicator_calc):
             
             # Determine signal color based on signal strength
             if signal_strength == "STRONG BUY":
-                signal_color = "#28a745"
+                signal_color = "#10d9aa"
             elif signal_strength == "BUY NOW":
-                signal_color = "#28a745"
+                signal_color = "#10d9aa"
             elif signal_strength == "BUY":
-                signal_color = "#17a2b8"
+                signal_color = "#10d9aa"
             elif signal_strength == "WAIT (Bearish)":
-                signal_color = "#ffc107"
+                signal_color = "#e8a000"
             elif signal_strength == "OVERBOUGHT":
-                signal_color = "#dc3545"
+                signal_color = "#ff5a6e"
             else:
-                signal_color = "#6c757d"
-            
+                signal_color = "#9090c0"
+
             card = html.Div([
-                html.H6(symbol, style={'margin': '0 0 10px 0', 'color': '#007bff', 'fontWeight': 'bold'}),
+                html.H6(symbol, style={'margin': '0 0 10px 0', 'color': '#e8a000', 'fontWeight': 'bold'}),
                 html.Div([
-                    html.Span(f"RSI: {rsi_val:.1f}" if not pd.isna(rsi_val) else "RSI: N/A", 
+                    html.Span(f"RSI: {rsi_val:.1f}" if not pd.isna(rsi_val) else "RSI: N/A",
                              style={'display': 'block', 'fontSize': '12px'}),
-                    html.Span("📊 RSI: Oversold<30 (Buy), >70 (Sell)", 
-                             style={'display': 'block', 'fontSize': '10px', 'color': '#6c757d', 'fontStyle': 'italic'}),
-                    html.Span(f"MACD: {macd_line:.3f}" if not pd.isna(macd_line) else "MACD: N/A", 
+                    html.Span("📊 RSI: Oversold<30 (Buy), >70 (Sell)",
+                             style={'display': 'block', 'fontSize': '10px', 'color': '#9090c0', 'fontStyle': 'italic'}),
+                    html.Span(f"MACD: {macd_line:.3f}" if not pd.isna(macd_line) else "MACD: N/A",
                              style={'display': 'block', 'fontSize': '12px'}),
-                    html.Span("📈 MACD: >0 (Bullish), <0 (Bearish)", 
-                             style={'display': 'block', 'fontSize': '10px', 'color': '#6c757d', 'fontStyle': 'italic'}),
+                    html.Span("📈 MACD: >0 (Bullish), <0 (Bearish)",
+                             style={'display': 'block', 'fontSize': '10px', 'color': '#9090c0', 'fontStyle': 'italic'}),
                     html.Span("BB: Within Bands", style={'display': 'block', 'fontSize': '12px'}),
                     html.Span(signal_strength, style={
-                        'display': 'block', 
-                        'fontSize': '11px', 
+                        'display': 'block',
+                        'fontSize': '11px',
                         'fontWeight': 'bold',
                         'color': signal_color,
                         'marginTop': '5px'
                     })
                 ])
             ], style={
-                'border': '1px solid #dee2e6',
+                'border': '1px solid #2c2c38',
                 'borderRadius': '5px',
                 'padding': '10px',
                 'margin': '5px',
-                'backgroundColor': '#ffffff',
+                'backgroundColor': '#1c1c25',
                 'minWidth': '150px',
                 'textAlign': 'center'
             })
@@ -561,28 +563,28 @@ def build_stock_history_panel(symbol, current_row, outcomes):
     current_buy = current_row.get('Target Buy Price (Low)', 'N/A')
     current_sell = current_row.get('Target Sell Price', 'N/A')
     current_signal = current_row.get('Signal Strength', '')
-    signal_colors = {'STRONG BUY': '#28a745', 'BUY NOW': '#17a2b8', 'BUY': '#007bff'}
-    sig_color = signal_colors.get(current_signal, '#6c757d')
+    signal_colors = {'STRONG BUY': '#10d9aa', 'BUY NOW': '#10d9aa', 'BUY': '#e8a000'}
+    sig_color = signal_colors.get(current_signal, '#9090c0')
 
     header = html.Div([
         html.Div([
-            html.Span(symbol, style={'fontSize': '22px', 'fontWeight': '700', 'color': '#2c3e50'}),
+            html.Span(symbol, style={'fontSize': '22px', 'fontWeight': '700', 'color': '#f0f0f8'}),
             html.Span(f'  {current_signal}', style={
                 'fontSize': '13px', 'fontWeight': '600', 'color': sig_color,
-                'backgroundColor': sig_color + '1a', 'padding': '3px 10px',
+                'backgroundColor': sig_color + '22', 'padding': '3px 10px',
                 'borderRadius': '12px', 'marginLeft': '10px', 'border': f'1px solid {sig_color}'
             }),
         ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '4px'}),
         html.Div(
             f'Buy Target: ₹{current_buy}  |  Sell Target: ₹{current_sell}',
-            style={'fontSize': '12px', 'color': '#6c757d'}
+            style={'fontSize': '12px', 'color': '#9090c0'}
         ),
     ], style={'marginBottom': '16px'})
 
     if not outcomes:
         return html.Div([header,
                          html.Div('No historical V20 signals found for this stock.',
-                                  style={'color': '#6c757d', 'fontStyle': 'italic'})])
+                                  style={'color': '#9090c0', 'fontStyle': 'italic'})])
 
     completed = [o for o in outcomes if o['status'] == 'COMPLETED']
     open_trades = [o for o in outcomes if o['status'] == 'OPEN']
@@ -593,15 +595,15 @@ def build_stock_history_panel(symbol, current_row, outcomes):
     # --- Coverage summary bar ---
     coverage = html.Div([
         html.Span(f'{len(completed)} Completed', style={
-            'backgroundColor': '#d4edda', 'color': '#155724', 'padding': '3px 10px',
+            'backgroundColor': 'rgba(16,217,170,0.15)', 'color': '#10d9aa', 'padding': '3px 10px',
             'borderRadius': '12px', 'fontSize': '12px', 'fontWeight': '600', 'marginRight': '6px'}),
         html.Span(f'{len(open_trades)} Open', style={
-            'backgroundColor': '#fff3cd', 'color': '#856404', 'padding': '3px 10px',
+            'backgroundColor': 'rgba(232,160,0,0.15)', 'color': '#e8a000', 'padding': '3px 10px',
             'borderRadius': '12px', 'fontSize': '12px', 'fontWeight': '600', 'marginRight': '6px'}),
         html.Span(f'{len(missed)} Missed', style={
-            'backgroundColor': '#f8d7da', 'color': '#721c24', 'padding': '3px 10px',
+            'backgroundColor': 'rgba(255,90,110,0.15)', 'color': '#ff5a6e', 'padding': '3px 10px',
             'borderRadius': '12px', 'fontSize': '12px', 'fontWeight': '600', 'marginRight': '6px'}),
-        html.Span(f'{total} total V20 signals', style={'fontSize': '12px', 'color': '#6c757d'}),
+        html.Span(f'{total} total V20 signals', style={'fontSize': '12px', 'color': '#9090c0'}),
     ], style={'marginBottom': '16px', 'display': 'flex', 'alignItems': 'center', 'flexWrap': 'wrap', 'gap': '4px'})
 
     # --- Stats cards (completed trades only) ---
@@ -617,22 +619,22 @@ def build_stock_history_panel(symbol, current_row, outcomes):
         cv = (np.std(gains) / np.mean(gains) * 100) if len(gains) > 1 and np.mean(gains) > 0 else 100
         consistency = max(0, min(100, round(100 - cv))) if len(gains) > 1 else None
 
-        def stat_card(label, value, sub=None, color='#2c3e50'):
+        def stat_card(label, value, sub=None, color='#f0f0f8'):
             return html.Div([
                 html.Div(value, style={'fontSize': '26px', 'fontWeight': '700', 'color': color}),
-                html.Div(label, style={'fontSize': '11px', 'color': '#6c757d', 'fontWeight': '500',
+                html.Div(label, style={'fontSize': '11px', 'color': '#9090c0', 'fontWeight': '500',
                                        'textTransform': 'uppercase', 'letterSpacing': '0.5px'}),
-                html.Div(sub, style={'fontSize': '11px', 'color': '#999', 'marginTop': '2px'}) if sub else None,
-            ], style={'backgroundColor': '#fff', 'border': '1px solid #e9ecef', 'borderRadius': '8px',
+                html.Div(sub, style={'fontSize': '11px', 'color': '#5858a0', 'marginTop': '2px'}) if sub else None,
+            ], style={'backgroundColor': '#1c1c25', 'border': '1px solid #2c2c38', 'borderRadius': '8px',
                       'padding': '14px 18px', 'textAlign': 'center', 'flex': '1', 'minWidth': '130px'})
 
         cons_val = f'{consistency}/100' if consistency is not None else 'N/A*'
         cons_sub = ('High' if consistency and consistency >= 70 else 'Low') if consistency else '2+ needed'
         cards = html.Div([
-            stat_card('Avg Gain', f'{avg_gain}%', f'Median {med_gain}%', '#28a745'),
-            stat_card('Avg Hold Time', f'{avg_days}d', 'actual calendar days', '#007bff'),
-            stat_card('Avg Ann. Return', f'~{int(avg_ann)}%', 'annualized (capped 999%)', '#e67e22'),
-            stat_card('Consistency', cons_val, cons_sub, '#8e44ad'),
+            stat_card('Avg Gain', f'{avg_gain}%', f'Median {med_gain}%', '#10d9aa'),
+            stat_card('Avg Hold Time', f'{avg_days}d', 'actual calendar days', '#e8a000'),
+            stat_card('Avg Ann. Return', f'~{int(avg_ann)}%', 'annualized (capped 999%)', '#e8a000'),
+            stat_card('Consistency', cons_val, cons_sub, '#9090c0'),
         ], style={'display': 'flex', 'gap': '10px', 'flexWrap': 'wrap', 'marginBottom': '16px'})
 
         # Completed bar chart
@@ -657,36 +659,38 @@ def build_stock_history_panel(symbol, current_row, outcomes):
             ),
         ))
         fig.update_layout(
-            title=dict(text=f'{symbol} — Completed V20 Trades (green=fast exit, red=slow)',
-                       font_size=13),
+            title=dict(text=f'{symbol} — Completed V20 Trades (teal=fast exit, red=slow)',
+                       font_size=13, font_color='#f0f0f8'),
             xaxis_title='Actual Entry Date', yaxis_title='Gain %',
-            plot_bgcolor='#fafafa', paper_bgcolor='#fff',
+            plot_bgcolor='#0c0c10', paper_bgcolor='#14141a',
             margin=dict(l=40, r=60, t=44, b=40), height=260,
-            font=dict(family='Inter, Segoe UI, sans-serif', size=11),
-            yaxis=dict(ticksuffix='%', gridcolor='#e9ecef'),
-            xaxis=dict(gridcolor='#e9ecef'),
+            font=dict(family='Onest, sans-serif', size=11, color='#9090c0'),
+            yaxis=dict(ticksuffix='%', gridcolor='#2c2c38', color='#9090c0'),
+            xaxis=dict(gridcolor='#2c2c38', color='#9090c0'),
         )
         chart_section = [cards, dcc.Graph(figure=fig, config={'displayModeBar': False},
                                           style={'marginBottom': '16px'})]
     else:
         chart_section = [html.Div('No completed trades in 5-year price history.',
-                                  style={'color': '#6c757d', 'fontStyle': 'italic',
+                                  style={'color': '#9090c0', 'fontStyle': 'italic',
                                          'marginBottom': '16px', 'padding': '10px',
-                                         'backgroundColor': '#fff3cd', 'borderRadius': '6px'})]
+                                         'backgroundColor': 'rgba(232,160,0,0.08)', 'borderRadius': '6px',
+                                         'border': '1px solid rgba(232,160,0,0.2)'})]
 
     # --- All-signals status table ---
     th_style = {'padding': '8px 10px', 'textAlign': 'left', 'fontSize': '11px',
-                'fontWeight': '600', 'color': '#fff', 'backgroundColor': '#2c3e50',
-                'textTransform': 'uppercase', 'letterSpacing': '0.5px'}
+                'fontWeight': '600', 'color': '#f0f0f8', 'backgroundColor': '#1c1c25',
+                'textTransform': 'uppercase', 'letterSpacing': '0.5px',
+                'borderBottom': '1px solid #2c2c38'}
     status_cfg = {
-        'COMPLETED': ('✓ COMPLETED', '#155724', '#d4edda'),
-        'OPEN':      ('⏳ OPEN',     '#856404', '#fff3cd'),
-        'MISSED':    ('✗ MISSED',   '#721c24', '#f8d7da'),
-        'NO_DATA':   ('— NO DATA',  '#6c757d', '#f8f9fa'),
+        'COMPLETED': ('✓ COMPLETED', '#10d9aa', 'rgba(16,217,170,0.12)'),
+        'OPEN':      ('⏳ OPEN',     '#e8a000', 'rgba(232,160,0,0.12)'),
+        'MISSED':    ('✗ MISSED',   '#ff5a6e', 'rgba(255,90,110,0.12)'),
+        'NO_DATA':   ('— NO DATA',  '#9090c0', 'rgba(144,144,192,0.08)'),
     }
     trows = []
     for o in outcomes:
-        label, fc, bg = status_cfg.get(o['status'], ('?', '#000', '#fff'))
+        label, fc, bg = status_cfg.get(o['status'], ('?', '#9090c0', '#1c1c25'))
         status_cell = html.Td(label, style={
             'fontWeight': '700', 'fontSize': '11px', 'color': fc,
             'backgroundColor': bg, 'padding': '6px 10px',
@@ -698,15 +702,15 @@ def build_stock_history_panel(symbol, current_row, outcomes):
         ann_td   = html.Td('')
         if o['status'] == 'COMPLETED' and o['holding_days']:
             ann = min(((1 + o['gain_pct'] / 100) ** (365 / max(o['holding_days'], 1)) - 1) * 100, 999.0)
-            ann_td = html.Td(f'~{int(ann)}%', style={'color': '#e67e22', 'fontWeight': '600'})
+            ann_td = html.Td(f'~{int(ann)}%', style={'color': '#e8a000', 'fontWeight': '600'})
         trows.append(html.Tr([
-            html.Td(o['signal_date'], style={'fontSize': '12px', 'color': '#6c757d'}),
+            html.Td(o['signal_date'], style={'fontSize': '12px', 'color': '#9090c0'}),
             html.Td(f'₹{o["buy_target"]:.2f}'),
             html.Td(f'₹{o["sell_target"]:.2f}'),
-            html.Td(f'{o["gain_pct"]:.1f}%', style={'color': '#28a745', 'fontWeight': '600'}),
+            html.Td(f'{o["gain_pct"]:.1f}%', style={'color': '#10d9aa', 'fontWeight': '600'}),
             status_cell,
             entry_td, exit_td, days_td, ann_td,
-        ], style={'borderBottom': '1px solid #f0f0f0'}))
+        ], style={'borderBottom': '1px solid #2c2c38'}))
 
     all_table = html.Table([
         html.Thead(html.Tr([
@@ -727,14 +731,14 @@ def build_stock_history_panel(symbol, current_row, outcomes):
         html.Div('Buy trigger: price Low ≤ buy target +5% after sequence ends  |  '
                  'Sell trigger: price High ≥ sell target −3%  |  '
                  'Price history: last 5 years (older signals may show MISSED due to data limit)',
-                 style={'fontSize': '11px', 'color': '#aaa', 'marginTop': '8px'})
+                 style={'fontSize': '11px', 'color': '#5858a0', 'marginTop': '8px'})
     ])
 
     return html.Div([
         header, coverage,
         *chart_section,
         html.H6('All V20 Signals — Status',
-                style={'color': '#2c3e50', 'fontWeight': '600', 'marginBottom': '8px'}),
+                style={'color': '#f0f0f8', 'fontWeight': '600', 'marginBottom': '8px'}),
         all_table,
         notes,
     ])
@@ -760,85 +764,85 @@ def generate_v20_notifications(df, notification_engine):
                 html.Div([
                     html.Div([
                         html.Span("🚀", style={'fontSize': '20px', 'marginRight': '10px'}),
-                        html.Span(f"STRONG BUY: {full_name}", style={'fontWeight': 'bold', 'color': '#28a745'})
+                        html.Span(f"STRONG BUY: {full_name}", style={'fontWeight': 'bold', 'color': '#10d9aa'})
                     ]),
-                    html.Div(f"{closeness:.1f}% from target | Buy: ₹{buy_price:.2f} | Sell: ₹{sell_price:.2f}", style={'fontSize': '12px', 'color': '#6c757d'}),
-                    html.Div("💰 Sell at 20% profit, hold longer if strong momentum continues", style={'fontSize': '11px', 'color': '#28a745', 'fontStyle': 'italic'}),
-                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#adb5bd'})
+                    html.Div(f"{closeness:.1f}% from target | Buy: ₹{buy_price:.2f} | Sell: ₹{sell_price:.2f}", style={'fontSize': '12px', 'color': '#9090c0'}),
+                    html.Div("💰 Sell at 20% profit, hold longer if strong momentum continues", style={'fontSize': '11px', 'color': '#10d9aa', 'fontStyle': 'italic'}),
+                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#5858a0'})
                 ], style={
-                    'backgroundColor': '#d4edda',
-                    'border': '1px solid #c3e6cb',
+                    'backgroundColor': 'rgba(16,217,170,0.08)',
+                    'border': '1px solid rgba(16,217,170,0.25)',
                     'borderRadius': '5px',
                     'padding': '10px',
                     'margin': '5px 0',
-                    'borderLeft': '4px solid #28a745'
+                    'borderLeft': '4px solid #10d9aa'
                 })
             )
-        
+
         # Check for BUY NOW signals
         buy_now_signals = df[df.get('Signal Strength', '') == 'BUY NOW'] if 'Signal Strength' in df.columns else pd.DataFrame()
-        
+
         for _, stock in buy_now_signals.head(3).iterrows():
             symbol = stock.get('Symbol', 'Unknown')
             closeness = stock.get('Closeness (%)', 0)
             buy_price = stock.get('Target Buy Price (Low)', 0)
             sell_price = buy_price * 1.30 if buy_price > 0 else 0
             full_name = stock_resolver.get_display_name(symbol)
-            
+
             notifications.append(
                 html.Div([
                     html.Div([
                         html.Span("📍", style={'fontSize': '20px', 'marginRight': '10px'}),
-                        html.Span(f"BUY NOW: {full_name}", style={'fontWeight': 'bold', 'color': '#17a2b8'})
+                        html.Span(f"BUY NOW: {full_name}", style={'fontWeight': 'bold', 'color': '#10d9aa'})
                     ]),
-                    html.Div(f"{closeness:.1f}% from target | Buy: ₹{buy_price:.2f} | Sell: ₹{sell_price:.2f}", style={'fontSize': '12px', 'color': '#6c757d'}),
-                    html.Div("💰 Target 30% gains, consider partial profit-taking at 20%", style={'fontSize': '11px', 'color': '#17a2b8', 'fontStyle': 'italic'}),
-                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#adb5bd'})
+                    html.Div(f"{closeness:.1f}% from target | Buy: ₹{buy_price:.2f} | Sell: ₹{sell_price:.2f}", style={'fontSize': '12px', 'color': '#9090c0'}),
+                    html.Div("💰 Target 30% gains, consider partial profit-taking at 20%", style={'fontSize': '11px', 'color': '#10d9aa', 'fontStyle': 'italic'}),
+                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#5858a0'})
                 ], style={
-                    'backgroundColor': '#d1ecf1',
-                    'border': '1px solid #bee5eb',
+                    'backgroundColor': 'rgba(16,217,170,0.05)',
+                    'border': '1px solid rgba(16,217,170,0.18)',
                     'borderRadius': '5px',
                     'padding': '10px',
                     'margin': '5px 0',
-                    'borderLeft': '4px solid #17a2b8'
+                    'borderLeft': '4px solid #10d9aa'
                 })
             )
-        
+
         # Check for WAIT (Bearish) signals - Important warnings!
         bearish_signals = df[df.get('Signal Strength', '') == 'WAIT (Bearish)'] if 'Signal Strength' in df.columns else pd.DataFrame()
-        
+
         for _, stock in bearish_signals.head(2).iterrows():
             symbol = stock.get('Symbol', 'Unknown')
             closeness = stock.get('Closeness (%)', 0)
             buy_price = stock.get('Target Buy Price (Low)', 0)
             full_name = stock_resolver.get_display_name(symbol)
-            
+
             notifications.append(
                 html.Div([
                     html.Div([
                         html.Span("⚠️", style={'fontSize': '20px', 'marginRight': '10px'}),
-                        html.Span(f"WAIT: {full_name}", style={'fontWeight': 'bold', 'color': '#ffc107'})
+                        html.Span(f"WAIT: {full_name}", style={'fontWeight': 'bold', 'color': '#e8a000'})
                     ]),
-                    html.Div(f"{closeness:.1f}% from target | Buy trigger: ₹{buy_price:.2f} | Wait for better entry", style={'fontSize': '12px', 'color': '#6c757d'}),
-                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#adb5bd'})
+                    html.Div(f"{closeness:.1f}% from target | Buy trigger: ₹{buy_price:.2f} | Wait for better entry", style={'fontSize': '12px', 'color': '#9090c0'}),
+                    html.Div(current_time.strftime('%H:%M:%S'), style={'fontSize': '10px', 'color': '#5858a0'})
                 ], style={
-                    'backgroundColor': '#fff3cd',
-                    'border': '1px solid #ffeaa7',
+                    'backgroundColor': 'rgba(232,160,0,0.08)',
+                    'border': '1px solid rgba(232,160,0,0.25)',
                     'borderRadius': '5px',
                     'padding': '10px',
                     'margin': '5px 0',
-                    'borderLeft': '4px solid #ffc107'
+                    'borderLeft': '4px solid #e8a000'
                 })
             )
-        
+
         if not notifications:
             notifications.append(
                 html.Div([
                     html.Span("ℹ️", style={'fontSize': '20px', 'marginRight': '10px'}),
-                    html.Span("No active alerts at this time", style={'color': '#6c757d'})
+                    html.Span("No active alerts at this time", style={'color': '#9090c0'})
                 ], style={
-                    'backgroundColor': '#f8f9fa',
-                    'border': '1px solid #dee2e6',
+                    'backgroundColor': '#1c1c25',
+                    'border': '1px solid #2c2c38',
                     'borderRadius': '5px',
                     'padding': '10px',
                     'textAlign': 'center'

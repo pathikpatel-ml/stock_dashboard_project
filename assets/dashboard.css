@@ -777,7 +777,85 @@ hr { border-color: var(--border); opacity: 0.4; }
 }
 
 /* =====================================================================
-   25. Responsive — 576px (small phones)
+   25. Bootstrap text utility overrides — dark theme
+   ===================================================================== */
+.text-muted     { color: var(--text-muted) !important; }
+.text-secondary { color: var(--text-muted) !important; }
+.text-dark,
+.text-body,
+.text-black     { color: var(--text-primary) !important; }
+
+/* Prevent Bootstrap's default body color (#212529) from bleeding through */
+p, li, ul, ol, dd, dt, blockquote,
+small, .small,
+strong, b, em { color: inherit; }
+
+/* =====================================================================
+   26. DataTable — stronger dark override + mobile horizontal scroll
+   ===================================================================== */
+
+/* Override DataTable inline styles (Dash injects these via style_cell/style_header) */
+.dash-spreadsheet td,
+.dash-spreadsheet th {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+
+.dash-spreadsheet thead td,
+.dash-spreadsheet thead th {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Mobile horizontal scroll — fix scroll container chain */
+.dash-spreadsheet {
+  overflow-x: auto !important;
+}
+
+.dash-table-container .dash-spreadsheet-container {
+  overflow-x: auto !important;
+  overflow-y: auto;
+}
+
+/* =====================================================================
+   27. V20 panel inline-style overrides (force dark backgrounds by ID)
+   ===================================================================== */
+#v20-notification-panel {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+}
+
+#v20-sentiment-display {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+#v20-indicators-summary {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Indicator cards inside the grid */
+#v20-indicators-grid > div {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Historical performance panel — blanket override so all inline-colored
+   text is at least readable; callback-specific fix also applied in Python */
+#v20-stock-history-panel,
+#v20-stock-history-panel table,
+#v20-stock-history-panel td,
+#v20-stock-history-panel p,
+#v20-stock-history-panel span {
+  color: var(--text-primary);
+}
+
+/* =====================================================================
+   28. Responsive — 576px (small phones)
    ===================================================================== */
 @media (max-width: 576px) {
   .app-container {

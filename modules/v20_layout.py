@@ -7,44 +7,26 @@ def create_v20_layout():
         
         # Notification Panel
         html.Div(id='v20-notification-panel', className='notification-panel', children=[
-            html.H4("🔔 Live Notifications", style={'margin': '0 0 10px 0', 'color': '#007bff'}),
+            html.H4("🔔 Live Notifications", style={'margin': '0 0 10px 0'}),
             html.Div(id='v20-notifications-container', className='notifications-container')
-        ], style={
-            'backgroundColor': '#f8f9fa',
-            'border': '1px solid #dee2e6',
-            'borderRadius': '5px',
-            'padding': '15px',
-            'marginBottom': '20px'
-        }),
-        
+        ]),
+
         # Market Sentiment Display
         html.Div(id='v20-sentiment-display', className='sentiment-display', children=[
             html.Div([
                 html.Span("📊 Market Sentiment: ", style={'fontWeight': 'bold', 'fontSize': '16px'}),
-                html.Span(id='v20-sentiment-score', children='Loading...', 
+                html.Span(id='v20-sentiment-score', children='Loading...',
                          style={'fontSize': '18px', 'fontWeight': 'bold', 'marginLeft': '10px'}),
-                html.Span(id='v20-sentiment-label', children='', 
+                html.Span(id='v20-sentiment-label', children='',
                          style={'marginLeft': '10px', 'fontSize': '14px'})
             ])
-        ], style={
-            'backgroundColor': '#e9ecef',
-            'padding': '10px 15px',
-            'borderRadius': '5px',
-            'marginBottom': '15px',
-            'border': '1px solid #ced4da'
-        }),
-        
+        ]),
+
         # Technical Indicators Summary
         html.Div(id='v20-indicators-summary', className='indicators-summary', children=[
-            html.H4("📈 Technical Indicators Overview", style={'margin': '0 0 15px 0', 'color': '#28a745'}),
+            html.H4("📈 Technical Indicators Overview", style={'margin': '0 0 15px 0'}),
             html.Div(id='v20-indicators-grid', className='indicators-grid')
-        ], style={
-            'backgroundColor': '#f8f9fa',
-            'border': '1px solid #28a745',
-            'borderRadius': '5px',
-            'padding': '15px',
-            'marginBottom': '20px'
-        }),
+        ]),
         
         html.Div(className='control-bar', children=[
             html.Div(className='action-buttons', children=[
