@@ -3,6 +3,7 @@ import os
 import smtplib
 import socket
 import ssl
+import threading
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -11,32 +12,79 @@ logger = logging.getLogger(__name__)
 _DASHBOARD_URL = "https://stock-dashboard-project.onrender.com"
 
 
+def _send_via_sendgrid(to_email: str, subject: str, html_body: str, api_key: str, from_email: str):
+    """HTTP-based send via SendGrid — uses port 443, works on Render free tier."""
+    import requests
+    resp = requests.post(
+        "https://api.sendgrid.com/v3/mail/send",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": from_email},
+            "subject": subject,
+            "content": [{"type": "text/html", "value": html_body}],
+        },
+        timeout=10,
+    )
+    if resp.status_code not in (200, 202):
+        raise RuntimeError(f"SendGrid {resp.status_code}: {resp.text[:200]}")
+    logger.info("EMAIL SENT via SendGrid to %s: %s", to_email, subject)
+
+
+def _send_via_smtp(to_email: str, subject: str, html_body: str, sender: str, password: str):
+    """SMTP send (port 465 SSL). Works locally; may be blocked on Render free tier."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to_email
+    msg.attach(MIMEText(html_body, "html"))
+    # Force IPv4 — Render containers have no IPv6 routing.
+    smtp_ip = socket.getaddrinfo("smtp.gmail.com", 465, socket.AF_INET)[0][4][0]
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_ip, 465, context=ctx, timeout=20) as srv:
+        srv.ehlo()
+        srv.login(sender, password)
+        srv.sendmail(sender, to_email, msg.as_string())
+    logger.info("EMAIL SENT via SMTP to %s: %s", to_email, subject)
+
+
 def _send(to_email: str, subject: str, html_body: str):
-    sender = os.environ.get("NOTIFY_EMAIL", "")
-    password = os.environ.get("NOTIFY_EMAIL_PASSWORD", "")
-    if not sender or not password:
+    """
+    Fire-and-forget email. Always runs in a background daemon thread so it
+    never blocks a Dash callback and never triggers gunicorn's worker timeout.
+
+    Priority:
+      1. SendGrid (SENDGRID_API_KEY set) — HTTP, works on Render free tier
+      2. Gmail SMTP (NOTIFY_EMAIL + NOTIFY_EMAIL_PASSWORD set) — works locally
+    """
+    sendgrid_key = os.environ.get("SENDGRID_API_KEY", "")
+    smtp_sender   = os.environ.get("NOTIFY_EMAIL", "")
+    smtp_password  = os.environ.get("NOTIFY_EMAIL_PASSWORD", "")
+
+    if not sendgrid_key and not (smtp_sender and smtp_password):
         logger.warning(
-            "NOTIFY_EMAIL / NOTIFY_EMAIL_PASSWORD not set — skipping email to %s (%s)",
+            "No email credentials configured — skipping email to %s (%s). "
+            "Set SENDGRID_API_KEY (recommended on Render) or "
+            "NOTIFY_EMAIL + NOTIFY_EMAIL_PASSWORD.",
             to_email, subject,
         )
         return
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = sender
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_body, "html"))
-        # Port 465 (SMTP_SSL) — Render free-tier silently drops port 587 (STARTTLS).
-        # Force IPv4 — Render containers have no IPv6 routing.
-        smtp_ip = socket.getaddrinfo("smtp.gmail.com", 465, socket.AF_INET)[0][4][0]
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL(smtp_ip, 465, context=ctx, timeout=30) as srv:
-            srv.ehlo()
-            srv.login(sender, password)
-            srv.sendmail(sender, to_email, msg.as_string())
-        logger.info("EMAIL SENT to %s: %s", to_email, subject)
-    except Exception as exc:
-        logger.error("Failed to send notification to %s: %s", to_email, exc)
+
+    def _worker():
+        try:
+            if sendgrid_key and smtp_sender:
+                _send_via_sendgrid(to_email, subject, html_body, sendgrid_key, smtp_sender)
+            elif sendgrid_key:
+                # SendGrid requires a verified sender — use a placeholder if NOTIFY_EMAIL not set
+                _send_via_sendgrid(to_email, subject, html_body, sendgrid_key,
+                                   "noreply@stock-dashboard-project.onrender.com")
+            else:
+                _send_via_smtp(to_email, subject, html_body, smtp_sender, smtp_password)
+        except Exception as exc:
+            logger.error("Failed to send email to %s (%s): %s", to_email, subject, exc)
+
+    # Daemon thread — if the process exits the thread is abandoned (acceptable).
+    threading.Thread(target=_worker, daemon=True, name=f"email-{to_email[:20]}").start()
 
 
 def notify_admin_new_signup(admin_email: str, name: str, user_email: str,
@@ -47,12 +95,12 @@ def notify_admin_new_signup(admin_email: str, name: str, user_email: str,
     ) if join_reason else ""
     html = f"""
     <html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;">
-      <h2 style="color:#3b82f6;">&#128276; New Access Request</h2>
+      <h2 style="color:#e8a000;">&#128276; New Access Request</h2>
       <p><strong>{name}</strong> (<a href="mailto:{user_email}">{user_email}</a>)
          has requested access to the Stock Signal Dashboard.</p>
       {reason_html}
       <p style="margin-top:20px;">
-        <a href="{_DASHBOARD_URL}" style="background:#3b82f6;color:white;
+        <a href="{_DASHBOARD_URL}" style="background:#e8a000;color:#000;
            padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
           Review in Admin Panel
         </a>
@@ -65,12 +113,12 @@ def notify_admin_new_signup(admin_email: str, name: str, user_email: str,
 def notify_user_approved(user_email: str, name: str):
     html = f"""
     <html><body style="font-family:Arial,sans-serif;color:#1e293b;padding:20px;">
-      <h2 style="color:#16a34a;">&#10003; Access Approved!</h2>
+      <h2 style="color:#10d9aa;">&#10003; Access Approved!</h2>
       <p>Hi {name},</p>
       <p>Your request to access the <strong>Stock Signal Dashboard</strong>
          has been <strong>approved</strong>. You can now log in.</p>
       <p style="margin-top:20px;">
-        <a href="{_DASHBOARD_URL}" style="background:#16a34a;color:white;
+        <a href="{_DASHBOARD_URL}" style="background:#10d9aa;color:#000;
            padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
           Log In Now
         </a>
