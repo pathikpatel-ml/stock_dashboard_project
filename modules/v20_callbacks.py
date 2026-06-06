@@ -740,7 +740,11 @@ def build_stock_history_panel(symbol, current_row, outcomes):
         *chart_section,
         html.H6('All V20 Signals — Status',
                 style={'color': '#f0f0f8', 'fontWeight': '600', 'marginBottom': '8px'}),
-        all_table,
+        html.Div(all_table, style={
+            'overflowX': 'auto',
+            'WebkitOverflowScrolling': 'touch',
+            'marginBottom': '8px',
+        }),
         notes,
     ])
 

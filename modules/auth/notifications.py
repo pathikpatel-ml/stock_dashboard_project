@@ -2,6 +2,7 @@ import logging
 import os
 import smtplib
 import socket
+import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -25,15 +26,15 @@ def _send(to_email: str, subject: str, html_body: str):
         msg["From"] = sender
         msg["To"] = to_email
         msg.attach(MIMEText(html_body, "html"))
-        # Force IPv4 — Render free-tier containers have no IPv6 routing.
-        # smtplib tries IPv6 first (ENETUNREACH) and doesn't fall back to IPv4.
-        smtp_ip = socket.getaddrinfo("smtp.gmail.com", 587, socket.AF_INET)[0][4][0]
-        with smtplib.SMTP(smtp_ip, 587, timeout=15) as srv:
-            srv.ehlo("smtp.gmail.com")
-            srv.starttls()
+        # Port 465 (SMTP_SSL) — Render free-tier silently drops port 587 (STARTTLS).
+        # Force IPv4 — Render containers have no IPv6 routing.
+        smtp_ip = socket.getaddrinfo("smtp.gmail.com", 465, socket.AF_INET)[0][4][0]
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL(smtp_ip, 465, context=ctx, timeout=30) as srv:
+            srv.ehlo()
             srv.login(sender, password)
             srv.sendmail(sender, to_email, msg.as_string())
-        logger.warning("EMAIL SENT to %s: %s", to_email, subject)
+        logger.info("EMAIL SENT to %s: %s", to_email, subject)
     except Exception as exc:
         logger.error("Failed to send notification to %s: %s", to_email, exc)
 
