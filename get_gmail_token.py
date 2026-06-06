@@ -101,7 +101,7 @@ if not REFRESH_TOKEN:
     sys.exit(1)
 
 print("\n" + "=" * 60)
-print("Add these to Render → Environment Variables:")
+print("Add these to Render -> Environment Variables:")
 print("=" * 60)
 print(f"GMAIL_CLIENT_ID      = {CLIENT_ID}")
 print(f"GMAIL_CLIENT_SECRET  = {CLIENT_SECRET}")

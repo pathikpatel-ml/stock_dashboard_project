@@ -1,3 +1,6 @@
+# OAuth credentials — never commit these
+client_secret*.json
+
 # Comprehensive analysis files - always fetch fresh data
 output/comprehensive_stock_analysis_*.csv
 
