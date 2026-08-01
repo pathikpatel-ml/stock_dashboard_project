@@ -1,0 +1,40 @@
+name: Generate Turtle Strategy Signals
+
+on:
+  schedule:
+    - cron: '45 10 * * 1-5'   # 10:45 UTC weekdays (~16:15 IST, after NSE close)
+  workflow_dispatch:
+
+jobs:
+  generate-turtle-signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with: { fetch-depth: 0 }
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance requests
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+    - name: Generate Turtle signals
+      run: python generate_turtle_signals.py
+    - name: Commit and push signals
+      run: |
+        git add turtle_signals_*.csv
+        if git diff --cached --quiet; then
+          echo "No signal changes to commit."
+        else
+          git commit -m "Automated turtle signals for $(date -u +%Y%m%d)"
+          git pull --rebase origin main
+          git push
+        fi

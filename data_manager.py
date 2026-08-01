@@ -24,6 +24,10 @@ BREAKOUT_WATCHLIST_FILENAME_TEMPLATE = "breakout_watchlist_{date_str}.csv"
 BREAKOUT_REJECTIONS_FILENAME_TEMPLATE = "breakout_rejections_{date_str}.csv"
 BREAKOUT_POSITIONS_FILE = "breakout_positions.csv"
 
+# --- Turtle Strategy file configuration ---
+TURTLE_SIGNALS_FILENAME_TEMPLATE = "turtle_signals_{date_str}.csv"
+NSE_CATEGORIES_FILE = "nse_categories.csv"
+
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
     "IRCON", "IRCTC", "IRFC", "IREDA", "LICI", "NBCC", "NLCINDIA", "NMDC", "NTPC",
@@ -53,6 +57,12 @@ breakout_rejections_df = pd.DataFrame()
 breakout_positions_df = pd.DataFrame()
 LOADED_BREAKOUT_FILE_DATE = None
 LOADED_BREAKOUT_SOURCE = None
+
+# --- Turtle Strategy cache state ---
+turtle_signals_df = pd.DataFrame()
+nse_categories_df = pd.DataFrame()
+LOADED_TURTLE_FILE_DATE = None
+LOADED_TURTLE_SOURCE = None
 
 
 def _filter_out_psu_symbols(df):
@@ -274,6 +284,7 @@ def load_and_process_data_on_startup():
     )
 
     load_breakout_data_on_startup()
+    load_turtle_data_on_startup()
 
 
 def load_breakout_data_on_startup():
@@ -322,3 +333,51 @@ def load_breakout_data_on_startup():
         f"{len(breakout_watchlist_df)} watchlist, {len(breakout_positions_df)} positions, "
         f"{rej_count} rejections (source={LOADED_BREAKOUT_SOURCE})."
     )
+
+
+def load_turtle_data_on_startup():
+    """Load Turtle Strategy signals and the (static, not dated) NSE index-membership file.
+
+    Reuses the same local -> GitHub-raw -> fallback resolution as the V20/Breakout loaders.
+    No PSU filtering — Turtle is a general quant screen, unlike V20/Breakout's PSU exclusion.
+    """
+    global turtle_signals_df, nse_categories_df
+    global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE
+
+    today_str = datetime.now().strftime("%Y%m%d")
+
+    turtle_signals_df, loaded_name, LOADED_TURTLE_SOURCE = _read_csv_with_candidates(
+        today_filename=TURTLE_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
+        filename_regex=r"turtle_signals_\d{8}\.csv",
+    )
+    LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+
+    categories_path = os.path.join(REPO_BASE_PATH, NSE_CATEGORIES_FILE)
+    if os.path.exists(categories_path):
+        try:
+            nse_categories_df = pd.read_csv(categories_path)
+        except Exception:
+            nse_categories_df = pd.DataFrame()
+    else:
+        nse_categories_df = pd.DataFrame()
+
+    print(
+        f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "
+        f"{len(nse_categories_df)} category rows (source={LOADED_TURTLE_SOURCE})."
+    )
+
+
+def get_turtle_signals_by_offset(offset: int = 0):
+    """Return (df, filename) for the ``offset``-th most recent local turtle_signals_*.csv
+    (0 = latest, 1 = the one before it — used by the tab's "Yesterday" toggle). Local files
+    only (no GitHub-remote fallback, unlike startup loading) since this is an on-demand UI
+    lookup, not the initial app load.
+    """
+    matches = _sorted_local_matches(r"turtle_signals_\d{8}\.csv")
+    if offset >= len(matches):
+        return pd.DataFrame(), None
+    filename = matches[offset]
+    try:
+        return pd.read_csv(os.path.join(REPO_BASE_PATH, filename)), filename
+    except Exception:
+        return pd.DataFrame(), None

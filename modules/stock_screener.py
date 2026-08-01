@@ -826,6 +826,24 @@ def add_moving_averages_to_stocks(df):
     return df_with_ma
 
 def add_nse_categories_to_stocks(df):
+    """
+    Refresh Nifty 50/100/200 membership in nse_categories.csv from NSE's index archives.
+
+    Does not modify ``df`` — the categories file is a separate artifact consumed by the
+    Turtle Strategy tab's Indices filter. On fetch failure the existing file (including
+    any thematic tags like "NIFTY PHARMA") is left untouched.
+    """
+    from modules.nse_category_fetcher import refresh_nifty_membership
+
+    categories_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nse_categories.csv")
+    try:
+        refreshed = refresh_nifty_membership(categories_path)
+        if refreshed:
+            print("Refreshed NIFTY 50/100/200 membership in nse_categories.csv")
+        else:
+            print("WARNING: Could not fetch any NSE index list; nse_categories.csv left unchanged")
+    except Exception as e:
+        print(f"Error refreshing NSE categories: {e}")
     return df
 
 def get_current_market_price(symbol):
