@@ -118,6 +118,14 @@ def commit_and_push_stock_list(files_to_add, commit_message):
         return False
     print(f"GIT OPS: Successfully committed changes with message: '{commit_message}'.")
 
+    # This job takes 1.5-2h end to end; by the time it's ready to push, the daily V20/breakout/
+    # turtle crons have almost always moved origin/main, so a bare push is rejected as a
+    # non-fast-forward every time (root cause of the ~May-2026 stale-CSV incident). Rebase first.
+    if not run_git_command(["git", "pull", "--rebase", "origin", "main"], working_dir=REPO_BASE_PATH):
+        print(f"GIT OPS ERROR: Failed to 'git pull --rebase origin main'. Aborting push.")
+        return False
+    print(f"GIT OPS: Successfully rebased onto latest origin/main.")
+
     if not run_git_command(["git", "push"], working_dir=REPO_BASE_PATH):
         print(f"GIT OPS ERROR: Failed to 'git push'.")
         return False

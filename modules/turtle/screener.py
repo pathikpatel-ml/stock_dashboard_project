@@ -155,20 +155,30 @@ def run_pipeline(
 
         stock_rs = compute.relative_strength(daily_close) if daily_close is not None else None
 
-        # ATH-price reference: prefer the live daily close (same series RS is computed
-        # from) over the weekly-cron CSV's Current_Price, which can be stale by up to ~5
-        # trading days. historical_max_close combines the daily window's max (recent
-        # granularity) with the monthly (full-history) max so a real multi-year ATH set
-        # outside the DAILY_HISTORY_PERIOD window isn't lost. Falls back to the previous
-        # monthly-only behaviour when daily data is unavailable.
+        csv_current_price = urow.get("Current_Price")
+        csv_ma200 = urow.get("MA200")
+
+        # Round-3 fix: price and its 200-DMA must come from the SAME fresh series, or a
+        # stock at/near its live ATH can show "Above_MA200 = false" purely because the
+        # weekly-cron CSV (up to ~2.5 months stale in the incident that prompted this) is
+        # comparing a live-ish number against a stale one. So: live daily close for the
+        # displayed/used price (feeds Current_Price, ATH-price, ATH-profit's share-count
+        # derivation, and above_exit_flag alike), and a live 200-day SMA computed from that
+        # same daily series for above_exit_flag. Each falls back independently to the CSV
+        # snapshot only when the live source is unavailable (no daily data at all for
+        # price; fewer than 200 daily rows for the 200-DMA specifically).
         if daily_close is not None:
-            ath_reference_price = float(daily_close.iloc[-1])
+            live_price = float(daily_close.iloc[-1])
             historical_max_close = max(float(daily_close.max()), monthly_max_close)
         else:
-            ath_reference_price = urow.get("Current_Price")
+            live_price = csv_current_price  # csv-fallback: no daily data at all
             historical_max_close = monthly_max_close
 
-        current_price = urow.get("Current_Price")
+        if daily_close is not None and len(daily_close) >= 200:
+            live_ma200 = float(daily_close.rolling(200).mean().iloc[-1])  # MA200_source=live
+        else:
+            live_ma200 = csv_ma200  # MA200_source=csv-fallback: <200 daily rows
+
         sector = urow.get("Sector")
 
         per_symbol.append({
@@ -176,15 +186,15 @@ def run_pipeline(
             "Company": urow.get("Company Name", symbol),
             "Sector": sector,
             "Industry": urow.get("Industry"),
-            # CSV price: the displayed column, and paired with the CSV-derived MA200 for
-            # above_exit_flag so that comparison stays internally consistent.
-            "Current_Price": current_price,
-            "MA200": urow.get("MA200"),
+            # Live daily close (csv-fallback only if daily data is missing) -- both
+            # displayed and fed into every price-based flag, so nothing compares a fresh
+            # number against a stale one.
+            "Current_Price": live_price,
+            "MA200": live_ma200,
             "Market_Cap": urow.get("Market Cap"),
             "TTM_Net_Profit": _parse_ttm_profit(
                 urow.get("Latest Quarter Profit (Cr)"), urow.get("Last 3Q Profits (Cr)")
             ),
-            "ath_reference_price": ath_reference_price,
             "historical_max_close": historical_max_close,
             "stock_rs": stock_rs,
             "max_eps": fundamentals_lookup.get(symbol, {}).get("max_eps"),
@@ -219,7 +229,7 @@ def run_pipeline(
     for row in per_symbol:
         sector_rs = _leave_one_out_sector_rs(row["Sector"], row["stock_rs"])
 
-        ath_price = compute.ath_price_flag(row["ath_reference_price"], row["historical_max_close"])
+        ath_price = compute.ath_price_flag(row["Current_Price"], row["historical_max_close"])
         ath_profit = compute.ath_profit_flag(
             row["TTM_Net_Profit"], row["Market_Cap"], row["Current_Price"], row["max_eps"]
         )

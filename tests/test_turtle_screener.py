@@ -290,8 +290,10 @@ def test_ath_price_uses_live_daily_close_not_stale_csv_price():
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
         assert signal_row["ATH_Price_Flag"] == True  # noqa: E712
-        # The displayed Current_Price column still shows the CSV value, unchanged.
-        assert signal_row["Current_Price"] == 80.0
+        # Round-3 fix: the displayed Current_Price is now the live daily close, not the
+        # stale CSV snapshot -- this is exactly what fixes the ICICIBANK-type incident
+        # (displayed price reading ~2.5-month-old data).
+        assert signal_row["Current_Price"] == 110.0
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
@@ -338,6 +340,88 @@ def test_ath_price_falls_back_to_monthly_only_when_daily_missing():
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
         assert signal_row["ATH_Price_Flag"] == True  # noqa: E712
+        # Round-3: displayed price falls back to the CSV snapshot only when there's no
+        # daily series at all to take a live close from.
+        assert signal_row["Current_Price"] == 100.0
+        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712 (CSV MA200=90, CSV price=100)
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+# ---------------------------------------------------------------------------
+# Fix 1 (round-3) -- live 200-DMA from the same daily series as the live price, so the
+# ATH-Price and Above-MA200 flags can never contradict each other for a stock at its high.
+# ---------------------------------------------------------------------------
+def test_ath_and_above_ma200_agree_for_a_stock_near_its_live_high():
+    # Reproduces the ICICIBANK-type incident at the unit level: a stock trading near its
+    # live high must show ATH_Price_Flag=True AND Above_MA200_Flag=True together -- by
+    # definition, a stock at/near an all-time high is above its own 200-day average. Before
+    # this fix, Above_MA200_Flag compared a live-ish signal against a stale CSV MA200 and
+    # could disagree.
+    symbol = "STOCKNEARHIGH"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    n = 400
+    # Steady climb from 100 to 300 over the full window -- the last close (300) is both the
+    # series max (ATH) and far above the rolling-200 mean of a rising series.
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=n, freq="D")
+    closes = [100.0 + i * (200.0 / (n - 1)) for i in range(n)]
+    DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
+    try:
+        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row["Current_Price"] = 50.0  # deliberately wrong/stale CSV price -- must be ignored
+        row["MA200"] = 500.0  # deliberately wrong/stale CSV MA200 (would force False if used)
+        universe = pd.DataFrame([row])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+        signal_row = out["signals"].set_index("Symbol").loc[symbol]
+
+        assert signal_row["ATH_Price_Flag"] == True  # noqa: E712
+        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712
+        # The stale/wrong CSV MA200 (500, which alone would force False) must not have been
+        # used -- the live rolling-200 mean of the climbing series is well below 300.
+        assert signal_row["Current_Price"] == pytest.approx(300.0)
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+def test_ma200_falls_back_to_csv_when_fewer_than_200_daily_rows():
+    # Fewer than 200 daily rows -- can't compute a live 200-DMA -- must fall back to the CSV
+    # MA200 rather than crash or silently treat every such stock as never above its exit.
+    symbol = "STOCKSHORTDAILY"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")  # < 200
+    closes = [90.0 + i * 0.1 for i in range(150)]
+    DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
+    try:
+        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        universe = pd.DataFrame([row])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+        signal_row = out["signals"].set_index("Symbol").loc[symbol]
+
+        # Live close (last of the 150 rows) is 104.9, CSV MA200 is 90 -> above.
+        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+def test_ma200_false_no_crash_when_both_live_and_csv_ma200_unavailable():
+    # < 200 daily rows (can't compute live MA200) AND the CSV MA200 is itself missing/NaN --
+    # must degrade to Above_MA200_Flag=False, never raise.
+    symbol = "STOCKNOMADATA"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")
+    closes = [90.0 + i * 0.1 for i in range(150)]
+    DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
+    try:
+        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row["MA200"] = None
+        universe = pd.DataFrame([row])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+        signal_row = out["signals"].set_index("Symbol").loc[symbol]
+
+        assert signal_row["Above_MA200_Flag"] == False  # noqa: E712
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
