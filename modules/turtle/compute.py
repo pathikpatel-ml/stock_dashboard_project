@@ -147,3 +147,30 @@ def filter_by_index(categories_str: Optional[str], index_name: str) -> bool:
     if index_name == "NIFTY 200":
         return bool(tags & {"NIFTY 50", "NIFTY 100", "NIFTY 200"})
     return index_name in tags
+
+
+def merge_live_prices(signals_df: pd.DataFrame, live_prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Overlay a fresher intraday price (from generate_turtle_live_prices.py's cache) onto
+    the daily batch's ``Current_Price`` column.
+
+    Only the displayed price is refreshed here -- ATH_Price_Flag, Above_MA200_Flag,
+    RS_vs_Sector/Benchmark, Outperformance_Flag, and Signal all stay exactly as the daily
+    batch computed them (they depend on 365-day trends that don't meaningfully change
+    between intraday refreshes; recomputing them would require the full per-symbol pipeline
+    this cache exists to avoid). A symbol missing from ``live_prices_df``, or with a NaN
+    ``Live_Price``, keeps whatever price the daily batch already produced.
+    """
+    if signals_df is None or signals_df.empty:
+        return signals_df
+    if live_prices_df is None or live_prices_df.empty or "Symbol" not in live_prices_df.columns:
+        return signals_df
+
+    price_map = dict(zip(
+        live_prices_df["Symbol"].astype(str).str.upper(),
+        pd.to_numeric(live_prices_df["Live_Price"], errors="coerce"),
+    ))
+
+    df = signals_df.copy()
+    live_values = df["Symbol"].astype(str).str.upper().map(price_map)
+    df["Current_Price"] = live_values.where(live_values.notna(), df["Current_Price"])
+    return df

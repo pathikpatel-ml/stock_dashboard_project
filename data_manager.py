@@ -27,6 +27,7 @@ BREAKOUT_POSITIONS_FILE = "breakout_positions.csv"
 # --- Turtle Strategy file configuration ---
 TURTLE_SIGNALS_FILENAME_TEMPLATE = "turtle_signals_{date_str}.csv"
 NSE_CATEGORIES_FILE = "nse_categories.csv"
+TURTLE_LIVE_PRICES_FILE = "turtle_live_prices.csv"
 
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
@@ -61,6 +62,7 @@ LOADED_BREAKOUT_SOURCE = None
 # --- Turtle Strategy cache state ---
 turtle_signals_df = pd.DataFrame()
 nse_categories_df = pd.DataFrame()
+turtle_live_prices_df = pd.DataFrame()
 LOADED_TURTLE_FILE_DATE = None
 LOADED_TURTLE_SOURCE = None
 
@@ -341,7 +343,7 @@ def load_turtle_data_on_startup():
     Reuses the same local -> GitHub-raw -> fallback resolution as the V20/Breakout loaders.
     No PSU filtering — Turtle is a general quant screen, unlike V20/Breakout's PSU exclusion.
     """
-    global turtle_signals_df, nse_categories_df
+    global turtle_signals_df, nse_categories_df, turtle_live_prices_df
     global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -361,9 +363,21 @@ def load_turtle_data_on_startup():
     else:
         nse_categories_df = pd.DataFrame()
 
+    # Not dated -- generate_turtle_live_prices.py overwrites this single rolling file
+    # several times a day, independent of the once-daily turtle_signals_<date>.csv.
+    live_prices_path = os.path.join(REPO_BASE_PATH, TURTLE_LIVE_PRICES_FILE)
+    if os.path.exists(live_prices_path):
+        try:
+            turtle_live_prices_df = pd.read_csv(live_prices_path)
+        except Exception:
+            turtle_live_prices_df = pd.DataFrame()
+    else:
+        turtle_live_prices_df = pd.DataFrame()
+
     print(
         f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "
-        f"{len(nse_categories_df)} category rows (source={LOADED_TURTLE_SOURCE})."
+        f"{len(nse_categories_df)} category rows, "
+        f"{len(turtle_live_prices_df)} live prices (source={LOADED_TURTLE_SOURCE})."
     )
 
 

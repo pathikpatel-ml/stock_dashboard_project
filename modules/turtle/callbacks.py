@@ -6,6 +6,7 @@ results table, plus a staleness banner. Read-only — nothing here places or mod
 """
 from datetime import datetime
 
+import pandas as pd
 from dash import Input, Output, dash_table, html
 
 import data_manager
@@ -65,6 +66,33 @@ def _staleness_banner(loaded_date):
     return None
 
 
+def _live_price_freshness_note(live_prices_df):
+    """generate_turtle_live_prices.py refreshes Current_Price several times a day,
+    independent of the once-daily ADD/HOLD/EXIT recompute -- surface when that last
+    happened so it isn't confused with the (once-daily) staleness banner above.
+    """
+    if live_prices_df is None or live_prices_df.empty or "Price_As_Of" not in live_prices_df.columns:
+        return None
+    try:
+        latest = pd.to_datetime(live_prices_df["Price_As_Of"], errors="coerce", utc=True).max()
+    except Exception:
+        return None
+    if pd.isna(latest):
+        return None
+    return html.Div(
+        f"💹 Prices refreshed intraday — last update {latest.strftime('%Y-%m-%d %H:%M UTC')} "
+        f"(ADD/HOLD/EXIT signals still recompute once daily).",
+        className="status-message", style={"backgroundColor": "#e7f3ff", "color": "#0c5488",
+                                           "border": "1px solid #b6e0fe", "margin": "8px 0",
+                                           "fontSize": "12px"},
+    )
+
+
+def _banners(loaded_date, live_prices_df):
+    parts = [b for b in (_staleness_banner(loaded_date), _live_price_freshness_note(live_prices_df)) if b]
+    return html.Div(parts) if parts else None
+
+
 def register_turtle_callbacks(app):
     """Register all Turtle Strategy callbacks on the Dash ``app``."""
 
@@ -83,9 +111,11 @@ def register_turtle_callbacks(app):
         if yesterday and "yesterday" in yesterday:
             df, _filename = data_manager.get_turtle_signals_by_offset(1)
             loaded_date = data_manager._extract_date_from_name(_filename or "", r"(\d{8})")
+            live_prices_df = None  # the intraday cache only ever reflects "today"
         else:
             df = data_manager.turtle_signals_df.copy()
             loaded_date = data_manager.LOADED_TURTLE_FILE_DATE
+            live_prices_df = data_manager.turtle_live_prices_df
 
         if df.empty:
             return (
@@ -94,8 +124,11 @@ def register_turtle_callbacks(app):
                     "Run generate_turtle_signals.py to populate turtle_signals_<date>.csv." if not yesterday
                     else "No prior-day turtle signals file was found.",
                 ),
-                _staleness_banner(loaded_date),
+                _banners(loaded_date, live_prices_df),
             )
+
+        if live_prices_df is not None and not live_prices_df.empty:
+            df = compute.merge_live_prices(df, live_prices_df)
 
         categories_df = data_manager.nse_categories_df
         if indices_value and indices_value != "All" and not categories_df.empty:
@@ -115,6 +148,6 @@ def register_turtle_callbacks(app):
             df = df[df["ATH_Price_Flag"] == True]  # noqa: E712 (explicit bool compare over a DataFrame column)
 
         if df.empty:
-            return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date)
+            return _empty_state("No stocks match the current filters."), _banners(loaded_date, live_prices_df)
 
-        return _table(df), _staleness_banner(loaded_date)
+        return _table(df), _banners(loaded_date, live_prices_df)

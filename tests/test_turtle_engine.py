@@ -183,3 +183,69 @@ def test_filter_by_index_nesting():
 def test_filter_by_index_missing_categories():
     assert tt.filter_by_index(np.nan, "NIFTY 50") is False
     assert tt.filter_by_index(None, "NIFTY 100") is False
+
+
+# ---------------------------------------------------------------------------
+# merge_live_prices -- intraday price overlay (leaves every other column untouched)
+# ---------------------------------------------------------------------------
+def _signals_df():
+    return pd.DataFrame([
+        {"Symbol": "RELIANCE", "Current_Price": 1300.0, "Signal": "EXIT", "ATH_Price_Flag": False},
+        {"Symbol": "TCS", "Current_Price": 3400.0, "Signal": "HOLD", "ATH_Price_Flag": True},
+        {"Symbol": "INFY", "Current_Price": 1500.0, "Signal": "ADD", "ATH_Price_Flag": True},
+    ])
+
+
+def test_merge_live_prices_overrides_matched_symbols():
+    live = pd.DataFrame([
+        {"Symbol": "RELIANCE", "Live_Price": 1435.4, "Price_As_Of": "2026-08-02T10:00:00+00:00"},
+        {"Symbol": "TCS", "Live_Price": 3500.0, "Price_As_Of": "2026-08-02T10:00:00+00:00"},
+    ])
+    result = tt.merge_live_prices(_signals_df(), live)
+    assert result.set_index("Symbol").loc["RELIANCE", "Current_Price"] == 1435.4
+    assert result.set_index("Symbol").loc["TCS", "Current_Price"] == 3500.0
+
+
+def test_merge_live_prices_keeps_original_for_unmatched_symbol():
+    live = pd.DataFrame([{"Symbol": "RELIANCE", "Live_Price": 1435.4, "Price_As_Of": "x"}])
+    result = tt.merge_live_prices(_signals_df(), live)
+    # INFY has no live-price entry -- keeps the daily batch's own Current_Price.
+    assert result.set_index("Symbol").loc["INFY", "Current_Price"] == 1500.0
+
+
+def test_merge_live_prices_keeps_original_when_live_price_is_nan():
+    live = pd.DataFrame([{"Symbol": "RELIANCE", "Live_Price": float("nan"), "Price_As_Of": "x"}])
+    result = tt.merge_live_prices(_signals_df(), live)
+    assert result.set_index("Symbol").loc["RELIANCE", "Current_Price"] == 1300.0
+
+
+def test_merge_live_prices_never_touches_other_columns():
+    live = pd.DataFrame([{"Symbol": "RELIANCE", "Live_Price": 1435.4, "Price_As_Of": "x"}])
+    result = tt.merge_live_prices(_signals_df(), live)
+    row = result.set_index("Symbol").loc["RELIANCE"]
+    assert row["Signal"] == "EXIT"
+    assert row["ATH_Price_Flag"] == False  # noqa: E712
+
+
+def test_merge_live_prices_empty_live_prices_returns_unchanged():
+    signals = _signals_df()
+    result = tt.merge_live_prices(signals, pd.DataFrame())
+    pd.testing.assert_frame_equal(result, signals)
+
+
+def test_merge_live_prices_none_live_prices_returns_unchanged():
+    signals = _signals_df()
+    result = tt.merge_live_prices(signals, None)
+    pd.testing.assert_frame_equal(result, signals)
+
+
+def test_merge_live_prices_empty_signals_returns_unchanged():
+    empty = pd.DataFrame(columns=["Symbol", "Current_Price"])
+    result = tt.merge_live_prices(empty, pd.DataFrame([{"Symbol": "X", "Live_Price": 1.0, "Price_As_Of": "x"}]))
+    assert result.empty
+
+
+def test_merge_live_prices_missing_symbol_column_in_live_prices_is_safe():
+    live = pd.DataFrame([{"NotSymbol": "RELIANCE", "Live_Price": 1435.4}])
+    result = tt.merge_live_prices(_signals_df(), live)
+    assert result.set_index("Symbol").loc["RELIANCE", "Current_Price"] == 1300.0

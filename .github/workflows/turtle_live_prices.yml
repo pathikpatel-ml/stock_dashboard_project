@@ -1,0 +1,42 @@
+name: Refresh Turtle Live Prices (Intraday)
+
+on:
+  schedule:
+    # 10:30, 12:30, 15:30 IST weekdays -- a few touches across market hours (9:15-15:30 IST).
+    # Separate from turtle_signals.yml's once-daily full ADD/HOLD/EXIT recompute after close.
+    - cron: '0 5,7,10 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  refresh-turtle-live-prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with: { fetch-depth: 0 }
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance requests
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+    - name: Refresh live prices
+      run: python generate_turtle_live_prices.py
+    - name: Commit and push live prices
+      run: |
+        git add turtle_live_prices.csv
+        if git diff --cached --quiet; then
+          echo "No price changes to commit."
+        else
+          git commit -m "Refresh turtle live prices $(date -u +%Y%m%d_%H%M)"
+          git pull --rebase origin main
+          git push
+        fi
