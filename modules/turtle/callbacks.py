@@ -108,6 +108,16 @@ def register_turtle_callbacks(app):
         prevent_initial_call=False,
     )
     def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, _n_intervals):
+        # Re-sync from disk/GitHub on every render, not just at process boot. Without this,
+        # a long-lived running instance would only ever see whatever turtle_signals_<date>.csv
+        # / turtle_live_prices.csv / nse_categories.csv existed when the process last started --
+        # daily/intraday cron updates would need a full redeploy to ever show up. This reuses
+        # the exact same local -> GitHub-raw fallback (data_manager._read_csv_with_candidates)
+        # the startup loader already uses, so a plain HTTPS fetch of a small CSV is all this
+        # costs; it's the same mechanism V20/Breakout data loading already has, just invoked
+        # repeatedly instead of once.
+        data_manager.load_turtle_data_on_startup()
+
         if yesterday and "yesterday" in yesterday:
             df, _filename = data_manager.get_turtle_signals_by_offset(1)
             loaded_date = data_manager._extract_date_from_name(_filename or "", r"(\d{8})")
