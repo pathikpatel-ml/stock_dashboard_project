@@ -4,6 +4,12 @@
    1. CSS Custom Properties
    ===================================================================== */
 :root {
+  /* Tell the browser this page already handles dark mode itself, so Chrome/Edge/Android's
+     "force dark mode for web contents" heuristic doesn't try to auto-invert our own already-
+     dark-styled elements on top of it -- a common real-world cause of a dark-themed control
+     rendering as white-background-white-text (double inversion) on mobile browsers. */
+  color-scheme: dark;
+
   /* Backgrounds */
   --bg-base:      #0c0c10;
   --bg-surface:   #14141a;
@@ -315,6 +321,25 @@ h1.main-title,
 
 /* Dash 2.x VirtualizedSelect */
 .dash-dropdown .Select-control { background-color: var(--bg-surface) !important; }
+
+/* Defensive reinforcement: guarantee readable text on every element inside the control and
+   the open menu, not just the specific classes above -- covers any nested element (future
+   react-select DOM changes, browser/OS forced-dark-mode double-inversion, etc.) that would
+   otherwise inherit or default to an unreadable color against our own dark background. */
+.dash-dropdown .Select-control,
+.dash-dropdown .Select-control * {
+  color: var(--text-primary) !important;
+}
+.dash-dropdown .Select-menu-outer,
+.dash-dropdown .Select-menu-outer * {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+}
+.dash-dropdown .Select-option.is-selected,
+.dash-dropdown .Select-option.is-selected * {
+  background-color: var(--accent) !important;
+  color: #000 !important;
+}
 
 /* =====================================================================
    10. Dash Tabs (dcc.Tabs)

@@ -27,8 +27,8 @@ from . import constants as C
 
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Sector", "Industry", "Current_Price",
-    "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA200_Flag",
-    "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag", "ATH_Sales", "Signal",
+    "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA212_Flag",
+    "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag", "ATH_Sales", "ATH_Sales_Flag", "Signal",
 ]
 
 
@@ -80,19 +80,31 @@ def _parse_ttm_profit(latest_quarter_profit, last_3q_profits_str) -> Optional[fl
 
 
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
-    """``stock_fundamentals_yearly.csv`` (ticker, year, eps, sales, ...) -> {ticker: {max_eps, max_sales}}."""
+    """``stock_fundamentals_yearly.csv`` (ticker, year, eps, sales, ...) -> per-ticker lookup:
+    ``max_eps`` / ``max_sales`` (all-time highs, for ATH_Profit_Flag / the displayed ATH_Sales
+    column), plus ``latest_sales`` and ``max_sales_excl_latest`` (for ATH_Sales_Flag — see
+    ``compute.ath_sales_flag`` for why this is a same-year comparison, unlike profit's TTM one).
+    """
     if fundamentals_df is None or fundamentals_df.empty:
         return {}
     df = fundamentals_df.copy()
     df["ticker"] = df["ticker"].astype(str).str.strip().str.upper()
-    grouped = df.groupby("ticker").agg(
-        max_eps=("eps", "max"),
-        max_sales=("sales", "max"),
-    )
-    return {
-        ticker: {"max_eps": row["max_eps"], "max_sales": row["max_sales"]}
-        for ticker, row in grouped.iterrows()
-    }
+
+    result: Dict[str, Dict[str, float]] = {}
+    for ticker, g in df.groupby("ticker"):
+        g = g.dropna(subset=["year"]).sort_values("year")
+        max_eps = g["eps"].max()
+        max_sales = g["sales"].max()
+        latest_sales = g["sales"].iloc[-1] if not g.empty else None
+        prior_sales = g["sales"].iloc[:-1]
+        max_sales_excl_latest = prior_sales.max() if not prior_sales.empty else None
+        result[ticker] = {
+            "max_eps": max_eps,
+            "max_sales": max_sales,
+            "latest_sales": latest_sales,
+            "max_sales_excl_latest": max_sales_excl_latest,
+        }
+    return result
 
 
 def _stock_price_history(symbol: str) -> Dict[str, Optional[object]]:
@@ -156,17 +168,19 @@ def run_pipeline(
         stock_rs = compute.relative_strength(daily_close) if daily_close is not None else None
 
         csv_current_price = urow.get("Current_Price")
-        csv_ma200 = urow.get("MA200")
+        csv_ma200 = urow.get("MA200")  # only MA the weekly CSV has -- emergency fallback only
 
-        # Round-3 fix: price and its 200-DMA must come from the SAME fresh series, or a
-        # stock at/near its live ATH can show "Above_MA200 = false" purely because the
+        # Round-3 fix: price and its exit-price average must come from the SAME fresh series,
+        # or a stock at/near its live ATH can show "Above_MA212 = false" purely because the
         # weekly-cron CSV (up to ~2.5 months stale in the incident that prompted this) is
         # comparing a live-ish number against a stale one. So: live daily close for the
         # displayed/used price (feeds Current_Price, ATH-price, ATH-profit's share-count
-        # derivation, and above_exit_flag alike), and a live 200-day SMA computed from that
-        # same daily series for above_exit_flag. Each falls back independently to the CSV
-        # snapshot only when the live source is unavailable (no daily data at all for
-        # price; fewer than 200 daily rows for the 200-DMA specifically).
+        # derivation, and above_exit_flag alike), and a live EXIT_MA_PERIOD-day SMA (212,
+        # Turtle's actual methodology) computed from that same daily series for
+        # above_exit_flag. Each falls back independently to the CSV snapshot only when the
+        # live source is unavailable (no daily data at all for price; fewer than
+        # EXIT_MA_PERIOD daily rows for the SMA specifically -- the CSV only has MA200, close
+        # enough for that rare fallback case).
         if daily_close is not None:
             live_price = float(daily_close.iloc[-1])
             historical_max_close = max(float(daily_close.max()), monthly_max_close)
@@ -174,12 +188,13 @@ def run_pipeline(
             live_price = csv_current_price  # csv-fallback: no daily data at all
             historical_max_close = monthly_max_close
 
-        if daily_close is not None and len(daily_close) >= 200:
-            live_ma200 = float(daily_close.rolling(200).mean().iloc[-1])  # MA200_source=live
+        if daily_close is not None and len(daily_close) >= C.EXIT_MA_PERIOD:
+            live_exit_ma = float(daily_close.rolling(C.EXIT_MA_PERIOD).mean().iloc[-1])  # source=live
         else:
-            live_ma200 = csv_ma200  # MA200_source=csv-fallback: <200 daily rows
+            live_exit_ma = csv_ma200  # source=csv-fallback (MA200): <212 daily rows
 
         sector = urow.get("Sector")
+        fundamentals = fundamentals_lookup.get(symbol, {})
 
         per_symbol.append({
             "Symbol": symbol,
@@ -190,15 +205,17 @@ def run_pipeline(
             # displayed and fed into every price-based flag, so nothing compares a fresh
             # number against a stale one.
             "Current_Price": live_price,
-            "MA200": live_ma200,
+            "ExitMA": live_exit_ma,
             "Market_Cap": urow.get("Market Cap"),
             "TTM_Net_Profit": _parse_ttm_profit(
                 urow.get("Latest Quarter Profit (Cr)"), urow.get("Last 3Q Profits (Cr)")
             ),
             "historical_max_close": historical_max_close,
             "stock_rs": stock_rs,
-            "max_eps": fundamentals_lookup.get(symbol, {}).get("max_eps"),
-            "max_sales": fundamentals_lookup.get(symbol, {}).get("max_sales"),
+            "max_eps": fundamentals.get("max_eps"),
+            "max_sales": fundamentals.get("max_sales"),
+            "latest_sales": fundamentals.get("latest_sales"),
+            "max_sales_excl_latest": fundamentals.get("max_sales_excl_latest"),
         })
 
         if verbose and i % 100 == 0:
@@ -233,9 +250,13 @@ def run_pipeline(
         ath_profit = compute.ath_profit_flag(
             row["TTM_Net_Profit"], row["Market_Cap"], row["Current_Price"], row["max_eps"]
         )
-        above_exit = compute.above_exit_flag(row["Current_Price"], row["MA200"])
+        above_exit = compute.above_exit_flag(row["Current_Price"], row["ExitMA"])
         outperformance = compute.outperformance_flag(row["stock_rs"], sector_rs, benchmark_rs)
         signal = compute.classify(ath_price, ath_profit, above_exit, outperformance)
+
+        # Informational only -- NOT part of classify() (the locked 3-signal + exit-price
+        # methodology is unchanged); mirrors the ATH_Profit_Flag/TTM_Net_Profit display pair.
+        ath_sales = compute.ath_sales_flag(row["latest_sales"], row["max_sales_excl_latest"])
 
         rs_vs_sector = (
             row["stock_rs"] - sector_rs if row["stock_rs"] is not None and sector_rs is not None else None
@@ -251,11 +272,12 @@ def run_pipeline(
             "ATH_Price_Flag": ath_price,
             "TTM_Net_Profit": row["TTM_Net_Profit"],
             "ATH_Profit_Flag": ath_profit,
-            "Above_MA200_Flag": above_exit,
+            "Above_MA212_Flag": above_exit,
             "RS_vs_Sector": round(rs_vs_sector, 2) if rs_vs_sector is not None else None,
             "RS_vs_Benchmark": round(rs_vs_benchmark, 2) if rs_vs_benchmark is not None else None,
             "Outperformance_Flag": outperformance,
             "ATH_Sales": row["max_sales"],
+            "ATH_Sales_Flag": ath_sales,
             "Signal": signal,
         })
 

@@ -55,13 +55,35 @@ def ath_profit_flag(
     return current_eps >= historical_max_eps
 
 
-def above_exit_flag(current_price: Optional[float], ma200: Optional[float]) -> bool:
-    """True if Current_Price > MA200 (reused exit-price proxy, not a new 212-day SMA)."""
-    if current_price is None or ma200 is None:
+def ath_sales_flag(
+    latest_annual_sales: Optional[float],
+    historical_max_sales_excl_latest: Optional[float],
+) -> bool:
+    """True if the most recent fiscal year's sales set a new all-time high (i.e. beat every
+    prior year on record).
+
+    There's no TTM/quarterly sales figure anywhere in the data (the same gap that got TTM
+    Net Sales dropped from v1 entirely) — only the annual series in
+    ``stock_fundamentals_yearly.csv``. So unlike ATH-Profit (which has a real TTM figure to
+    compare), this is a same-frequency comparison: latest annual sales vs. the max of every
+    *prior* year for that ticker (excluding the latest year itself, or it would trivially
+    match whenever the latest year happens to also be the record year).
+    """
+    if latest_annual_sales is None or historical_max_sales_excl_latest is None:
         return False
-    if pd.isna(current_price) or pd.isna(ma200):
+    if pd.isna(latest_annual_sales) or pd.isna(historical_max_sales_excl_latest):
         return False
-    return current_price > ma200
+    return latest_annual_sales >= historical_max_sales_excl_latest
+
+
+def above_exit_flag(current_price: Optional[float], exit_ma: Optional[float]) -> bool:
+    """True if Current_Price is above the exit-price proxy moving average
+    (``constants.EXIT_MA_PERIOD``-day SMA; CSV MA200 used only as an emergency fallback)."""
+    if current_price is None or exit_ma is None:
+        return False
+    if pd.isna(current_price) or pd.isna(exit_ma):
+        return False
+    return current_price > exit_ma
 
 
 def relative_strength(
@@ -114,7 +136,7 @@ def classify(ath_price: bool, ath_profit: bool, above_exit: bool, outperformance
     """3-box classifier (plan §1, implemented exactly):
 
     ADD  — meets ALL 3: ATH Price + ATH Profit + Outperformance.
-    HOLD — meets ANY 2 of: ATH Profit, Above Exit Price (MA200), Outperformance.
+    HOLD — meets ANY 2 of: ATH Profit, Above Exit Price (MA212 proxy), Outperformance.
            (ATH Price is deliberately NOT part of this 2-of-3 set.)
     EXIT — meets NONE or ANY 1 of the HOLD set.
     """
@@ -153,7 +175,7 @@ def merge_live_prices(signals_df: pd.DataFrame, live_prices_df: pd.DataFrame) ->
     """Overlay a fresher intraday price (from generate_turtle_live_prices.py's cache) onto
     the daily batch's ``Current_Price`` column.
 
-    Only the displayed price is refreshed here -- ATH_Price_Flag, Above_MA200_Flag,
+    Only the displayed price is refreshed here -- ATH_Price_Flag, Above_MA212_Flag,
     RS_vs_Sector/Benchmark, Outperformance_Flag, and Signal all stay exactly as the daily
     batch computed them (they depend on 365-day trends that don't meaningfully change
     between intraday refreshes; recomputing them would require the full per-symbol pipeline

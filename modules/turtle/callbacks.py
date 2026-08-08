@@ -14,9 +14,68 @@ from . import compute
 
 _DISPLAY_COLUMNS = [
     "Symbol", "Sector", "Industry", "Current_Price", "ATH_Price_Flag", "TTM_Net_Profit",
-    "ATH_Profit_Flag", "ATH_Sales", "Above_MA200_Flag", "RS_vs_Sector", "RS_vs_Benchmark",
-    "Signal",
+    "ATH_Profit_Flag", "ATH_Sales", "ATH_Sales_Flag", "Above_MA212_Flag", "RS_vs_Sector",
+    "RS_vs_Benchmark", "Signal",
 ]
+
+# Shown on hover over each column header (docs/TURTLE_STRATEGY_PLAN.md) so the table is
+# self-explanatory without needing to cross-reference the plan doc or ask what a column means.
+_COLUMN_TOOLTIPS = {
+    "Symbol": "NSE trading symbol.",
+    "Sector": "Sector classification (Yahoo Finance), e.g. Financial Services, Technology.",
+    "Industry": "More specific industry classification within the sector.",
+    "Current_Price": (
+        "Live daily close price, refreshed intraday (~every 2-3h on market days). "
+        "Falls back to the weekly-cron snapshot only if no live data is available."
+    ),
+    "ATH_Price_Flag": (
+        "True if the price is at or within 5% of the stock's all-time-high close.\n\n"
+        "`current_price ≥ historical_max_close × 0.95`"
+    ),
+    "TTM_Net_Profit": (
+        "Trailing-twelve-month net profit (₹ Cr).\n\n"
+        "`Latest Quarter Profit + sum(prior 3 quarters' profits)`"
+    ),
+    "ATH_Profit_Flag": (
+        "True if current EPS (derived from TTM profit) is at/above the stock's best-ever "
+        "historical EPS — the ATH-profit signal, proxied via EPS (no net-profit history is "
+        "available).\n\n"
+        "`shares = Market_Cap ÷ Current_Price`\n"
+        "`current_EPS = (TTM_Net_Profit × 1,00,00,000) ÷ shares`\n"
+        "flag = `current_EPS ≥ historical_max_EPS`"
+    ),
+    "ATH_Sales": "Highest annual sales (₹ Cr) on record, any year. Purely informational.",
+    "ATH_Sales_Flag": (
+        "True if the most recent fiscal year's sales set a new all-time high (beat every "
+        "prior year on record). There's no TTM/quarterly sales figure anywhere in the data "
+        "(same reason TTM Net Sales was dropped entirely), so unlike ATH-Profit this compares "
+        "annual to annual, not TTM to annual. Informational only — not used in Signal.\n\n"
+        "`latest_fiscal_year_sales ≥ max(all prior years' sales)`"
+    ),
+    "Above_MA212_Flag": (
+        "True if price is above the live 212-day moving average of daily closes "
+        "(Turtle's exit-price proxy). Falls back to the weekly-cron CSV's MA200 if fewer "
+        "than 212 days of live price history exist (no MA212 column exists in that file).\n\n"
+        "`current_price > MA212`"
+    ),
+    "RS_vs_Sector": (
+        "Stock's 365-day return minus its sector's *leave-one-out* average 365-day return "
+        "(every other stock in the same sector, excluding itself).\n\n"
+        "`stock_RS − sector_RS`   (positive = beating its sector)"
+    ),
+    "RS_vs_Benchmark": (
+        "Stock's 365-day return minus the benchmark's 365-day return — Nifty 500, standing "
+        "in for BSE 500 (not on yfinance).\n\n"
+        "`stock_RS − benchmark_RS`   (positive = beating the market)"
+    ),
+    "Signal": (
+        "**ADD** — ATH Price + ATH Profit + Outperformance all true.\n\n"
+        "**HOLD** — at least 2 of {ATH Profit, Above MA212, Outperformance} true.\n\n"
+        "**EXIT** — everything else.\n\n"
+        "Outperformance = RS vs Sector > 0 **and** RS vs Benchmark > 0 (must beat both). "
+        "ATH Sales is not part of this — display-only."
+    ),
+}
 
 
 def _empty_state(message: str, hint: str = "") -> html.Div:
@@ -33,6 +92,13 @@ def _table(df):
         id="tt-signals-table",
         columns=[{"name": c.replace("_", " "), "id": c} for c in cols],
         data=df[cols].to_dict("records"),
+        tooltip_header={
+            c: {"value": _COLUMN_TOOLTIPS[c], "type": "markdown"}
+            for c in cols if c in _COLUMN_TOOLTIPS
+        },
+        tooltip_delay=0,
+        tooltip_duration=None,
+        css=[{"selector": ".dash-table-tooltip", "rule": "max-width: 320px; white-space: normal;"}],
         page_size=20,
         sort_action="native",
         filter_action="native",

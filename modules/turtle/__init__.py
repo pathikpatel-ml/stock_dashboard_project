@@ -7,7 +7,8 @@ exit price:
   * ATH Profit      — current (TTM-derived) EPS at/above its historical maximum EPS.
   * Outperformance  — 365-day return beats both the stock's sector basket and the
                        benchmark (Nifty 500 proxy for BSE 500).
-  * Above Exit      — Current_Price > MA200 (reused, not a new 212-day SMA).
+  * Above Exit      — Current_Price > live 212-day SMA (falls back to the weekly CSV's
+                       MA200 only when fewer than 212 days of live daily history exist).
 
 Module map (mirrors ``modules/breakout/``):
   * ``constants.py`` — every threshold, named.

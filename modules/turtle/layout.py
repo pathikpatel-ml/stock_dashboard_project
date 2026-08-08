@@ -30,8 +30,8 @@ def create_turtle_layout():
         html.H3("🐢 Turtle Strategy — ADD / HOLD / EXIT"),
         html.P(
             "Turtle Wealth's Quant Process: ATH price + ATH profit (EPS-ATH proxy) + "
-            "365-day outperformance vs sector and BSE 500 (Nifty 500 proxy), with MA200 as "
-            "the exit-price proxy.",
+            "365-day outperformance vs sector and BSE 500 (Nifty 500 proxy), with a "
+            "212-day moving average as the exit-price proxy.",
             className="module-help",
         ),
         html.Div(id="tt-staleness-banner"),

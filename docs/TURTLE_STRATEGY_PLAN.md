@@ -133,8 +133,15 @@ Sales is computable now).
 2. **Benchmark** → **BSE 500** (Turtle original) for the outperformance test. Universe
    *filters* still use Nifty membership; the RS benchmark is BSE 500. See caveat below.
 3. **Cadence** → **Daily** after market close (weekday), ≈16:00 IST.
-4. **212 SMA** → **reuse existing MA200** as the exit-price proxy (not building 212).
-5. **TTM Net Sales** → **dropped** from v1 (no source). Column omitted.
+4. ~~**212 SMA** → **reuse existing MA200** as the exit-price proxy (not building 212).~~
+   **SUPERSEDED 2026-08-08**: switched to a live 212-day SMA (computed from the same daily
+   close series already fetched for RS/ATH-price), matching Turtle's actual methodology.
+   The weekly CSV's MA200 is kept only as an emergency fallback for symbols with fewer than
+   212 days of live daily history (no MA212 column exists anywhere to fall back to).
+5. **TTM Net Sales** → **dropped** from v1 (no source). Column omitted. An **ATH_Sales_Flag**
+   was added 2026-08-08 as a display-only signal (not part of Signal/classify()): latest
+   fiscal year's annual sales vs. the max of all prior years — an annual-to-annual comparison,
+   not TTM-to-annual, for the same reason TTM sales itself was dropped.
 6. **Nifty 100/200 membership** → **in scope** — extend the categories scrape so the
    Indices filter works beyond Nifty 50.
 

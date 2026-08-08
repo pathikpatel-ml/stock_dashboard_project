@@ -16,6 +16,14 @@ ATH_PRICE_THRESHOLD_PCT = 5.0  # within 5% of the historical max close counts as
 RS_WINDOW_DAYS = 365  # close-to-close return window for stock / sector / benchmark
 
 # ---------------------------------------------------------------------------
+# Exit price (plan §1). SUPERSEDES the original LOCKED decision #4 ("reuse MA200, do not
+# build a 212-day SMA") — Turtle's actual methodology uses a 212-day SMA; explicitly
+# requested to switch to it. The weekly-cron CSV only ever has MA200 (no MA212 column), so
+# it's kept as the fallback for the rare case of <212 days of live daily history.
+# ---------------------------------------------------------------------------
+EXIT_MA_PERIOD = 212
+
+# ---------------------------------------------------------------------------
 # Benchmark — LOCKED decision #2: BSE 500 proxied by Nifty 500 (^CRSLDX not on yfinance
 # as BSE 500 itself; ^CRSLDX is the closest large+mid+small-cap equivalent).
 # ---------------------------------------------------------------------------

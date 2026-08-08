@@ -96,15 +96,38 @@ def test_ath_profit_flag_guards_zero_and_missing():
 
 
 # ---------------------------------------------------------------------------
+# ath_sales_flag -- latest fiscal year's sales vs. max of all PRIOR years (annual-to-annual;
+# no TTM sales source exists, unlike profit's TTM-vs-historical comparison).
+# ---------------------------------------------------------------------------
+def test_ath_sales_flag_new_record():
+    assert tt.ath_sales_flag(latest_annual_sales=150, historical_max_sales_excl_latest=100) is True
+
+
+def test_ath_sales_flag_equal_counts_as_record():
+    assert tt.ath_sales_flag(100, 100) is True
+
+
+def test_ath_sales_flag_below_prior_record():
+    assert tt.ath_sales_flag(90, 100) is False
+
+
+def test_ath_sales_flag_missing_data_is_safe():
+    assert tt.ath_sales_flag(None, 100) is False
+    assert tt.ath_sales_flag(100, None) is False
+    assert tt.ath_sales_flag(np.nan, 100) is False
+    assert tt.ath_sales_flag(100, np.nan) is False
+
+
+# ---------------------------------------------------------------------------
 # above_exit_flag
 # ---------------------------------------------------------------------------
 def test_above_exit_flag_both_directions():
-    assert tt.above_exit_flag(current_price=110, ma200=100) is True
-    assert tt.above_exit_flag(current_price=90, ma200=100) is False
-    assert tt.above_exit_flag(current_price=100, ma200=100) is False  # strictly above required
+    assert tt.above_exit_flag(current_price=110, exit_ma=100) is True
+    assert tt.above_exit_flag(current_price=90, exit_ma=100) is False
+    assert tt.above_exit_flag(current_price=100, exit_ma=100) is False  # strictly above required
 
 
-def test_above_exit_flag_missing_ma200():
+def test_above_exit_flag_missing_exit_ma():
     assert tt.above_exit_flag(110, None) is False
     assert tt.above_exit_flag(110, np.nan) is False
 

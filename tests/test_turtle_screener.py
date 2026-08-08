@@ -167,7 +167,7 @@ def test_weak_alpha_stock_is_exit(pipeline_result):
 def test_beta_hold_case_ath_profit_false_but_two_others_true(pipeline_result):
     row = pipeline_result["signals"].set_index("Symbol").loc["STOCKC"]
     assert row["ATH_Profit_Flag"] == False  # noqa: E712
-    assert row["Above_MA200_Flag"] == True  # noqa: E712
+    assert row["Above_MA212_Flag"] == True  # noqa: E712
     assert row["Outperformance_Flag"] == True  # noqa: E712
     assert row["Signal"] == "HOLD"
 
@@ -343,27 +343,29 @@ def test_ath_price_falls_back_to_monthly_only_when_daily_missing():
         # Round-3: displayed price falls back to the CSV snapshot only when there's no
         # daily series at all to take a live close from.
         assert signal_row["Current_Price"] == 100.0
-        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712 (CSV MA200=90, CSV price=100)
+        assert signal_row["Above_MA212_Flag"] == True  # noqa: E712 (CSV MA200=90, CSV price=100)
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
 
 
 # ---------------------------------------------------------------------------
-# Fix 1 (round-3) -- live 200-DMA from the same daily series as the live price, so the
-# ATH-Price and Above-MA200 flags can never contradict each other for a stock at its high.
+# Fix 1 (round-3) -- live 212-DMA from the same daily series as the live price, so the
+# ATH-Price and Above-MA212 flags can never contradict each other for a stock at its high.
+# (Exit-price period switched from 200 to 212 -- Turtle's actual methodology -- afterward;
+# these tests were updated in place rather than left asserting the old 200-day threshold.)
 # ---------------------------------------------------------------------------
-def test_ath_and_above_ma200_agree_for_a_stock_near_its_live_high():
+def test_ath_and_above_ma212_agree_for_a_stock_near_its_live_high():
     # Reproduces the ICICIBANK-type incident at the unit level: a stock trading near its
-    # live high must show ATH_Price_Flag=True AND Above_MA200_Flag=True together -- by
-    # definition, a stock at/near an all-time high is above its own 200-day average. Before
-    # this fix, Above_MA200_Flag compared a live-ish signal against a stale CSV MA200 and
+    # live high must show ATH_Price_Flag=True AND Above_MA212_Flag=True together -- by
+    # definition, a stock at/near an all-time high is above its own 212-day average. Before
+    # this fix, Above_MA212_Flag compared a live-ish signal against a stale CSV MA200 and
     # could disagree.
     symbol = "STOCKNEARHIGH"
     MONTHLY[symbol] = _monthly([60, 80, 100])
     n = 400
     # Steady climb from 100 to 300 over the full window -- the last close (300) is both the
-    # series max (ATH) and far above the rolling-200 mean of a rising series.
+    # series max (ATH) and far above the rolling-212 mean of a rising series.
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=n, freq="D")
     closes = [100.0 + i * (200.0 / (n - 1)) for i in range(n)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
@@ -376,21 +378,21 @@ def test_ath_and_above_ma200_agree_for_a_stock_near_its_live_high():
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
         assert signal_row["ATH_Price_Flag"] == True  # noqa: E712
-        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712
+        assert signal_row["Above_MA212_Flag"] == True  # noqa: E712
         # The stale/wrong CSV MA200 (500, which alone would force False) must not have been
-        # used -- the live rolling-200 mean of the climbing series is well below 300.
+        # used -- the live rolling-212 mean of the climbing series is well below 300.
         assert signal_row["Current_Price"] == pytest.approx(300.0)
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
 
 
-def test_ma200_falls_back_to_csv_when_fewer_than_200_daily_rows():
-    # Fewer than 200 daily rows -- can't compute a live 200-DMA -- must fall back to the CSV
+def test_ma212_falls_back_to_csv_ma200_when_fewer_than_212_daily_rows():
+    # Fewer than 212 daily rows -- can't compute a live 212-DMA -- must fall back to the CSV
     # MA200 rather than crash or silently treat every such stock as never above its exit.
     symbol = "STOCKSHORTDAILY"
     MONTHLY[symbol] = _monthly([60, 80, 100])
-    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")  # < 200
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")  # < 212
     closes = [90.0 + i * 0.1 for i in range(150)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
@@ -400,15 +402,40 @@ def test_ma200_falls_back_to_csv_when_fewer_than_200_daily_rows():
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
         # Live close (last of the 150 rows) is 104.9, CSV MA200 is 90 -> above.
-        assert signal_row["Above_MA200_Flag"] == True  # noqa: E712
+        assert signal_row["Above_MA212_Flag"] == True  # noqa: E712
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
 
 
-def test_ma200_false_no_crash_when_both_live_and_csv_ma200_unavailable():
-    # < 200 daily rows (can't compute live MA200) AND the CSV MA200 is itself missing/NaN --
-    # must degrade to Above_MA200_Flag=False, never raise.
+def test_ma212_boundary_between_200_and_212_rows_still_falls_back():
+    # 205 daily rows: enough for the OLD 200-day threshold but still short of the current
+    # 212-day one -- guards against a silent regression back to comparing against 200.
+    symbol = "STOCKBOUNDARY"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=205, freq="D")
+    closes = [90.0 + i * 0.1 for i in range(205)]
+    DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
+    try:
+        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=1_000_000)
+        universe = pd.DataFrame([row])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+        signal_row = out["signals"].set_index("Symbol").loc[symbol]
+
+        # If the code still used a 200-row threshold, it would compute a live rolling-212
+        # mean anyway (rolling() doesn't require a full window by default -- min_periods
+        # defaults to the window size, so this only proves the *guard*, not rolling()
+        # itself). The real proof is the fallback firing: with 205 rows (< 212) the CSV's
+        # absurd MA200 of 1,000,000 must be used, forcing Above_MA212_Flag False.
+        assert signal_row["Above_MA212_Flag"] == False  # noqa: E712
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
+    # < 212 daily rows (can't compute live MA212) AND the CSV MA200 is itself missing/NaN --
+    # must degrade to Above_MA212_Flag=False, never raise.
     symbol = "STOCKNOMADATA"
     MONTHLY[symbol] = _monthly([60, 80, 100])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")
@@ -421,7 +448,59 @@ def test_ma200_false_no_crash_when_both_live_and_csv_ma200_unavailable():
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
-        assert signal_row["Above_MA200_Flag"] == False  # noqa: E712
+        assert signal_row["Above_MA212_Flag"] == False  # noqa: E712
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
+
+
+# ---------------------------------------------------------------------------
+# ATH_Sales_Flag -- latest fiscal year's sales vs. the max of all prior years (annual-to-
+# annual, since there's no TTM sales source -- see compute.ath_sales_flag's docstring).
+# ---------------------------------------------------------------------------
+def test_ath_sales_flag_true_when_latest_year_is_a_new_record():
+    symbol = "STOCKSALESUP"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    DAILY[symbol] = _daily(20, 200)
+    fundamentals = pd.DataFrame([
+        {"ticker": symbol, "year": 2023, "eps": 5, "sales": 100},
+        {"ticker": symbol, "year": 2024, "eps": 5, "sales": 150},  # new record
+    ])
+    try:
+        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        universe = pd.DataFrame([row])
+        out = sc.run_pipeline(universe, fundamentals, BENCHMARK_RS, verbose=False)
+        signal_row = out["signals"].set_index("Symbol").loc[symbol]
+
+        assert signal_row["ATH_Sales_Flag"] == True  # noqa: E712
+        assert signal_row["ATH_Sales"] == 150  # the raw ATH_Sales column is unaffected
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+def test_ath_sales_flag_false_when_latest_year_below_prior_record(pipeline_result):
+    # STOCKA's fundamentals (shared fixture): 2023 sales=100, 2024 sales=90 -- the latest
+    # year is below the prior record, so no new all-time-high sales this year.
+    row = pipeline_result["signals"].set_index("Symbol").loc["STOCKA"]
+    assert row["ATH_Sales_Flag"] == False  # noqa: E712
+    assert row["ATH_Sales"] == 100  # the all-time max (2023) is still shown
+
+
+def test_ath_sales_flag_false_with_only_one_year_of_data(pipeline_result):
+    # STOCKB has a single fundamentals year -- no prior year to compare the latest one
+    # against, so the flag safely defaults to False rather than guessing.
+    row = pipeline_result["signals"].set_index("Symbol").loc["STOCKB"]
+    assert row["ATH_Sales_Flag"] == False  # noqa: E712
+
+
+def test_build_fundamentals_lookup_latest_and_prior_max_sales():
+    df = pd.DataFrame([
+        {"ticker": "X", "year": 2022, "eps": 1, "sales": 50},
+        {"ticker": "X", "year": 2023, "eps": 1, "sales": 100},
+        {"ticker": "X", "year": 2024, "eps": 1, "sales": 80},
+    ])
+    lookup = sc.build_fundamentals_lookup(df)
+    assert lookup["X"]["latest_sales"] == 80
+    assert lookup["X"]["max_sales_excl_latest"] == 100
+    assert lookup["X"]["max_sales"] == 100  # all-time max includes every year
