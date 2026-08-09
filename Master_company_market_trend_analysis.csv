@@ -1,231 +1,229 @@
 Symbol,Company Name,Sector,Industry,Market Cap,Net Profit (Cr),ROCE (%),ROE (%),Debt to Equity,Latest Quarter Profit (Cr),Last 3Q Profits (Cr),Public Holding (%),Is Bank/Finance,Is PSU,Screening Date
-HDFCBANK,HDFC Bank Limited,Financial Services,Banks - Regional,11525267914752,70479.34,6.92,14.0,0.8718,16257.91,"15393.46, 17656.61",16.27,True,False,2026-08-02
-ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,10296522440704,54207.7,6.9,15.8,0.3721,15440.06,"14755.06, 12537.98, 13357.06",23.68,True,False,2026-08-02
-TCS,Tata Consultancy Services Limited,Technology,Information Technology Services,8558948122624,49210.0,76.7,65.2,0.1109,13349.0,"13718.0, 10657.0, 12760.0",5.69,False,False,2026-08-02
-BAJFINANCE,Bajaj Finance Limited,Financial Services,Credit Services,7099305689088,19017.39,11.2,17.1,3.1494,5985.75,"5464.57, 3977.85, 4875.36",8.64,True,False,2026-08-02
-HINDUNILVR,Hindustan Unilever Limited,Consumer Defensive,Household & Personal Products,4937196503040,15040.0,28.1,31.0,0.027,2673.0,"2992.0, 6607.0, 2756.0",11.6,False,False,2026-08-02
-INFY,Infosys Limited,Technology,Information Technology Services,4577044725760,331.3,45.6,35.7,0.0475,81.9,"91.9, 74.7, 83.9",15.88,False,False,2026-08-02
-M&M,Mahindra & Mahindra Limited,Consumer Cyclical,Auto Manufacturers,4080790405120,17098.85,30.1,23.1,0.0224,5454.54,"4667.57, 4674.64, 4083.32",10.47,False,False,2026-08-02
-KOTAKBANK,Kotak Mahindra Bank Limited,Financial Services,Banks - Regional,3882105176064,19287.89,6.28,11.1,0.2418,5480.46,"5423.15, 4924.29",11.2,True,False,2026-08-02
-AXISBANK,Axis Bank Limited,Financial Services,Banks - Regional,3825422565376,26384.85,6.07,12.7,1.1481,7632.31,"7602.63, 7010.65, 6243.72",9.52,True,False,2026-08-02
-HCLTECH,HCL Technologies Limited,Technology,Information Technology Services,3644397191168,16642.0,53.4,40.6,0.039,4624.0,"4488.0, 4076.0",5.14,False,False,2026-08-02
-ITC,ITC Limited,Consumer Defensive,Tobacco,3520780566528,20689.47,38.6,29.6,0.0315,5387.97,"4931.19, 5244.2, 4931.19",16.61,False,False,2026-08-02
-BAJAJFINSV,Bajaj Finserv Ltd.,Financial Services,Financial Conglomerates,3243989794816,9800.97,19.2,15.4,2.564,2538.67,"2229.15, 2244.1, 2789.05",22.23,True,False,2026-08-02
-BAJAJ-AUTO,Bajaj Auto Limited,Consumer Cyclical,Auto Manufacturers,3163272773632,10744.21,38.5,29.3,0.0021,3225.63,"3661.92, 2749.82, 2122.03",22.44,False,False,2026-08-02
-NESTLEIND,Nestlé India Limited,Consumer Defensive,Packaged Foods,2910983290880,3576.01,84.1,73.2,0.0868,958.68,"998.42, 646.59, 873.49",15.04,False,False,2026-08-02
-ASIANPAINT,Asian Paints Limited,Basic Materials,Specialty Chemicals,2633683435520,4325.35,27.8,22.0,0.1145,1539.25,"1172.12, 1059.87, 993.59",13.19,False,False,2026-08-02
-SHRIRAMFIN,Shriram Finance Limited,Financial Services,Credit Services,2462831083520,10024.16,11.5,16.4,3.8373,3452.77,"3020.94, 2529.65, 2159.4",5.03,True,False,2026-08-02
-HINDZINC,Hindustan Zinc Limited,Basic Materials,Other Industrial Metals & Mining,2278291931136,13832.0,69.2,76.4,0.4034,5469.0,"5033.0, 3916.0, 2234.0",4.21,False,False,2026-08-02
-EICHERMOT,Eicher Motors Limited,Consumer Cyclical,Auto Manufacturers,2150465667072,5515.23,32.9,25.2,0.0136,1462.51,"1519.95, 1420.61, 1369.45",9.4,False,False,2026-08-02
-DIVISLAB,Divi's Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,2138614792192,2568.0,22.4,16.8,0.0001,751.0,"583.0, 545.0, 662.0",8.53,False,False,2026-08-02
-TVSMOTOR,TVS Motor Company Limited,Consumer Cyclical,Auto Manufacturers,2049698299904,3018.33,38.2,34.4,0.3337,1019.43,"771.52, 841.29, 610.04",8.12,False,False,2026-08-02
-WIPRO,Wipro Limited,Technology,Information Technology Services,1816730140672,13197.4,23.7,19.0,0.1313,3352.0,"3501.8, 3119.0, 3246.2",13.21,False,False,2026-08-02
-HYUNDAI,HYUNDAI,Consumer Cyclical,Auto Manufacturers,1771908366336,5431.52,38.8,30.3,0.0583,888.62,"1255.63, 1234.4, 1369.23",2.53,False,False,2026-08-02
-SOLARINDS,Solar Industries India Limited,Basic Materials,Specialty Chemicals,1664202571776,1677.55,43.6,33.5,0.0354,547.63,"446.25, 344.97, 338.7",7.1,False,False,2026-08-02
-PIDILITIND,Pidilite Industries Limited,Basic Materials,Specialty Chemicals,1640067366912,2448.92,31.1,23.5,0.0261,579.27,"618.01, 672.41, 422.34",9.18,False,False,2026-08-02
-TMCV,TMCV,Consumer Cyclical,Auto Manufacturers,1608603402240,3030.0,59.9,53.6,0.2665,1793.0,"705.0, 1340.0, 1355.0",20.34,False,False,2026-08-02
-TRENT,Trent Limited,Consumer Cyclical,Apparel Retail,1602842918912,1719.65,27.4,26.4,0.3271,400.33,"512.77, 376.86, 429.69",24.57,False,False,2026-08-02
-CHOLAFIN,Cholamandalam Investment and Finance Company Limited,Financial Services,Credit Services,1579838734336,5232.61,9.7,19.3,6.9745,1656.22,"1645.2, 1289.97, 1137.83",5.7,True,False,2026-08-02
-ABB,ABB India Limited,Industrials,Specialty Industrial Machinery,1543646478336,1668.26,29.9,22.4,0.0156,1783.65,"432.85, 351.74, 474.63",7.44,False,False,2026-08-02
-ICICIAMC,ICICIAMC,Financial Services,Asset Management,1540060086272,3298.26,115.0,85.8,0.0281,964.63,"763.42, 917.09, 834.1",2.65,True,False,2026-08-02
-CUMMINSIND,Cummins India Limited,Industrials,Specialty Industrial Machinery,1529866747904,2361.75,41.6,31.8,0.0047,649.46,"486.06, 603.9, 529.5",8.65,False,False,2026-08-02
-TECHM,Tech Mahindra Limited,Technology,Information Technology Services,1462802710528,4810.9,24.3,18.2,0.0709,1465.1,"1353.8, 1122.0, 1140.6",9.28,False,False,2026-08-02
-POWERINDIA,Hitachi Energy India Limited,Industrials,Electrical Equipment & Parts,1434115768320,987.84,29.4,21.9,0.0166,330.46,"261.42, 131.6, 183.89",9.91,False,False,2026-08-02
-POLYCAB,Polycab India Limited,Industrials,Electrical Equipment & Parts,1371758133248,2672.03,32.9,22.7,0.0076,784.34,"772.77, 621.69, 592.12",11.92,False,False,2026-08-02
-CGPOWER,CG Power and Industrial Solutions Limited,Industrials,Electrical Equipment & Parts,1360055369728,1206.27,28.8,21.6,0.0058,313.01,"365.49, 284.83, 269.23",13.37,False,False,2026-08-02
-BRITANNIA,Britannia Industries Limited,Consumer Defensive,Packaged Foods,1304663031808,2533.49,61.4,60.1,0.292,678.34,"679.96, 520.72, 559.95",15.13,False,False,2026-08-02
-PNB,Punjab National Bank,Financial Services,Banks - Regional,1295369633792,18392.69,6.09,12.5,0.5865,5814.72,"5591.64, 5555.89, 2119.88",7.91,True,False,2026-08-02
-LTM,LTM Limited,Technology,Information Technology Services,1293193445376,5018.1,30.4,23.8,0.0913,1466.3,"1392.3, 970.6, 1254.1",8.3,False,False,2026-08-02
-BANKBARODA,Bank of Baroda Limited,Financial Services,Banks - Regional,1254572556288,19846.43,5.66,13.8,1.0275,1783.29,"5800.78, 5442.92, 3469.16",7.47,True,False,2026-08-02
-MUTHOOTFIN,Muthoot Finance Limited,Financial Services,Credit Services,1252421140480,10590.34,16.0,30.6,3.7075,3349.47,"2804.03, 2420.63, 2016.2",4.29,True,False,2026-08-02
-SBIFUNDS,SBIFUNDS,Financial Services,Asset Management,1199997059072,3067.38,56.6,43.0,0.0219,634.46,607.14,7.4,True,False,2026-08-02
-HDFCLIFE,HDFC Life Insurance Company Limited,Financial Services,Insurance - Life,1191306461184,1912.32,10.3,11.3,0.1994,611.19,"497.49, 418.19, 548.35",9.98,True,False,2026-08-02
-ENRIN,Siemens Energy India Limited,Utilities,Utilities - Renewable,1150554210304,1100.1,67.8,50.5,0.0456,374.6,"312.9, 359.6, 262.7",10.82,False,False,2026-08-02
-CANBK,Canara Bank,Financial Services,Banks - Regional,1133649985536,19705.91,6.55,18.1,1.3919,5180.71,"4574.23, 5253.67, 3194.95",12.48,True,False,2026-08-02
-MARICO,Marico Limited,Consumer Defensive,Household & Personal Products,1128262402048,1762.0,41.8,37.0,0.0317,391.0,"447.0, 420.0, 504.0",4.49,False,False,2026-08-02
-INDIANB,Indian Bank,Financial Services,Banks - Regional,1126735413248,11704.28,6.32,16.5,0.6068,3356.63,"3173.05, 3146.88, 2276.37",2.98,True,False,2026-08-02
-HDFCAMC,HDFC Asset Management Company Limited,Financial Services,Asset Management,1121620459520,2858.06,42.9,32.9,0.0236,837.13,"622.66, 769.42",8.79,True,False,2026-08-02
-GVT&D,GE Vernova T&D India Limited,Industrials,Specialty Industrial Machinery,1106965954560,1233.25,76.4,57.3,0.0091,351.77,"290.8, 291.2, 186.49",7.65,False,False,2026-08-02
-ABCAPITAL,Aditya Birla Capital Limited,Financial Services,Financial Conglomerates,1106208096256,3764.49,8.75,11.6,5.3163,1129.16,"945.02, 835.08, 864.6",9.77,True,False,2026-08-02
-LUPIN,Lupin Limited,Healthcare,Drug Manufacturers - Specialty & Generic,1104222224384,5332.84,26.2,21.2,0.0371,1460.34,"1175.55, 1219.03, 772.52",6.08,False,False,2026-08-02
-GODREJCP,Godrej Consumer Products Limited,Consumer Defensive,Household & Personal Products,1095345635328,1861.47,20.3,18.6,0.3808,451.77,"497.91, 452.45, 411.9",15.03,False,False,2026-08-02
-INDIAMART,IndiaMART InterMESH Limited,Communication Services,Internet Content & Information,1082448347136,474.68,28.6,21.8,0.0093,172.24,"50.2, 188.31",18.88,False,False,2026-08-02
-HEROMOTOCO,Hero MotoCorp Limited,Consumer Cyclical,Auto Manufacturers,1077700591616,5741.73,33.5,25.5,0.0088,1460.0,"1267.55, 1308.89, 1705.29",9.82,False,False,2026-08-02
-UNITDSPR,UNITDSPR,Consumer Defensive,Beverages - Wineries & Distilleries,1076373028864,1838.0,28.5,21.9,0.0472,463.0,"539.0, 418.0, 417.0",13.29,False,False,2026-08-02
-LGEINDIA,LGEINDIA,Technology,Consumer Electronics,1011710296064,1685.09,32.2,24.7,0.0657,692.73,"89.67, 754.55, 233.45",4.03,False,False,2026-08-02
-ASHOKLEY,Ashok Leyland Limited,Industrials,Farm & Heavy Construction Machinery,976117104640,3471.03,38.1,30.2,0.0954,1290.7,"813.49, 755.77, 611.07",11.99,False,False,2026-08-02
-OFSS,Oracle Financial Services Software Limited,Technology,Software - Infrastructure,974026702848,2639.3,49.4,38.1,0.0032,1415.5,"841.7, 609.6, 641.9",9.08,False,False,2026-08-02
-MAZDOCK,Mazagon Dock Shipbuilders Limited,Industrials,Aerospace & Defense,960770473984,2583.38,41.3,30.4,0.0023,549.41,"679.18, 879.78, 452.15",12.04,False,False,2026-08-02
-IDBI,IDBI Bank Limited,Financial Services,Banks - Regional,900513726464,9209.97,6.58,14.9,0.4932,2127.14,"2007.11, 1954.09, 2019.18",4.71,True,False,2026-08-02
-FEDERALBNK,The Federal Bank Limited,Financial Services,Banks - Regional,885327331328,4345.3,6.27,11.4,0.5537,1256.09,"1340.97, 1094.07, 918.32",23.0,True,False,2026-08-02
-PERSISTENT,Persistent Systems Limited,Technology,Information Technology Services,866926067712,1865.12,35.6,26.8,0.0594,529.26,"439.45, 424.94, 395.76",17.99,False,False,2026-08-02
-DIXON,Dixon Technologies (India) Limited,Technology,Consumer Electronics,854205792256,1438.64,31.5,28.0,0.0796,256.41,"287.26, 224.97, 400.82",25.2,False,False,2026-08-02
-HINDPETRO,Hindustan Petroleum Corporation Limited,Energy,Oil & Gas Refining & Marketing,829318823936,18046.89,23.1,32.5,0.9123,12264.67,"6065.26, 4011.4, 4110.93",8.65,False,False,2026-08-02
-ICICIGI,ICICI Lombard General Insurance Company Limited,Financial Services,Insurance - Diversified,810808967168,2771.94,21.9,16.6,0.0022,403.17,"546.56, 658.76, 747.08",6.57,True,False,2026-08-02
-BHARTIHEXA,BHARTIHEXA,Communication Services,Telecom Services,803750019072,1733.2,21.4,26.0,0.8875,446.7,"473.7, 391.6, 468.4",15.77,False,False,2026-08-02
-HAVELLS,Havells India Limited,Industrials,Electrical Equipment & Parts,791166976000,1690.56,25.1,19.2,0.0281,290.38,"723.06, 300.78, 347.72",6.47,False,False,2026-08-02
-AUBANK,AU Small Finance Bank Limited,Financial Services,Banks - Regional,784074145792,2641.25,7.66,14.3,0.7307,795.95,"831.87, 667.66, 580.86",8.47,True,False,2026-08-02
-LTF,L&T Finance Limited,Financial Services,Credit Services,779886723072,2981.18,8.5,11.8,4.3546,902.47,"806.63, 738.61, 701.1",11.45,True,False,2026-08-02
-WAAREEENER,WAAREEENER,Technology,Solar,770963079168,3711.3,42.8,35.4,0.1569,850.22,"1061.1, 1062.46, 745.2",23.23,False,False,2026-08-02
-DABUR,Dabur India Limited,Consumer Defensive,Household & Personal Products,747521703936,1895.03,24.9,20.0,0.0831,590.88,"368.6, 559.97, 513.91",5.37,False,False,2026-08-02
-NAM-INDIA,Nippon Life India Asset Management Limited,Financial Services,Asset Management,742478249984,1529.38,45.2,35.5,0.0174,503.7,"384.72, 403.9, 396.12",5.67,True,False,2026-08-02
-BAJAJHFL,BAJAJHFL,Financial Services,Mortgage Finance,716431491072,2560.34,8.85,12.1,7.3062,715.28,"669.19, 664.89, 583.3",11.34,True,False,2026-08-02
-MCX,Multi Commodity Exchange of India Limited,Financial Services,Financial Data & Stock Exchanges,685202866176,1331.55,57.9,43.4,0.0018,529.77,"401.12, 203.19",19.15,True,False,2026-08-02
-IOB,Indian Overseas Bank,Financial Services,Banks - Regional,652798459904,5418.47,6.07,14.9,2.8262,1716.29,"1556.15, 1427.16, 1178.45",2.8,True,False,2026-08-02
-SCHAEFFLER,Schaeffler India Limited,Consumer Cyclical,Auto Parts,637593911296,1150.35,27.9,20.8,0.0055,325.78,"316.07, 322.36, 287.11",5.29,False,False,2026-08-02
-KALYANKJIL,Kalyan Jewellers India Limited,Consumer Cyclical,Luxury Goods,632656625664,1350.4,23.7,24.1,0.6352,409.5,"416.29, 260.51, 264.08",10.49,False,False,2026-08-02
-BANKINDIA,Bank of India Limited,Financial Services,Banks - Regional,628040466432,10306.3,5.92,12.4,1.4213,3302.58,"3087.76, 2812.29, 1829.56",5.78,True,False,2026-08-02
-GICRE,General Insurance Corporation of India,Financial Services,Insurance - Reinsurance,625619042304,9662.38,17.6,13.7,0.0,2532.59,"1725.66, 2873.54, 2530.59",2.45,True,False,2026-08-02
-COROMANDEL,Coromandel International Limited,Basic Materials,Agricultural Inputs,610668249088,1956.15,24.6,17.3,0.0666,380.82,"139.93, 505.88, 505.01",12.07,False,False,2026-08-02
-MAHABANK,Bank of Maharashtra,Financial Services,Banks - Regional,610171027456,7016.86,6.03,22.8,1.3863,2023.32,"2044.88, 1798.99, 1504.37",6.32,True,False,2026-08-02
-BERGEPAINT,Berger Paints India Limited,Basic Materials,Specialty Chemicals,606846189568,1126.87,22.9,18.2,0.0737,334.77,"271.16, 314.63, 262.05",8.4,False,False,2026-08-02
-ABBOTINDIA,Abbott India Limited,Healthcare,Drug Manufacturers - Specialty & Generic,590730625024,1552.02,44.8,34.4,0.0362,394.93,"375.96, 415.27, 365.86",15.85,False,False,2026-08-02
-RADICO,Radico Khaitan Limited,Consumer Defensive,Beverages - Wineries & Distilleries,581590777856,604.48,24.5,20.6,0.1545,229.6,"179.46, 154.93, 130.52",13.51,False,False,2026-08-02
-APARINDS,APAR Industries Limited,Industrials,Electrical Equipment & Parts,576556040192,976.93,32.2,21.1,0.1775,467.45,"253.44, 208.93, 262.91",8.47,False,False,2026-08-02
-HDBFS,HDBFS,Financial Services,Credit Services,568609800192,2543.83,9.09,13.9,5.003,785.2,"750.6, 643.9",10.0,True,False,2026-08-02
-COLPAL,Colgate-Palmolive (India) Limited,Consumer Defensive,Household & Personal Products,564669382656,1325.31,108.0,82.7,0.0302,343.08,"353.32, 323.86, 320.62",19.57,False,False,2026-08-02
-M&MFIN,Mahindra & Mahindra Financial Services Limited,Financial Services,Credit Services,536017076224,2854.53,8.77,12.9,4.9154,926.03,"938.02, 824.16, 527.87",6.46,True,False,2026-08-02
-MOTILALOFS,Motilal Oswal Financial Services Limited,Financial Services,Capital Markets,512998866944,1869.31,10.5,12.2,1.7404,1273.11,"221.28, 565.97, 1162.06",19.15,True,False,2026-08-02
-APLAPOLLO,APL Apollo Tubes Limited,Basic Materials,Steel,505199460352,1203.08,21.5,16.7,0.1868,354.35,"310.04, 237.17, 293.11",18.04,False,False,2026-08-02
-HINDCOPPER,Hindustan Copper Limited,Basic Materials,Copper,475389001728,918.54,42.4,32.9,0.0388,444.27,"156.23, 183.79, 134.25",23.05,False,False,2026-08-02
-AIIL,Authum Investment & Infrastructure Limited,Financial Services,Capital Markets,457987293184,1931.09,13.8,13.2,0.2143,1110.52,"59.75, 161.0, 766.87",16.69,True,False,2026-08-02
-ANTHEM,ANTHEM,Healthcare,Biotechnology,454538854400,591.79,32.0,24.3,0.0163,119.94,"189.76, 92.82, 173.43",12.52,False,False,2026-08-02
-PAGEIND,Page Industries Limited,Consumer Cyclical,Apparel Manufacturing,450337669120,763.82,64.4,54.3,0.1858,178.73,"189.54, 194.76, 200.8",4.56,False,False,2026-08-02
-GLAXO,GlaxoSmithKline Pharmaceuticals Limited,Healthcare,Drug Manufacturers - General,449840775168,1035.98,61.3,43.3,0.0159,277.86,"295.62, 205.01, 262.87",12.42,False,False,2026-08-02
-AEGISLOG,AEGISLOG,Energy,Oil & Gas Refining & Marketing,449560805376,898.15,33.4,29.7,0.1215,410.37,"176.83, 179.63, 131.32",18.77,False,False,2026-08-02
-MPHASIS,Mphasis Limited,Technology,Information Technology Services,446950801408,1862.6,28.2,22.3,0.0929,489.51,"509.64, 442.18, 441.7",4.65,False,False,2026-08-02
-SUPREMEIND,The Supreme Industries Limited,Industrials,Building Products & Equipment,440389238784,953.98,22.6,17.1,0.0168,280.72,"433.57, 153.37, 202.3",14.88,False,False,2026-08-02
-WELCORP,Welspun Corp Limited,Basic Materials,Steel,435269697536,1613.05,20.9,16.2,0.0856,1046.49,"370.36, 452.59, 350.42",15.68,False,False,2026-08-02
-AJANTPHARM,Ajanta Pharma Limited,Healthcare,Drug Manufacturers - Specialty & Generic,432926916608,1056.0,31.0,24.0,0.0083,334.22,"266.7, 273.77, 255.34",7.03,False,False,2026-08-02
-AIAENG,AIA Engineering Limited,Industrials,Specialty Industrial Machinery,428433801216,1270.16,21.9,17.6,0.0013,393.27,"294.42, 277.44, 305.02",2.54,False,False,2026-08-02
-PETRONET,Petronet LNG Limited,Energy,Oil & Gas Refining & Marketing,421125029888,3912.53,23.4,18.7,0.1158,1370.74,"869.61, 830.3, 841.88",10.05,False,False,2026-08-02
-CPPLUS,CPPLUS,Industrials,Building Products & Equipment,399630991360,367.96,30.4,27.8,0.1363,169.13,"95.98, 69.97, 54.96",5.34,False,False,2026-08-02
-3MINDIA,3M India Limited,Industrials,Conglomerates,389940412416,522.32,50.0,30.0,0.0968,215.34,"62.05, 177.69, 71.37",13.33,False,False,2026-08-02
-ASTRAL,Astral Limited,Industrials,Building Products & Equipment,389166628864,536.6,22.6,16.2,0.0245,213.0,"107.7, 81.1, 179.3",10.59,False,False,2026-08-02
-NAVINFLUOR,Navin Fluorine International Limited,Basic Materials,Chemicals,388212916224,663.55,20.8,15.3,0.012,212.62,"185.4, 117.16, 94.96",20.73,False,False,2026-08-02
-ENDURANCE,Endurance Technologies Limited,Consumer Cyclical,Auto Parts,387990355968,951.71,21.1,15.6,0.0054,276.45,"221.64, 227.27, 226.35",2.24,False,False,2026-08-02
-LTTS,L&T Technology Services Limited,Technology,Information Technology Services,377116262400,1279.2,26.8,21.6,0.0916,356.6,"332.1, 302.6, 315.7",8.29,False,False,2026-08-02
-EMCURE,EMCURE,Healthcare,Drug Manufacturers - Specialty & Generic,371792052224,924.36,23.7,22.3,0.4536,243.4,"230.54, 243.46, 206.95",8.84,False,False,2026-08-02
-MANAPPURAM,Manappuram Finance Limited,Financial Services,Credit Services,349292134400,1003.32,9.52,11.0,3.2432,403.96,"241.06, 138.38, 191.17",21.2,True,False,2026-08-02
-HEXT,Hexaware Technologies Limited,Technology,Information Technology Services,342489694208,1369.2,33.5,26.6,0.1383,329.9,"351.6, 291.9, 379.9",6.23,False,False,2026-08-02
-GODFRYPHLP,Godfrey Phillips India Limited,Consumer Defensive,Tobacco,332771459072,1526.06,38.0,30.8,0.0435,198.39,"521.43, 343.29, 356.31",15.93,False,False,2026-08-02
-NUVAMA,Nuvama Wealth Management Limited,Financial Services,Asset Management,329367683072,1041.04,23.7,28.2,0.5407,305.79,"269.15, 253.8",18.51,True,False,2026-08-02
-SCHNEIDER,Schneider Electric Infrastructure Limited,Industrials,Electrical Equipment & Parts,324057694208,212.56,29.6,35.6,0.7538,21.97,"97.03, 52.32, 41.24",16.91,False,False,2026-08-02
-LALPATHLAB,Dr. Lal PathLabs Limited,Healthcare,Diagnostics & Research,318126063616,504.78,28.5,22.9,0.0837,169.5,"131.3, 90.5",7.48,False,False,2026-08-02
-IKS,IKS,Healthcare,Health Information Services,310150168576,721.55,44.0,37.6,0.0621,205.97,"183.33, 151.54, 147.8",18.55,False,False,2026-08-02
-GRSE,Garden Reach Shipbuilders & Engineers Limited,Industrials,Aerospace & Defense,297972662272,527.4,43.0,31.8,0.0147,170.77,"120.18, 244.25",20.36,False,False,2026-08-02
-RRKABEL,R R Kabel Limited,Industrials,Electrical Equipment & Parts,294391021568,492.22,28.0,21.2,0.1345,205.2,"167.95, 118.25, 89.7",16.07,False,False,2026-08-02
-LICHSGFIN,LIC Housing Finance Limited,Financial Services,Mortgage Finance,287737937920,5603.67,8.58,14.4,6.7353,1498.85,"1492.54, 1398.02, 1363.89",12.27,True,False,2026-08-02
-CENTRALBK,Central Bank of India,Financial Services,Banks - Regional,280321884160,4523.79,5.61,11.6,1.0701,1323.13,"745.72, 1264.29, 1281.98",6.93,True,False,2026-08-02
-PGHH,Procter & Gamble Hygiene and Health Care Limited,Consumer Defensive,Household & Personal Products,278967549952,856.5,157.0,115.0,0.0014,126.27,"153.13, 301.46, 209.86",12.79,False,False,2026-08-02
-PNBHOUSING,PNB Housing Finance Limited,Financial Services,Mortgage Finance,274427232256,2291.24,9.44,12.9,3.7542,655.8,"520.35, 533.5, 550.38",9.42,True,False,2026-08-02
-MSUMI,Motherson Sumi Wiring India Limited,Consumer Cyclical,Auto Parts,269311803392,625.2,38.9,32.4,0.1555,167.3,"149.44, 143.1, 164.93",11.48,False,False,2026-08-02
-NETWEB,Netweb Technologies India Limited,Technology,Computer Hardware,257599668224,205.82,37.5,32.8,0.3961,85.32,"70.59, 73.31",17.84,False,False,2026-08-02
-GUJENERGY,Gujarat Energy Limited,Utilities,Utilities - Regulated Gas,257544372224,2018.91,23.4,17.4,0.0093,351.24,"266.84, 279.81, 327.64",18.73,False,False,2026-08-02
-GABRIEL,Gabriel India Limited,Consumer Cyclical,Auto Parts,255530237952,252.16,26.5,20.0,0.0258,107.35,"66.61, 54.67, 69.03",17.17,False,False,2026-08-02
-SUMICHEM,Sumitomo Chemical India Limited,Basic Materials,Agricultural Inputs,254714052608,542.96,23.5,17.6,0.0184,214.83,"111.23, 75.63, 178.34",12.65,False,False,2026-08-02
-REDINGTON,Redington Limited,Technology,Information Technology Services,251457732608,1490.22,26.4,25.0,0.2901,485.98,"391.32, 435.8, 275.27",21.61,False,False,2026-08-02
-GILLETTE,Gillette India Limited,Consumer Defensive,Household & Personal Products,248429690880,411.7,90.6,66.4,0.0,145.69,"158.68, 125.97",11.91,False,False,2026-08-02
-RUBICON,RUBICON,Healthcare,Drug Manufacturers - General,246152364032,246.74,21.0,18.6,0.2064,76.78,"72.8, 36.24, 38.07",23.29,False,False,2026-08-02
-NEULANDLAB,Neuland Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,244319584256,364.0,26.5,21.3,0.1624,212.67,"40.57, 96.85, 13.9",29.79,False,False,2026-08-02
-FORCEMOT,Force Motors Limited,Consumer Cyclical,Auto Manufacturers,235881447424,1211.63,35.4,28.7,0.004,216.56,"278.52, 406.11, 350.67",27.39,False,False,2026-08-02
-CEMPRO,Cemindia Projects Limited,Industrials,Engineering & Construction,234971070464,597.73,32.6,27.6,0.4209,140.83,"242.17, 110.89, 137.23",22.4,False,False,2026-08-02
-GRINDWELL,Grindwell Norton Limited,Industrials,Building Products & Equipment,234748542976,415.66,21.2,16.1,0.0244,115.51,"118.74, 95.17, 94.45",17.17,False,False,2026-08-02
-PFIZER,Pfizer Limited,Healthcare,Drug Manufacturers - General,220682485760,722.43,24.1,18.0,0.0168,204.47,"199.82, 141.84, 189.02",16.62,False,False,2026-08-02
-AADHARHFC,AADHARHFC,Financial Services,Mortgage Finance,217225347072,1095.88,11.4,15.9,2.6404,310.92,"281.21, 266.47, 237.28",19.61,True,False,2026-08-02
-FSL,Firstsource Solutions Limited,Technology,Information Technology Services,208624517120,674.42,21.1,20.8,0.5964,205.24,"120.33, 169.33, 160.68",11.71,False,False,2026-08-02
-CAPLIPOINT,Caplin Point Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,191306235904,641.24,27.0,21.1,0.001,170.11,"163.88, 152.8, 142.57",21.19,False,False,2026-08-02
-TRITURBINE,Triveni Turbine Limited,Industrials,Specialty Industrial Machinery,191277416448,349.7,41.2,30.8,0.0017,101.9,"92.1, 91.2, 64.5",7.6,False,False,2026-08-02
-BAYERCROP,Bayer CropScience Limited,Basic Materials,Agricultural Inputs,190302797824,689.2,29.1,23.7,0.0281,162.1,"95.7, 152.7, 278.7",12.96,False,False,2026-08-02
-KAJARIACER,Kajaria Ceramics Limited,Industrials,Building Products & Equipment,188304539648,485.41,23.1,17.2,0.0309,155.75,"87.72, 108.98, 42.52",14.48,False,False,2026-08-02
-CHENNPETRO,Chennai Petroleum Corporation Limited,Energy,Oil & Gas Refining & Marketing,187717697536,3102.7,35.6,32.7,0.1844,1031.35,"1421.85, 1001.59, 40.1",16.71,False,False,2026-08-02
-JYOTICNC,Jyoti CNC Automation Limited,Industrials,Specialty Industrial Machinery,183905697792,336.0,21.7,17.3,0.2457,90.57,"88.51, 85.5, 71.42",18.58,False,False,2026-08-02
-CASTROLIND,Castrol India Limited,Energy,Oil & Gas Refining & Marketing,183195353088,949.93,60.3,45.9,0.0448,242.18,"244.67, 244.0, 233.46",26.41,False,False,2026-08-02
-TDPOWERSYS,TD Power Systems Limited,Industrials,Specialty Industrial Machinery,176694362112,238.77,32.1,23.4,0.018,72.19,"56.32, 50.07, 53.02",23.07,False,False,2026-08-02
-CHAMBLFERT,Chambal Fertilisers and Chemicals Limited,Basic Materials,Agricultural Inputs,175846293504,1953.39,26.2,20.8,0.0997,523.61,"169.26, 586.41, 548.96",18.4,False,False,2026-08-02
-EMAMILTD,Emami Limited,Consumer Defensive,Household & Personal Products,173748813824,775.26,28.4,26.6,0.0296,143.18,"319.48, 148.35, 164.26",10.28,False,False,2026-08-02
-INOXINDIA,INOX India Limited,Industrials,Specialty Industrial Machinery,173176766464,257.89,32.4,25.0,0.0669,75.24,"60.7, 61.12, 65.51",10.61,False,False,2026-08-02
-J&KBANK,Jammu and Kashmir Bank Limited,Financial Services,Banks - Regional,171784470528,2359.51,5.83,15.2,0.2062,428.8,"798.56, 581.49, 484.53",23.37,True,False,2026-08-02
-TRAVELFOOD,TRAVELFOOD,Consumer Cyclical,Restaurants,171565203456,441.03,45.1,38.5,0.1945,120.8,"132.68, 95.77, 102.85",2.15,False,False,2026-08-02
-ECLERX,eClerx Services Limited,Technology,Information Technology Services,169832644608,706.21,41.7,35.6,0.2268,189.36,"191.98, 141.68",8.43,False,False,2026-08-02
-KPITTECH,KPIT Technologies Limited,Technology,Software - Infrastructure,162900787200,637.34,33.2,27.9,0.0791,117.18,"163.05, 133.3, 169.09",23.95,False,False,2026-08-02
-THANGAMAYL,Thangamayil Jewellery Limited,Consumer Cyclical,Luxury Goods,162450178048,351.65,25.5,28.1,0.6592,85.09,"142.66, 104.78, 45.71",16.43,False,False,2026-08-02
-KFINTECH,KFin Technologies Limited,Technology,Software - Application,162112536576,343.71,30.6,23.3,0.0285,75.21,"81.15, 91.99, 77.26",29.14,False,False,2026-08-02
-FIVESTAR,Five-Star Business Finance Limited,Financial Services,Credit Services,161748254720,1098.75,14.8,16.1,1.1155,271.41,"269.27, 277.03, 266.31",15.07,True,False,2026-08-02
-BIKAJI,Bikaji Foods International Limited,Consumer Defensive,Packaged Foods,160885014528,258.26,22.0,17.8,0.1316,56.41,"62.18, 79.78, 59.9",4.01,False,False,2026-08-02
-GPIL,Godawari Power & Ispat Limited,Basic Materials,Steel,157704814592,800.75,22.0,17.2,0.0773,280.09,"143.25, 161.44, 215.96",27.72,False,False,2026-08-02
-CCL,CCL Products (India) Limited,Consumer Defensive,Packaged Foods,154037469184,388.1,20.6,22.4,0.463,116.88,"114.52, 100.27, 72.45",20.54,False,False,2026-08-02
-IGIL,International Gemological Institute Limited,Basic Materials,Other Precious Metals & Mining,152746852352,427.29,39.9,30.2,0.014,165.74,"179.6, 140.73, 129.79",8.44,False,False,2026-08-02
-USHAMART,Usha Martin Limited,Basic Materials,Steel,150967320576,465.99,28.6,20.6,0.0017,141.98,"147.8, 107.55, 100.93",29.24,False,False,2026-08-02
-KSB,KSB Limited,Industrials,Specialty Industrial Machinery,148960165888,270.49,25.2,18.8,0.0032,39.8,"81.0, 67.5, 70.4",14.32,False,False,2026-08-02
-KIRLOSBROS,Kirloskar Brothers Limited,Industrials,Specialty Industrial Machinery,148502626304,373.63,20.3,15.0,0.0185,111.5,"124.3, 66.7, 137.1",17.4,False,False,2026-08-02
-ALIVUS,Alivus Life Sciences Limited,Healthcare,Drug Manufacturers - Specialty & Generic,142377762816,564.48,25.0,19.0,0.0172,160.08,"162.66, 150.26, 121.54",12.42,False,False,2026-08-02
-PRIVISCL,Privi Speciality Chemicals Limited,Basic Materials,Specialty Chemicals,141293715456,327.54,26.6,28.2,0.5211,84.21,"93.7, 77.99",27.39,False,False,2026-08-02
-CEATLTD,CEAT Limited,Consumer Cyclical,Auto Parts,138739761152,698.02,20.8,18.8,0.6467,4.0,"243.85, 155.77, 112.0",16.42,False,False,2026-08-02
-DOMS,DOMS Industries Limited,Industrials,Business Equipment & Supplies,137155641344,230.18,25.2,20.6,0.0784,56.74,"57.9, 58.27, 57.28",3.2,False,False,2026-08-02
-INGERRAND,Ingersoll-Rand (India) Limited,Industrials,Specialty Industrial Machinery,136866226176,256.03,57.1,43.0,0.0154,64.81,"71.89, 60.35, 58.98",14.75,False,False,2026-08-02
-SKFINDUS,SKFINDUS,Industrials,Tools & Accessories,135455072256,217.67,29.9,26.6,0.0035,118.97,"50.09, 121.31",13.15,False,False,2026-08-02
-VINATIORGA,Vinati Organics Limited,Basic Materials,Specialty Chemicals,135340048384,443.74,21.3,16.2,0.0197,108.86,"123.86, 100.83, 104.19",12.86,False,False,2026-08-02
-JSWDULUX,JSW Dulux Limited,Unknown,Unknown,133833867264,1973.8,23.0,19.3,0.0336,125.7,"74.3, 91.0, 108.4",8.33,False,False,2026-08-02
-ACE,Action Construction Equipment Limited,Industrials,Farm & Heavy Construction Machinery,127395553280,415.09,32.5,23.6,0.0035,119.49,"110.91, 116.41, 97.72",24.12,False,False,2026-08-02
-ENGINERSIN,Engineers India Limited,Industrials,Engineering & Construction,124986982400,691.59,29.3,22.6,0.0062,195.53,"347.17, 83.49, 65.4",25.24,False,False,2026-08-02
-JAINREC,JAINREC,Basic Materials,Other Industrial Metals & Mining,120158887936,352.22,25.9,30.8,0.8501,66.04,"127.61, 54.23, 55.57",15.45,False,False,2026-08-02
-ATLANTAELE,ATLANTAELE,Industrials,Electrical Equipment & Parts,118343901184,201.77,47.2,33.7,0.056,46.84,"102.19, 43.34, 25.1",6.05,False,False,2026-08-02
-JMFINANCIL,JM Financial Limited,Financial Services,Capital Markets,116902232064,1201.97,17.6,15.1,0.0088,165.36,"312.8, 453.81, 209.53",20.54,True,False,2026-08-02
-UTLSOLAR,UTLSOLAR,Technology,Solar,116776116224,304.12,35.0,36.4,0.4183,106.32,"67.31, 67.54, 51.24",5.76,False,False,2026-08-02
-ZENSARTECH,Zensar Technologies Limited,Technology,Information Technology Services,115179003904,774.6,26.0,20.9,0.0106,183.8,"210.6, 199.8, 182.0",17.94,False,False,2026-08-02
-PGHL,Procter & Gamble Health Limited,Healthcare,Drug Manufacturers - Specialty & Generic,109630619648,326.91,83.5,61.6,0.0177,94.6,"77.59, 88.54, 66.18",29.41,False,False,2026-08-02
-BLUEJET,Blue Jet Healthcare Limited,Healthcare,Biotechnology,108632719360,247.82,26.5,19.9,0.0317,64.34,"40.17, 91.17, 110.1",17.11,False,False,2026-08-02
-GODREJAGRO,Godrej Agrovet Limited,Consumer Defensive,Packaged Foods,107106025472,472.78,22.5,19.8,0.3189,104.85,"114.82, 160.52, 70.78",20.49,False,False,2026-08-02
-LUMAXTECH,Lumax Auto Technologies Limited,Consumer Cyclical,Auto Parts,106891730944,278.86,23.7,25.0,0.9687,88.12,"82.47, 66.85, 41.42",18.79,False,False,2026-08-02
-SANOFICONR,SANOFICONR,Healthcare,Drug Manufacturers - General,106350362624,240.1,89.9,71.6,0.0646,68.8,"67.8, 66.5, 62.9",8.28,False,False,2026-08-02
-ASKAUTOLTD,ASKAUTOLTD,Consumer Cyclical,Auto Parts,104101142528,297.32,25.8,19.8,0.1264,71.54,"79.92, 66.07, 57.61",4.58,False,False,2026-08-02
-VARROC,Varroc Engineering Limited,Consumer Cyclical,Auto Parts,103781302272,225.03,21.7,18.3,0.3317,69.32,"10.3, 60.95, 105.06",9.53,False,False,2026-08-02
-SANDUMA,The Sandur Manganese & Iron Ores Limited,Basic Materials,Steel,103462543360,656.64,24.2,19.3,0.1247,235.78,"115.83, 138.87, 166.63",23.47,False,False,2026-08-02
-RITES,RITES Limited,Industrials,Engineering & Construction,102892462080,410.27,20.6,15.7,0.0034,129.97,"101.99, 98.21, 80.1",15.63,False,False,2026-08-02
-MANYAVAR,Vedant Fashions Limited,Consumer Cyclical,Apparel Manufacturing,100750516224,375.54,23.6,20.0,0.2361,80.61,"114.3, 134.9, 70.26",3.92,False,False,2026-08-02
-VOLTAMP,Voltamp Transformers Limited,Industrials,Electrical Equipment & Parts,100392181760,305.38,23.5,17.4,0.0006,47.9,"99.08, 78.85, 79.55",14.57,False,False,2026-08-02
-BLS,BLS International Services Limited,Industrials,Specialty Business Services,98518425600,686.7,80.7,103.0,0.2549,177.8,"162.67, 175.23, 171.0",22.33,False,False,2026-08-02
-KIRLPNU,Kirloskar Pneumatic Company Limited,Industrials,Specialty Industrial Machinery,96301441024,256.13,30.3,22.7,0.0008,33.4,"143.7, 42.2, 26.6",24.81,False,False,2026-08-02
-WAAREERTL,Waaree Renewable Technologies Limited,Industrials,Engineering & Construction,95319097344,478.7,85.4,69.1,0.1251,115.9,"155.74, 120.22, 86.44",23.61,False,False,2026-08-02
-ELECON,Elecon Engineering Company Limited,Industrials,Specialty Industrial Machinery,94034788352,341.15,22.4,19.2,0.1204,70.35,"6.0, 71.99, 175.44",26.52,False,False,2026-08-02
-BANCOINDIA,Banco Products (India) Limited,Consumer Cyclical,Auto Parts,91150516224,481.68,49.2,44.0,0.0068,147.43,"85.83, 138.9, 109.52",27.98,False,False,2026-08-02
-PNGJL,PNGJL,Consumer Cyclical,Luxury Goods,90965295104,409.82,20.7,22.8,0.9286,105.34,"90.26, 170.91, 79.31",11.64,False,False,2026-08-02
-VESUVIUS,Vesuvius India Limited,Industrials,Specialty Industrial Machinery,90063855616,264.08,21.3,15.0,0.0085,55.85,"80.23, 61.54, 63.0",17.82,False,False,2026-08-02
-TARIL,TARIL,Industrials,Electrical Equipment & Parts,88999165952,264.39,20.8,17.0,0.3007,61.52,"89.28, 73.85, 33.91",26.32,False,False,2026-08-02
-ESABINDIA,ESAB India Limited,Industrials,Tools & Accessories,86639616000,206.69,64.7,48.8,0.0072,43.55,"43.0, 79.2, 40.94",11.78,False,False,2026-08-02
-TIPSMUSIC,Tips Music Limited,Communication Services,Entertainment,85397897216,216.75,122.0,92.3,0.0202,43.7,"59.06, 58.66, 45.84",22.49,False,False,2026-08-02
-BSOFT,Birlasoft Limited,Technology,Information Technology Services,84544864256,518.36,23.8,18.6,0.0599,161.0,"175.93, 119.89, 106.43",24.85,False,False,2026-08-02
-NEWGEN,Newgen Software Technologies Limited,Technology,Software - Infrastructure,78442340352,300.58,25.4,20.2,0.0215,62.82,"106.3, 62.82, 49.72",23.88,False,False,2026-08-02
-CLEAN,Clean Science and Technology Limited,Basic Materials,Specialty Chemicals,78016684032,229.66,21.6,16.2,0.0006,58.27,"45.88, 70.06, 74.09",19.11,False,False,2026-08-02
-SANOFI,Sanofi India Limited,Healthcare,Drug Manufacturers - General,76415606784,326.7,57.5,43.0,0.0248,102.6,"61.7, 69.5, 119.5",14.05,False,False,2026-08-02
-SHARDACROP,Sharda Cropchem Limited,Basic Materials,Agricultural Inputs,73958252544,680.86,32.0,24.8,0.0028,88.04,"318.64, 145.12, 142.78",12.88,False,False,2026-08-02
-REDTAPE,REDTAPE Limited,Consumer Cyclical,Footwear & Accessories,73252536320,240.55,24.3,26.9,0.7877,69.88,"104.53, 27.54, 38.6",13.22,False,False,2026-08-02
-JYOTHYLAB,Jyothy Labs Limited,Consumer Defensive,Household & Personal Products,73020604416,333.19,28.7,21.7,0.0335,67.52,"81.12, 87.76, 96.79",11.61,False,False,2026-08-02
-GPPL,Gujarat Pipavav Port Limited,Industrials,Marine Shipping,72674451456,515.16,30.2,22.7,0.0221,142.2,"107.91, 104.32, 112.36",20.12,False,False,2026-08-02
-TCI,Transport Corporation of India Limited,Industrials,Integrated Freight & Logistics,71491379200,456.25,20.6,20.3,0.1066,105.7,"123.6, 114.7, 106.5",15.61,False,False,2026-08-02
-SUPRIYA,Supriya Lifescience Limited,Healthcare,Biotechnology,69778587648,209.12,25.1,19.1,0.0042,74.23,"49.68, 50.43, 34.79",20.21,False,False,2026-08-02
-TRANSRAILL,TRANSRAILL,Industrials,Engineering & Construction,67524071424,403.59,29.0,20.0,0.294,96.5,"109.74, 90.98, 105.82",19.87,False,False,2026-08-02
-GOKULAGRO,Gokul Agro Resources Limited,Consumer Defensive,Packaged Foods,66426970112,370.07,38.7,31.2,0.3974,122.97,"119.19, 77.86, 101.32",23.78,False,False,2026-08-02
-AJAXENGG,AJAXENGG,Industrials,Farm & Heavy Construction Machinery,66373107712,225.14,23.9,17.8,0.0014,94.96,"38.24, 39.07, 52.88",4.17,False,False,2026-08-02
-VIKRAMSOLR,VIKRAMSOLR,Technology,Solar,64372252672,470.42,30.6,21.4,0.2195,110.42,"98.15, 90.61, 19.02",29.6,False,False,2026-08-02
-FIEMIND,Fiem Industries Limited,Consumer Cyclical,Auto Parts,61148467200,255.58,29.3,22.5,0.0558,71.03,"63.37, 63.67, 57.52",26.86,False,False,2026-08-02
-SKIPPER,Skipper Limited,Industrials,Engineering & Construction,59585101824,213.13,23.3,16.2,0.6475,78.06,"52.79, 37.03, 45.26",27.47,False,False,2026-08-02
-STYL,STYL,Technology,Software - Infrastructure,56009084928,240.01,28.0,23.6,0.0647,60.24,"81.79, 64.09, 57.64",10.17,False,False,2026-08-02
-GULFOILLUB,Gulf Oil Lubricants India Limited,Basic Materials,Specialty Chemicals,52989726720,347.63,27.5,24.3,0.3295,89.75,"76.44, 85.56, 95.88",16.32,False,False,2026-08-02
-SHARDAMOTR,Sharda Motor Industries Limited,Consumer Cyclical,Auto Parts,50019360768,314.92,35.2,27.3,0.0373,81.35,"74.7, 99.94, 83.94",21.97,False,False,2026-08-02
-QUESS,Quess Corp Limited,Industrials,Staffing & Employment Services,49669619712,221.62,25.5,24.0,0.1471,81.9,"64.14, 54.98, 50.91",21.73,False,False,2026-08-02
-GVPIL,GE Power India Limited,Industrials,Engineering & Construction,48534876160,252.61,84.0,62.8,0.0377,113.21,"72.32, 32.36, 34.72",28.81,False,False,2026-08-02
-DHANUKA,Dhanuka Agritech Limited,Basic Materials,Agricultural Inputs,45554589696,287.23,23.8,18.5,0.0185,97.77,"40.0, 55.5, 75.5",9.83,False,False,2026-08-02
-PACEDIGITK,Pace Digitek Limited,Technology,Communication Equipment,44331548672,297.57,23.0,16.7,0.0996,99.16,"75.84, 64.08, 57.23",24.14,False,False,2026-08-02
-MSTCLTD,MSTC Limited,Industrials,Conglomerates,43521282048,218.43,30.1,26.5,0.1706,77.22,"51.37, 47.5, 42.34",29.06,False,False,2026-08-02
-OSWALPUMPS,OSWALPUMPS,Industrials,Electrical Equipment & Parts,37524709376,376.28,33.3,29.2,0.1383,92.53,"91.56, 97.5, 94.68",18.78,False,False,2026-08-02
-SEAMECLTD,Seamec Limited,Industrials,Marine Shipping,37309145088,251.39,20.4,21.9,0.2467,103.48,"99.62, 27.48, 75.77",16.95,False,False,2026-08-02
-CRIZAC,CRIZAC,Consumer Defensive,Education & Training Services,34144335872,219.18,41.3,30.8,0.0031,74.5,"49.94, 49.94",15.22,False,False,2026-08-02
-DPABHUSHAN,D. P. Abhushan Limited,Consumer Cyclical,Luxury Goods,30086055936,211.84,39.6,40.9,0.4754,64.45,"50.6, 73.35, 51.46",24.88,False,False,2026-08-02
-DDEVPLSTIK,Ddev Plastiks Industries Limited,Basic Materials,Specialty Chemicals,27747266560,201.82,31.0,21.8,0.0568,54.52,"48.04, 47.11, 52.15",23.46,False,False,2026-08-02
-GKENERGY,GKENERGY,Utilities,Utilities - Renewable,26240497664,204.3,40.9,36.8,0.2405,59.25,"60.82, 46.91, 44.83",12.35,False,False,2026-08-02
-TAJGVK,TAJGVK Hotels & Resorts Limited,Consumer Cyclical,Lodging,22776317952,410.27,21.5,17.2,0.1574,319.75,"36.99, 27.55, 41.1",24.49,False,False,2026-08-02
-WAAREEINDO,Indosolar Limited,Technology,Solar,12759853056,246.6,124.0,151.0,0.0122,36.62,"42.0, 41.47, 116.79",24.46,False,False,2026-08-02
-CMPDI,CMPDI,Basic Materials,Other Industrial Metals & Mining,0,613.18,38.1,28.4,0.0005,116.27,"187.82, 75.56, 276.96",6.64,False,False,2026-08-02
-TENNIND,TENNIND,Consumer Cyclical,Auto Parts,0,603.58,22.4,20.3,0.0028,166.58,"118.69, 167.82, 140.14",4.09,False,False,2026-08-02
+HDFCBANK,HDFC Bank Limited,Financial Services,Banks - Regional,11264177733632,70479.34,6.92,14.0,0.8718,16257.91,"15393.46, 17656.61",16.27,True,False,2026-08-09
+ICICIBANK,ICICI Bank Limited,Financial Services,Banks - Regional,10193227218944,54207.7,6.9,15.8,0.3721,15440.06,"14755.06, 12537.98, 13357.06",23.68,True,False,2026-08-09
+BAJFINANCE,Bajaj Finance Limited,Financial Services,Credit Services,6706144215040,19017.39,11.2,17.1,3.1494,5985.75,"5464.57, 3977.85, 4875.36",8.64,True,False,2026-08-09
+HINDUNILVR,Hindustan Unilever Limited,Consumer Defensive,Household & Personal Products,4924743614464,15040.0,28.1,31.0,0.027,2673.0,"2992.0, 6607.0, 2756.0",11.6,False,False,2026-08-09
+INFY,Infosys Limited,Technology,Information Technology Services,4759299817472,331.3,45.6,35.7,0.0475,81.9,"91.9, 74.7, 83.9",15.88,False,False,2026-08-09
+M&M,Mahindra & Mahindra Limited,Consumer Cyclical,Auto Manufacturers,4205069467648,17098.85,30.1,23.1,0.0224,5454.54,"4667.57, 4674.64, 4083.32",10.47,False,False,2026-08-09
+KOTAKBANK,Kotak Mahindra Bank Limited,Financial Services,Banks - Regional,3886581284864,19287.89,6.28,11.1,0.2418,5480.46,"5423.15, 4924.29",11.2,True,False,2026-08-09
+AXISBANK,AXISBANK,Financial Services,Banks - Regional,3852222070784,26384.85,6.07,12.7,1.1481,7632.31,"7602.63, 7010.65, 6243.72",9.52,True,False,2026-08-09
+HCLTECH,HCL Technologies Limited,Technology,Information Technology Services,3670643048448,16642.0,53.4,40.6,0.039,4624.0,"4488.0, 4076.0",5.14,False,False,2026-08-09
+ITC,ITC Limited,Consumer Defensive,Tobacco,3584681050112,20689.47,38.6,29.6,0.0315,4394.13,"5387.97, 4931.19, 5244.2",16.61,False,False,2026-08-09
+BAJAJFINSV,Bajaj Finserv Ltd.,Financial Services,Financial Conglomerates,3214731640832,9800.97,19.2,15.4,2.564,3132.35,"2538.67, 2229.15, 2244.1",22.23,True,False,2026-08-09
+BAJAJ-AUTO,Bajaj Auto Limited,Consumer Cyclical,Auto Manufacturers,3204762304512,10744.21,38.5,29.3,0.0021,3225.63,"3661.92, 2749.82, 2122.03",22.44,False,False,2026-08-09
+NESTLEIND,Nestlé India Limited,Consumer Defensive,Packaged Foods,2969604194304,3576.01,84.1,73.2,0.0868,958.68,"998.42, 646.59, 873.49",15.04,False,False,2026-08-09
+SHRIRAMFIN,Shriram Finance Limited,Financial Services,Credit Services,2623537676288,10024.16,11.5,16.4,3.8373,3452.77,"3020.94, 2529.65, 2159.4",5.03,True,False,2026-08-09
+ASIANPAINT,Asian Paints Limited,Basic Materials,Specialty Chemicals,2621892198400,4325.35,27.8,22.0,0.1145,1539.25,"1172.12, 1059.87, 993.59",13.19,False,False,2026-08-09
+HINDZINC,Hindustan Zinc Limited,Basic Materials,Other Industrial Metals & Mining,2547867189248,13832.0,69.2,76.4,0.4034,5469.0,"5033.0, 3916.0, 2234.0",4.21,False,False,2026-08-09
+EICHERMOT,Eicher Motors Limited,Consumer Cyclical,Auto Manufacturers,2201664094208,5515.23,32.9,25.2,0.0136,1462.51,"1519.95, 1420.61, 1369.45",9.4,False,False,2026-08-09
+DIVISLAB,Divi's Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,2196752433152,2568.0,22.4,16.8,0.0001,751.0,"583.0, 545.0, 662.0",8.53,False,False,2026-08-09
+WIPRO,Wipro Limited,Technology,Information Technology Services,1855112609792,13197.4,23.7,19.0,0.1313,3352.0,"3501.8, 3119.0, 3246.2",13.21,False,False,2026-08-09
+HYUNDAI,HYUNDAI,Consumer Cyclical,Auto Manufacturers,1787996798976,5431.52,38.8,30.3,0.0583,888.62,"1255.63, 1234.4, 1369.23",2.53,False,False,2026-08-09
+PIDILITIND,Pidilite Industries Limited,Basic Materials,Specialty Chemicals,1689531973632,2448.92,31.1,23.5,0.0261,872.41,"579.27, 618.01, 672.41",9.18,False,False,2026-08-09
+SOLARINDS,Solar Industries India Limited,Basic Materials,Specialty Chemicals,1687639556096,1677.55,43.6,33.5,0.0354,547.63,"446.25, 344.97, 338.7",7.1,False,False,2026-08-09
+TMCV,TMCV,Consumer Cyclical,Auto Manufacturers,1668631494656,3030.0,59.9,53.6,0.2665,1793.0,"705.0, 1340.0, 1355.0",20.34,False,False,2026-08-09
+TRENT,Trent Limited,Consumer Cyclical,Apparel Retail,1598097195008,1719.65,27.4,26.4,0.3271,400.33,"512.77, 376.86, 429.69",24.57,False,False,2026-08-09
+CHOLAFIN,Cholamandalam Investment and Finance Company Limited,Financial Services,Credit Services,1593759105024,5232.61,9.7,19.3,6.9745,1656.22,"1645.2, 1289.97, 1137.83",5.7,True,False,2026-08-09
+ICICIAMC,ICICIAMC,Financial Services,Asset Management,1518757609472,3298.26,115.0,85.8,0.0281,964.63,"763.42, 917.09, 834.1",2.65,True,False,2026-08-09
+CUMMINSIND,Cummins India Limited,Industrials,Specialty Industrial Machinery,1504087244800,2361.75,41.6,31.8,0.0047,649.46,"486.06, 603.9, 529.5",8.65,False,False,2026-08-09
+POWERINDIA,Hitachi Energy India Limited,Industrials,Electrical Equipment & Parts,1453059080192,987.84,29.4,21.9,0.0166,330.46,"261.42, 131.6, 183.89",9.91,False,False,2026-08-09
+TECHM,Tech Mahindra Limited,Technology,Information Technology Services,1448363425792,4810.9,24.3,18.2,0.0709,1465.1,"1353.8, 1122.0, 1140.6",9.28,False,False,2026-08-09
+POLYCAB,Polycab India Limited,Industrials,Electrical Equipment & Parts,1388553961472,2672.03,32.9,22.7,0.0076,784.34,"772.77, 621.69, 592.12",11.92,False,False,2026-08-09
+CGPOWER,CG Power and Industrial Solutions Limited,Industrials,Electrical Equipment & Parts,1384820637696,1206.27,28.8,21.6,0.0058,313.01,"365.49, 284.83, 269.23",13.37,False,False,2026-08-09
+LTM,LTM Limited,Technology,Information Technology Services,1380946018304,5018.1,30.4,23.8,0.0913,1466.3,"1392.3, 970.6, 1254.1",8.3,False,False,2026-08-09
+BRITANNIA,Britannia Industries Limited,Consumer Defensive,Packaged Foods,1327184216064,2533.49,61.4,60.1,0.292,678.34,"679.96, 520.72, 559.95",15.13,False,False,2026-08-09
+PNB,Punjab National Bank,Financial Services,Banks - Regional,1319504707584,18392.69,6.09,12.5,0.5865,5814.72,"5591.64, 5555.89, 2119.88",7.91,True,False,2026-08-09
+ENRIN,Siemens Energy India Limited,Utilities,Utilities - Renewable,1299412549632,1100.1,67.8,50.5,0.0456,374.6,"312.9, 359.6, 262.7",10.82,False,False,2026-08-09
+BANKBARODA,Bank of Baroda Limited,Financial Services,Banks - Regional,1296460546048,19846.43,5.66,13.8,1.0275,1783.29,"5800.78, 5442.92, 3469.16",7.47,True,False,2026-08-09
+INDIANB,Indian Bank,Financial Services,Banks - Regional,1198124433408,11704.28,6.32,16.5,0.6068,3356.63,"3173.05, 3146.88, 2276.37",2.98,True,False,2026-08-09
+CANBK,Canara Bank,Financial Services,Banks - Regional,1196872433664,19705.91,6.55,18.1,1.3919,5180.71,"4574.23, 5253.67, 3194.95",12.48,True,False,2026-08-09
+HDFCLIFE,HDFC Life Insurance Company Limited,Financial Services,Insurance - Life,1172844969984,1912.32,10.3,11.3,0.1994,611.19,"497.49, 418.19, 548.35",9.98,True,False,2026-08-09
+SBIFUNDS,SBIFUNDS,Financial Services,Asset Management,1164556238848,3067.38,56.6,43.0,0.0219,634.46,607.14,7.4,True,False,2026-08-09
+MUTHOOTFIN,Muthoot Finance Limited,Financial Services,Credit Services,1160243970048,10590.34,16.0,30.6,3.7075,2799.07,"3349.47, 2804.03, 2420.63",4.29,True,False,2026-08-09
+HEROMOTOCO,Hero MotoCorp Limited,Consumer Cyclical,Auto Manufacturers,1145808355328,5741.73,33.5,25.5,0.0088,1460.0,"1267.55, 1308.89, 1705.29",9.82,False,False,2026-08-09
+MARICO,Marico Limited,Consumer Defensive,Household & Personal Products,1117302816768,1762.0,41.8,37.0,0.0317,630.0,"391.0, 447.0, 420.0",4.49,False,False,2026-08-09
+ABCAPITAL,Aditya Birla Capital Limited,Financial Services,Financial Conglomerates,1116490432512,3764.49,8.75,11.6,5.3163,1174.7,"1129.16, 945.02, 838.63",9.77,True,False,2026-08-09
+GVT&D,GE Vernova T&D India Ltd,Industrials,Specialty Industrial Machinery,1100743966720,1233.25,76.4,57.3,0.0091,351.77,"290.8, 291.2, 186.49",7.65,False,False,2026-08-09
+HDFCAMC,HDFC Asset Management Company Limited,Financial Services,Asset Management,1091262349312,2858.06,42.9,32.9,0.0236,837.13,"622.66, 769.42",8.79,True,False,2026-08-09
+LUPIN,Lupin Limited,Healthcare,Drug Manufacturers - Specialty & Generic,1080674615296,5332.84,26.2,21.2,0.0371,1460.34,"1175.55, 1219.03, 772.52",6.08,False,False,2026-08-09
+LGEINDIA,LGEINDIA,Technology,Consumer Electronics,1076872413184,1685.09,32.3,24.7,0.0657,692.73,"89.67, 754.55, 233.45",4.03,False,False,2026-08-09
+GODREJCP,Godrej Consumer Products Limited,Consumer Defensive,Household & Personal Products,1074470191104,1861.47,20.3,18.6,0.3808,451.77,"497.91, 452.45, 411.9",15.03,False,False,2026-08-09
+UNITDSPR,UNITDSPR,Consumer Defensive,Beverages - Wineries & Distilleries,1073887838208,1838.0,28.5,21.9,0.0472,463.0,"539.0, 418.0, 417.0",13.29,False,False,2026-08-09
+INDIAMART,IndiaMART InterMESH Limited,Communication Services,Internet Content & Information,1055504400384,474.68,28.6,21.8,0.0093,172.24,"50.2, 188.31",18.88,False,False,2026-08-09
+OFSS,Oracle Financial Services Software Limited,Technology,Software - Infrastructure,1027926392832,2639.3,49.4,38.1,0.0032,1415.5,"841.7, 609.6, 641.9",9.08,False,False,2026-08-09
+MAZDOCK,Mazagon Dock Shipbuilders Limited,Industrials,Aerospace & Defense,1014460317696,2583.27,41.3,30.4,0.0023,549.41,"679.18, 879.78, 452.15",12.04,False,False,2026-08-09
+IDBI,IDBI Bank Limited,Financial Services,Banks - Regional,905567338496,9209.97,6.58,14.9,0.4932,2127.14,"2007.11, 1954.09, 2019.18",4.71,True,False,2026-08-09
+FEDERALBNK,The Federal Bank Limited,Financial Services,Banks - Regional,879168978944,4345.3,6.27,11.4,0.5537,1256.09,"1340.97, 1094.07, 918.32",23.0,True,False,2026-08-09
+DIXON,Dixon Technologies (India) Limited,Technology,Consumer Electronics,863386861568,1438.64,31.5,28.0,0.0796,663.42,"256.41, 287.26, 224.97",25.2,False,False,2026-08-09
+PERSISTENT,Persistent Systems Limited,Technology,Information Technology Services,855364927488,1865.12,35.6,26.8,0.0594,483.04,"529.26, 439.45, 424.94",17.99,False,False,2026-08-09
+HINDPETRO,Hindustan Petroleum Corporation Limited,Energy,Oil & Gas Refining & Marketing,836340613120,18046.89,23.1,32.5,0.9123,12264.67,"6065.26, 4011.4, 4110.93",8.65,False,False,2026-08-09
+ICICIGI,ICICI Lombard General Insurance Company Limited,Financial Services,Insurance - Diversified,818702450688,2771.94,21.9,16.6,0.0022,403.17,"546.56, 658.76, 747.08",6.57,True,False,2026-08-09
+HAVELLS,Havells India Limited,Industrials,Electrical Equipment & Parts,808299397120,1690.56,25.1,19.2,0.0281,290.38,"723.06, 300.78, 347.72",6.47,False,False,2026-08-09
+AUBANK,AUBANK,Financial Services,Banks - Regional,798822760448,2641.25,7.66,14.3,0.7307,795.95,"831.87, 667.66, 580.86",8.47,True,False,2026-08-09
+WAAREEENER,WAAREEENER,Technology,Solar,781548650496,3711.3,42.8,35.4,0.1569,850.22,"1061.1, 1062.46, 745.2",23.23,False,False,2026-08-09
+LTF,L&T Finance Limited,Financial Services,Credit Services,771862102016,2981.18,8.5,11.8,4.3546,902.47,"806.63, 738.61, 701.1",11.45,True,False,2026-08-09
+BHARTIHEXA,BHARTIHEXA,Communication Services,Telecom Services,769400045568,1733.2,21.4,26.0,0.8875,482.4,"446.7, 473.7, 391.6",15.77,False,False,2026-08-09
+NAM-INDIA,Nippon Life India Asset Management Limited,Financial Services,Asset Management,751811952640,1529.38,45.2,35.5,0.0174,503.7,"384.72, 403.9, 396.12",5.67,True,False,2026-08-09
+DABUR,Dabur India Limited,Consumer Defensive,Household & Personal Products,727320494080,1895.03,24.9,20.0,0.0831,590.88,"368.6, 559.97, 513.91",5.37,False,False,2026-08-09
+BAJAJHFL,BAJAJHFL,Financial Services,Mortgage Finance,714515939328,2560.34,8.85,12.1,7.3062,715.28,"669.19, 664.89, 583.3",11.34,True,False,2026-08-09
+APARINDS,APAR Industries Limited,Industrials,Electrical Equipment & Parts,668295430144,976.93,32.2,21.1,0.1775,467.45,"253.44, 208.93, 262.91",8.47,False,False,2026-08-09
+BANKINDIA,Bank of India Limited,Financial Services,Banks - Regional,660136787968,10306.3,5.92,12.4,1.4213,3302.58,"3087.76, 2812.29, 1829.56",5.78,True,False,2026-08-09
+IOB,Indian Overseas Bank,Financial Services,Banks - Regional,659730726912,5418.47,6.07,14.9,2.8262,1716.29,"1556.15, 1427.16, 1178.45",2.8,True,False,2026-08-09
+SCHAEFFLER,Schaeffler India Limited,Consumer Cyclical,Auto Parts,630716563456,1150.35,27.9,20.8,0.0055,325.78,"316.07, 322.36, 287.11",5.29,False,False,2026-08-09
+GICRE,General Insurance Corporation of India,Financial Services,Insurance - Reinsurance,626671681536,9662.38,17.6,13.7,0.0,2532.59,"1725.66, 2873.54, 2530.59",2.45,True,False,2026-08-09
+KALYANKJIL,Kalyan Jewellers India Limited,Consumer Cyclical,Luxury Goods,626150408192,1350.4,23.7,24.1,0.6352,348.66,"409.5, 416.29, 260.51",10.49,False,False,2026-08-09
+BERGEPAINT,Berger Paints India Limited,Basic Materials,Specialty Chemicals,618622812160,1126.87,22.9,18.2,0.0737,334.77,"271.16, 314.63, 262.05",8.4,False,False,2026-08-09
+COROMANDEL,Coromandel International Limited,Basic Materials,Agricultural Inputs,609401896960,1956.15,24.6,17.3,0.0666,380.82,"139.93, 505.88, 505.01",12.07,False,False,2026-08-09
+RADICO,Radico Khaitan Limited,Consumer Defensive,Beverages - Wineries & Distilleries,602786824192,604.48,24.5,20.6,0.1545,229.6,"179.46, 154.93, 130.52",13.51,False,False,2026-08-09
+MAHABANK,Bank of Maharashtra,Financial Services,Banks - Regional,602094895104,7016.86,6.03,22.8,1.3863,2023.32,"2044.88, 1798.99, 1504.37",6.32,True,False,2026-08-09
+ABBOTINDIA,Abbott India Limited,Healthcare,Drug Manufacturers - Specialty & Generic,591474327552,1552.02,44.8,34.4,0.0362,394.93,"375.96, 415.27, 365.86",15.85,False,False,2026-08-09
+M&MFIN,Mahindra & Mahindra Financial Services Limited,Financial Services,Credit Services,567575511040,2854.53,8.77,12.9,4.9154,926.03,"938.02, 824.16, 527.87",6.46,True,False,2026-08-09
+COLPAL,Colgate-Palmolive (India) Limited,Consumer Defensive,Household & Personal Products,552130838528,1325.31,108.0,82.7,0.0302,343.08,"353.32, 323.86, 320.62",19.57,False,False,2026-08-09
+HDBFS,HDBFS,Financial Services,Credit Services,551460798464,2543.83,9.09,13.9,5.003,785.2,"750.6, 643.9",10.0,True,False,2026-08-09
+APLAPOLLO,APL Apollo Tubes Limited,Basic Materials,Steel,546987048960,1203.08,21.5,16.7,0.1868,263.11,"354.35, 310.04, 237.17",18.04,False,False,2026-08-09
+MOTILALOFS,Motilal Oswal Financial Services Limited,Financial Services,Capital Markets,523867619328,1869.31,10.5,12.2,1.7404,1273.11,"221.28, 565.97, 1162.06",19.15,True,False,2026-08-09
+HINDCOPPER,Hindustan Copper Limited,Basic Materials,Copper,518421544960,918.54,42.4,32.9,0.0388,444.27,"156.23, 183.79, 134.25",23.05,False,False,2026-08-09
+AIIL,Authum Investment & Infrastructure Limited,Financial Services,Capital Markets,506647904256,1931.09,13.8,13.2,0.2143,1110.52,"59.75, 161.0, 766.87",16.69,True,False,2026-08-09
+WELCORP,Welspun Corp Limited,Basic Materials,Steel,485162516480,1613.05,20.9,16.2,0.0856,1046.49,"370.36, 452.59, 350.42",15.68,False,False,2026-08-09
+AEGISLOG,AEGISLOG,Energy,Oil & Gas Refining & Marketing,481220984832,898.15,33.4,29.7,0.1215,410.37,"176.83, 179.63, 131.32",18.77,False,False,2026-08-09
+ANTHEM,ANTHEM,Healthcare,Biotechnology,472401346560,591.79,32.0,24.3,0.0163,119.94,"189.76, 92.82, 173.43",12.52,False,False,2026-08-09
+MPHASIS,Mphasis Limited,Technology,Information Technology Services,472272207872,1862.6,28.2,22.3,0.0929,489.51,"509.64, 442.18, 441.7",4.65,False,False,2026-08-09
+PAGEIND,Page Industries Limited,Consumer Cyclical,Apparel Manufacturing,445039575040,763.82,64.4,54.3,0.1858,178.73,"189.54, 194.76, 200.8",4.56,False,False,2026-08-09
+GLAXO,GlaxoSmithKline Pharmaceuticals Limited,Healthcare,Drug Manufacturers - General,440404869120,1035.98,61.3,43.3,0.0159,237.18,"277.86, 295.62, 205.01",12.42,False,False,2026-08-09
+SUPREMEIND,The Supreme Industries Limited,Industrials,Building Products & Equipment,437415542784,953.98,22.6,17.1,0.0168,280.72,"433.57, 153.37, 202.3",14.88,False,False,2026-08-09
+CPPLUS,CPPLUS,Industrials,Building Products & Equipment,437072101376,367.96,30.4,27.8,0.1363,169.13,"95.98, 69.97, 54.96",5.34,False,False,2026-08-09
+AJANTPHARM,Ajanta Pharma Limited,Healthcare,Drug Manufacturers - Specialty & Generic,435925385216,1056.0,31.0,24.0,0.0083,334.22,"266.7, 273.77, 255.34",7.03,False,False,2026-08-09
+NAVINFLUOR,Navin Fluorine International Limited,Basic Materials,Chemicals,424302477312,663.55,20.8,15.3,0.012,212.62,"185.4, 117.16, 94.96",20.73,False,False,2026-08-09
+PETRONET,Petronet LNG Limited,Energy,Oil & Gas Refining & Marketing,420900044800,3912.53,23.4,18.7,0.1158,1370.74,"869.61, 830.3, 841.88",10.05,False,False,2026-08-09
+ENDURANCE,Endurance Technologies Limited,Consumer Cyclical,Auto Parts,408555257856,951.71,21.1,15.6,0.0054,276.45,"221.64, 227.27, 226.35",2.24,False,False,2026-08-09
+3MINDIA,3M India Limited,Industrials,Conglomerates,405936799744,522.32,50.0,30.0,0.0968,215.34,"62.05, 177.69, 71.37",13.33,False,False,2026-08-09
+ASTRAL,Astral Limited,Industrials,Building Products & Equipment,387930849280,536.6,21.9,15.6,0.0245,213.0,"107.7, 81.1, 179.3",10.59,False,False,2026-08-09
+LTTS,L&T Technology Services Limited,Technology,Information Technology Services,381741236224,1279.2,26.8,21.6,0.0916,356.6,"332.1, 302.6, 315.7",8.29,False,False,2026-08-09
+EMCURE,EMCURE,Healthcare,Drug Manufacturers - Specialty & Generic,375263199232,924.36,23.7,22.3,0.4536,243.4,"230.54, 243.46, 206.95",8.84,False,False,2026-08-09
+GODFRYPHLP,Godfrey Phillips India Limited,Consumer Defensive,Tobacco,356574298112,1526.06,34.9,27.0,0.0435,198.39,"521.43, 343.29, 356.31",15.93,False,False,2026-08-09
+MANAPPURAM,Manappuram Finance Limited,Financial Services,Credit Services,344501518336,1003.32,9.52,11.0,3.2432,403.96,"241.06, 138.38, 191.17",21.2,True,False,2026-08-09
+HEXT,Hexaware Technologies Limited,Technology,Information Technology Services,344288559104,1369.2,33.5,26.6,0.1383,329.9,"351.6, 291.9, 379.9",6.23,False,False,2026-08-09
+SCHNEIDER,Schneider Electric Infrastructure Limited,Industrials,Electrical Equipment & Parts,323938156544,212.56,29.6,35.6,0.7538,21.97,"97.03, 52.32, 41.24",16.91,False,False,2026-08-09
+LALPATHLAB,Dr. Lal PathLabs Limited,Healthcare,Diagnostics & Research,322534277120,504.78,28.5,22.9,0.0837,169.5,"131.3, 90.5",7.48,False,False,2026-08-09
+RRKABEL,R R Kabel Limited,Industrials,Electrical Equipment & Parts,312114642944,492.22,28.0,21.2,0.1345,205.2,"167.95, 118.25, 89.7",16.07,False,False,2026-08-09
+NUVAMA,Nuvama Wealth Management Limited,Financial Services,Asset Management,299951357952,1041.04,23.7,28.2,0.5407,305.79,"269.15, 253.8",18.51,True,False,2026-08-09
+PNBHOUSING,PNB Housing Finance Limited,Financial Services,Mortgage Finance,297854271488,2291.24,9.44,12.9,3.7542,557.34,"655.8, 520.35, 533.5",9.42,True,False,2026-08-09
+GRSE,Garden Reach Shipbuilders & Engineers Limited,Industrials,Aerospace & Defense,297720643584,747.93,43.0,31.8,0.0147,172.84,"303.2, 170.77, 120.18",20.36,False,False,2026-08-09
+NEULANDLAB,Neuland Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,293227102208,364.0,26.5,21.3,0.1624,212.67,"40.57, 96.85, 13.9",29.79,False,False,2026-08-09
+IKS,IKS,Healthcare,Health Information Services,291496525824,721.55,44.0,37.6,0.0621,193.74,"205.97, 183.33, 151.54",18.55,False,False,2026-08-09
+CENTRALBK,Central Bank of India,Financial Services,Banks - Regional,283851948032,4523.79,5.61,11.6,1.0701,1323.13,"745.72, 1264.29, 1281.98",6.93,True,False,2026-08-09
+NETWEB,Netweb Technologies India Limited,Technology,Computer Hardware,281241452544,205.82,37.5,32.8,0.3961,85.32,"70.59, 73.31",17.84,False,False,2026-08-09
+REDINGTON,Redington Limited,Technology,Information Technology Services,277412642816,1490.22,26.4,25.0,0.2901,485.98,"391.32, 435.8, 275.27",21.61,False,False,2026-08-09
+LICHSGFIN,LIC Housing Finance Limited,Financial Services,Mortgage Finance,277369257984,5603.67,8.58,14.4,6.7353,1498.85,"1492.54, 1398.02, 1363.89",12.27,True,False,2026-08-09
+PGHH,Procter & Gamble Hygiene and Health Care Limited,Consumer Defensive,Household & Personal Products,275818872832,856.5,157.0,115.0,0.0014,126.27,"153.13, 301.46, 209.86",12.79,False,False,2026-08-09
+MSUMI,Motherson Sumi Wiring India Limited,Consumer Cyclical,Auto Parts,272959209472,625.2,38.9,32.4,0.1555,145.32,"167.3, 149.44, 143.1",11.48,False,False,2026-08-09
+SUMICHEM,Sumitomo Chemical India Limited,Basic Materials,Agricultural Inputs,266019717120,542.96,23.5,17.6,0.0184,214.83,"111.23, 75.63, 178.34",12.65,False,False,2026-08-09
+GABRIEL,Gabriel India Limited,Consumer Cyclical,Auto Parts,265809592320,252.16,26.5,20.0,0.0258,107.35,"66.61, 54.67, 69.03",17.17,False,False,2026-08-09
+RUBICON,RUBICON,Healthcare,Drug Manufacturers - General,256421085184,246.74,21.0,18.7,0.2064,76.78,"72.8, 36.24, 38.07",23.29,False,False,2026-08-09
+GILLETTE,Gillette India Limited,Consumer Defensive,Household & Personal Products,250368507904,411.7,90.6,66.4,0.0,145.69,"158.68, 125.97",11.91,False,False,2026-08-09
+GUJENERGY,Gujarat Energy Limited,Utilities,Utilities - Regulated Gas,248912625664,2018.91,23.4,17.4,0.0093,351.24,"266.84, 279.81, 327.64",18.73,False,False,2026-08-09
+FORCEMOT,Force Motors Limited,Consumer Cyclical,Auto Manufacturers,243760840704,1211.63,35.4,28.7,0.004,216.56,"278.52, 406.11, 350.67",27.39,False,False,2026-08-09
+GRINDWELL,Grindwell Norton Limited,Industrials,Building Products & Equipment,236254347264,415.66,21.2,16.1,0.0244,115.51,"118.74, 95.17, 94.45",17.17,False,False,2026-08-09
+PFIZER,Pfizer Limited,Healthcare,Drug Manufacturers - General,223276384256,722.43,24.1,18.0,0.0168,204.47,"199.82, 141.84, 189.02",16.62,False,False,2026-08-09
+AADHARHFC,AADHARHFC,Financial Services,Mortgage Finance,221467508736,1095.88,11.4,15.9,2.6404,282.36,"310.92, 281.21, 266.47",19.61,True,False,2026-08-09
+CEMPRO,Cemindia Projects Limited,Industrials,Engineering & Construction,207536570368,597.73,32.6,27.6,0.4209,140.83,"242.17, 110.89, 137.23",22.4,False,False,2026-08-09
+TRITURBINE,Triveni Turbine Limited,Industrials,Specialty Industrial Machinery,202324262912,349.7,41.2,30.8,0.0017,101.9,"92.1, 91.2, 64.5",7.6,False,False,2026-08-09
+TDPOWERSYS,TD Power Systems Limited,Industrials,Specialty Industrial Machinery,196988436480,238.77,32.1,23.4,0.018,72.19,"56.32, 50.07, 53.02",23.07,False,False,2026-08-09
+CAPLIPOINT,Caplin Point Laboratories Limited,Healthcare,Drug Manufacturers - Specialty & Generic,195661709312,641.24,27.0,21.1,0.001,170.11,"163.88, 152.8, 142.57",21.19,False,False,2026-08-09
+FSL,Firstsource Solutions Limited,Technology,Information Technology Services,193246314496,674.42,21.1,20.8,0.5964,205.24,"120.33, 169.33, 160.68",11.71,False,False,2026-08-09
+CASTROLIND,Castrol India Limited,Energy,Oil & Gas Refining & Marketing,189990633472,949.93,60.3,45.9,0.0375,347.7,"242.18, 244.67, 244.0",26.41,False,False,2026-08-09
+CHENNPETRO,Chennai Petroleum Corporation Limited,Energy,Oil & Gas Refining & Marketing,189921591296,3102.7,35.4,32.4,0.1844,1031.35,"1421.85, 1001.59, 40.1",16.71,False,False,2026-08-09
+TRAVELFOOD,TRAVELFOOD,Consumer Cyclical,Restaurants,188117319680,441.03,45.1,38.5,0.1945,120.8,"132.68, 95.77, 102.85",2.15,False,False,2026-08-09
+BAYERCROP,Bayer CropScience Limited,Basic Materials,Agricultural Inputs,187732115456,689.2,29.1,23.7,0.0281,162.1,"95.7, 152.7, 278.7",12.96,False,False,2026-08-09
+KAJARIACER,Kajaria Ceramics Limited,Industrials,Building Products & Equipment,183433101312,485.41,23.1,17.2,0.0309,169.46,"155.75, 87.72, 108.98",14.48,False,False,2026-08-09
+CHAMBLFERT,Chambal Fertilisers and Chemicals Limited,Basic Materials,Agricultural Inputs,180573995008,1953.39,25.8,20.4,0.0997,523.61,"169.26, 586.41, 548.96",18.4,False,False,2026-08-09
+EMAMILTD,Emami Limited,Consumer Defensive,Household & Personal Products,180078067712,775.26,28.4,26.6,0.0296,137.35,"143.18, 319.48, 148.35",10.28,False,False,2026-08-09
+JYOTICNC,Jyoti CNC Automation Limited,Industrials,Specialty Industrial Machinery,178367938560,336.0,21.7,17.3,0.2457,90.57,"88.51, 85.5, 71.42",18.58,False,False,2026-08-09
+INOXINDIA,INOX India Limited,Industrials,Specialty Industrial Machinery,177415421952,257.89,32.4,25.0,0.0669,58.07,"75.24, 60.7, 61.12",10.61,False,False,2026-08-09
+J&KBANK,Jammu and Kashmir Bank Limited,Financial Services,Banks - Regional,175352299520,2359.51,5.83,15.2,0.2062,428.8,"798.56, 581.49, 484.53",23.37,True,False,2026-08-09
+KPITTECH,KPIT Technologies Limited,Technology,Software - Infrastructure,171475943424,637.34,33.2,27.9,0.0791,117.18,"163.05, 133.3, 169.09",23.95,False,False,2026-08-09
+THANGAMAYL,Thangamayil Jewellery Limited,Consumer Cyclical,Luxury Goods,163957653504,351.65,25.5,28.1,0.6592,85.09,"142.66, 104.78, 45.71",16.43,False,False,2026-08-09
+ALIVUS,Alivus Life Sciences Limited,Healthcare,Drug Manufacturers - Specialty & Generic,163261480960,564.48,25.0,19.0,0.0172,160.08,"162.66, 150.26, 121.54",12.42,False,False,2026-08-09
+ECLERX,eClerx Services Limited,Technology,Information Technology Services,162801909760,706.21,41.7,35.6,0.2268,164.34,"189.36, 191.98",8.43,False,False,2026-08-09
+KFINTECH,KFin Technologies Limited,Technology,Software - Application,161784119296,343.71,30.6,23.3,0.0285,75.21,"81.15, 91.99, 77.26",29.14,False,False,2026-08-09
+FIVESTAR,Five-Star Business Finance Limited,Financial Services,Credit Services,160360857600,1098.75,14.8,16.1,1.1155,271.41,"269.27, 277.03, 266.31",15.07,True,False,2026-08-09
+USHAMART,Usha Martin Limited,Basic Materials,Steel,156781363200,465.99,28.6,20.6,0.0017,141.98,"147.8, 107.55, 100.93",29.24,False,False,2026-08-09
+GPIL,Godawari Power & Ispat Limited,Basic Materials,Steel,156540256256,800.75,22.0,17.2,0.0773,280.09,"143.25, 161.44, 215.96",27.72,False,False,2026-08-09
+BIKAJI,Bikaji Foods International Limited,Consumer Defensive,Packaged Foods,156334145536,258.26,22.0,17.8,0.1316,60.14,"56.41, 62.18, 79.78",4.01,False,False,2026-08-09
+IGIL,International Gemological Institute Limited,Basic Materials,Other Precious Metals & Mining,153762414592,427.29,39.9,30.2,0.014,165.74,"179.6, 140.73, 129.79",8.44,False,False,2026-08-09
+KIRLOSBROS,Kirloskar Brothers Limited,Industrials,Specialty Industrial Machinery,151011950592,373.63,20.3,15.0,0.0185,66.6,"111.5, 124.3, 66.7",17.4,False,False,2026-08-09
+CCL,CCL Products (India) Limited,Consumer Defensive,Packaged Foods,150664183808,388.1,20.6,22.4,0.463,116.88,"114.52, 100.27, 72.45",20.54,False,False,2026-08-09
+CEATLTD,CEAT Limited,Consumer Cyclical,Auto Parts,150599745536,698.02,20.8,18.8,0.6467,4.0,"243.85, 155.77, 112.0",16.42,False,False,2026-08-09
+PRIVISCL,Privi Speciality Chemicals Limited,Basic Materials,Specialty Chemicals,142348402688,327.54,26.6,28.2,0.5211,84.21,"93.7, 77.99",27.39,False,False,2026-08-09
+VINATIORGA,Vinati Organics Limited,Basic Materials,Specialty Chemicals,137445982208,443.74,21.3,16.2,0.0197,108.86,"123.86, 100.83, 104.19",12.86,False,False,2026-08-09
+DOMS,DOMS Industries Limited,Industrials,Business Equipment & Supplies,137192054784,230.18,25.2,20.6,0.0784,44.49,"56.74, 57.9, 58.27",3.2,False,False,2026-08-09
+JSWDULUX,JSW Dulux Limited,Unknown,Unknown,137153757184,1973.8,23.0,19.3,0.0336,125.7,"74.3, 91.0, 108.4",8.33,False,False,2026-08-09
+KSB,KSB Limited,Industrials,Specialty Industrial Machinery,136490254336,270.49,25.2,18.8,0.0038,57.2,"39.8, 81.0, 67.5",14.32,False,False,2026-08-09
+INGERRAND,Ingersoll-Rand (India) Limited,Industrials,Specialty Industrial Machinery,136449523712,256.03,57.1,43.0,0.0154,64.81,"71.89, 60.35, 58.98",14.75,False,False,2026-08-09
+SKFINDUS,SKFINDUS,Industrials,Tools & Accessories,135356194816,217.67,29.9,26.6,0.0035,118.97,"50.09, 121.31",13.15,False,False,2026-08-09
+ENGINERSIN,Engineers India Limited,Industrials,Engineering & Construction,135227400192,691.59,29.3,22.6,0.0062,195.53,"347.17, 83.49, 65.4",25.24,False,False,2026-08-09
+ACE,Action Construction Equipment Limited,Industrials,Farm & Heavy Construction Machinery,130252226560,415.09,32.5,23.6,0.0035,119.49,"110.91, 116.41, 97.72",24.12,False,False,2026-08-09
+MANYAVAR,Vedant Fashions Limited,Consumer Cyclical,Apparel Manufacturing,125594943488,375.54,23.6,20.0,0.2361,80.61,"114.3, 134.9, 70.26",3.92,False,False,2026-08-09
+ASKAUTOLTD,ASKAUTOLTD,Consumer Cyclical,Auto Parts,125175693312,297.32,25.8,19.8,0.1264,85.12,"71.54, 79.92, 66.07",4.58,False,False,2026-08-09
+VARROC,Varroc Engineering Limited,Consumer Cyclical,Auto Parts,123950817280,225.03,21.7,18.3,0.3317,69.32,"10.3, 60.95, 105.06",9.53,False,False,2026-08-09
+ATLANTAELE,ATLANTAELE,Industrials,Electrical Equipment & Parts,123603632128,201.77,47.2,33.7,0.056,46.84,"102.19, 43.34, 25.1",6.05,False,False,2026-08-09
+JMFINANCIL,JM Financial Limited,Financial Services,Capital Markets,121974112256,1201.97,17.6,15.1,0.0088,291.92,"165.36, 312.8, 453.81",20.54,True,False,2026-08-09
+UTLSOLAR,UTLSOLAR,Technology,Solar,119676346368,304.12,35.0,36.4,0.4183,106.32,"67.31, 67.54, 51.24",5.76,False,False,2026-08-09
+ZENSARTECH,Zensar Technologies Limited,Technology,Information Technology Services,113149566976,774.6,26.0,20.9,0.0106,183.8,"210.6, 199.8, 182.0",17.94,False,False,2026-08-09
+RITES,RITES Limited,Industrials,Engineering & Construction,112576634880,410.27,20.6,15.7,0.0034,87.21,"129.97, 101.99, 98.21",15.63,False,False,2026-08-09
+JAINREC,JAINREC,Basic Materials,Other Industrial Metals & Mining,106424467456,352.22,26.0,30.7,0.8501,66.04,"127.61, 54.23, 55.57",15.45,False,False,2026-08-09
+BLS,BLS International Services Limited,Industrials,Specialty Business Services,104662450176,686.7,80.7,103.0,0.2549,177.8,"162.67, 175.23, 171.0",22.33,False,False,2026-08-09
+GODREJAGRO,Godrej Agrovet Limited,Consumer Defensive,Packaged Foods,104422604800,472.78,22.5,19.8,0.3189,134.5,"104.85, 114.82, 160.52",20.49,False,False,2026-08-09
+SANOFICONR,SANOFICONR,Healthcare,Drug Manufacturers - General,104113201152,240.1,89.9,71.6,0.0646,68.8,"67.8, 66.5, 62.9",8.28,False,False,2026-08-09
+BLUEJET,Blue Jet Healthcare Limited,Healthcare,Biotechnology,103021117440,247.82,26.5,19.9,0.0317,78.26,"64.34, 40.17, 91.17",17.11,False,False,2026-08-09
+PGHL,Procter & Gamble Health Limited,Healthcare,Drug Manufacturers - Specialty & Generic,101994905600,326.91,83.5,61.6,0.0177,94.6,"77.59, 88.54, 66.18",29.41,False,False,2026-08-09
+VOLTAMP,Voltamp Transformers Limited,Industrials,Electrical Equipment & Parts,100817100800,305.38,23.5,17.4,0.0006,91.22,"47.9, 99.08, 78.85",14.57,False,False,2026-08-09
+SANDUMA,The Sandur Manganese & Iron Ores Limited,Basic Materials,Steel,99831341056,656.64,24.2,19.3,0.1247,235.78,"115.83, 138.87, 166.63",23.47,False,False,2026-08-09
+BANCOINDIA,Banco Products (India) Limited,Consumer Cyclical,Auto Parts,98259468288,481.68,49.2,44.0,0.0068,147.43,"85.83, 138.9, 109.52",27.98,False,False,2026-08-09
+ELECON,Elecon Engineering Company Limited,Industrials,Specialty Industrial Machinery,98253512704,341.15,22.4,19.2,0.1204,70.35,"6.0, 71.99, 175.44",26.52,False,False,2026-08-09
+WAAREERTL,Waaree Renewable Technologies Limited,Industrials,Engineering & Construction,94844174336,478.7,85.4,69.1,0.1251,115.9,"155.74, 120.22, 86.44",23.61,False,False,2026-08-09
+KIRLPNU,Kirloskar Pneumatic Company Limited,Industrials,Specialty Industrial Machinery,93540499456,256.13,30.3,22.7,0.0008,33.4,"143.7, 42.2, 26.6",24.81,False,False,2026-08-09
+VESUVIUS,Vesuvius India Limited,Industrials,Specialty Industrial Machinery,91149697024,264.08,21.3,15.0,0.0085,55.85,"80.23, 61.54, 63.0",17.82,False,False,2026-08-09
+TARIL,TARIL,Industrials,Electrical Equipment & Parts,89389375488,264.39,20.8,17.0,0.3007,61.52,"89.28, 73.85, 33.91",26.32,False,False,2026-08-09
+BSOFT,Birlasoft Limited,Technology,Information Technology Services,89046097920,518.36,23.8,18.6,0.0599,161.0,"175.93, 119.89, 106.43",24.85,False,False,2026-08-09
+PNGJL,PNGJL,Consumer Cyclical,Luxury Goods,87240097792,409.82,20.7,22.8,0.9286,105.34,"90.26, 170.91, 79.31",11.64,False,False,2026-08-09
+ESABINDIA,ESAB India Limited,Industrials,Tools & Accessories,86685794304,206.69,64.7,48.8,0.0072,43.55,"43.0, 79.2, 40.94",11.78,False,False,2026-08-09
+CLEAN,Clean Science and Technology Limited,Basic Materials,Specialty Chemicals,84510547968,229.66,21.6,16.2,0.0006,73.35,"58.27, 45.88, 70.06",19.11,False,False,2026-08-09
+TIPSMUSIC,Tips Music Limited,Communication Services,Entertainment,82496118784,216.75,122.0,92.3,0.0202,43.7,"59.06, 58.66, 45.84",22.49,False,False,2026-08-09
+NEWGEN,Newgen Software Technologies Limited,Technology,Software - Infrastructure,77884801024,300.58,25.4,20.2,0.0215,62.82,"106.3, 62.82, 49.72",23.88,False,False,2026-08-09
+REDTAPE,REDTAPE Limited,Consumer Cyclical,Footwear & Accessories,77376479232,240.55,24.7,27.0,0.7877,69.88,"104.53, 27.54, 38.6",13.22,False,False,2026-08-09
+SANOFI,Sanofi India Limited,Healthcare,Drug Manufacturers - General,77138763776,326.7,57.5,43.0,0.0187,102.6,"61.7, 69.5, 119.5",14.05,False,False,2026-08-09
+JYOTHYLAB,Jyothy Labs Limited,Consumer Defensive,Household & Personal Products,75818778624,333.19,28.7,21.7,0.0335,67.52,"81.12, 87.76, 96.79",11.61,False,False,2026-08-09
+SUPRIYA,Supriya Lifescience Limited,Healthcare,Biotechnology,74321846272,209.12,25.1,19.1,0.0042,74.23,"49.68, 50.43, 34.79",20.21,False,False,2026-08-09
+SHARDACROP,Sharda Cropchem Limited,Basic Materials,Agricultural Inputs,73443991552,680.86,32.0,24.8,0.0028,88.04,"318.64, 145.12, 142.78",12.88,False,False,2026-08-09
+GPPL,Gujarat Pipavav Port Limited,Industrials,Marine Shipping,73332187136,515.16,30.2,22.7,0.0221,142.2,"107.91, 104.32, 112.36",20.12,False,False,2026-08-09
+TCI,Transport Corporation of India Limited,Industrials,Integrated Freight & Logistics,70404218880,456.25,20.6,20.3,0.1066,105.7,"123.6, 114.7, 106.5",15.61,False,False,2026-08-09
+FIEMIND,Fiem Industries Limited,Consumer Cyclical,Auto Parts,67912617984,255.58,29.3,22.5,0.0558,71.03,"63.37, 63.67, 57.52",26.86,False,False,2026-08-09
+GOKULAGRO,Gokul Agro Resources Limited,Consumer Defensive,Packaged Foods,67515842560,370.07,38.7,31.2,0.3974,122.97,"119.19, 77.86, 101.32",23.78,False,False,2026-08-09
+STYL,STYL,Technology,Software - Infrastructure,65976324096,240.01,28.0,23.6,0.0647,60.24,"81.79, 64.09, 57.64",10.17,False,False,2026-08-09
+AJAXENGG,AJAXENGG,Industrials,Farm & Heavy Construction Machinery,64685608960,225.14,23.9,17.8,0.0014,94.96,"38.24, 39.07, 52.88",4.17,False,False,2026-08-09
+TRANSRAILL,TRANSRAILL,Industrials,Engineering & Construction,63556804608,403.59,29.0,20.0,0.294,96.5,"109.74, 90.98, 105.82",19.87,False,False,2026-08-09
+VIKRAMSOLR,VIKRAMSOLR,Technology,Solar,59549315072,470.42,30.6,21.4,0.2195,110.42,"98.15, 90.61, 19.02",29.6,False,False,2026-08-09
+GULFOILLUB,Gulf Oil Lubricants India Limited,Basic Materials,Specialty Chemicals,58946301952,347.63,27.5,24.3,0.3295,123.16,"89.75, 76.44, 85.56",16.32,False,False,2026-08-09
+SKIPPER,Skipper Limited,Industrials,Engineering & Construction,58467348480,213.13,23.3,16.2,0.6475,78.06,"52.79, 37.03, 45.26",25.65,False,False,2026-08-09
+SHARDAMOTR,Sharda Motor Industries Limited,Consumer Cyclical,Auto Parts,54037901312,314.92,35.2,27.3,0.0373,81.35,"74.7, 99.94, 83.94",21.97,False,False,2026-08-09
+GVPIL,GE Power India Limited,Industrials,Engineering & Construction,51287838720,252.61,84.0,62.8,0.0377,113.21,"72.32, 32.36, 34.72",28.81,False,False,2026-08-09
+QUESS,Quess Corp Limited,Industrials,Staffing & Employment Services,46458380288,221.62,25.4,23.9,0.1471,81.9,"64.14, 54.98, 50.91",21.73,False,False,2026-08-09
+DHANUKA,Dhanuka Agritech Limited,Basic Materials,Agricultural Inputs,45496635392,287.23,23.8,18.5,0.0185,36.3,"97.77, 40.0, 55.5",9.83,False,False,2026-08-09
+MSTCLTD,MSTC Limited,Industrials,Conglomerates,41623998464,218.43,30.1,26.5,0.1706,77.22,"51.37, 47.5, 42.34",29.06,False,False,2026-08-09
+PACEDIGITK,Pace Digitek Limited,Technology,Communication Equipment,39274147840,297.57,23.0,16.7,0.0996,99.16,"75.84, 64.08, 57.23",24.14,False,False,2026-08-09
+SEAMECLTD,Seamec Limited,Industrials,Marine Shipping,38977761280,251.39,20.4,21.9,0.2467,103.48,"99.62, 27.48, 75.77",16.95,False,False,2026-08-09
+OSWALPUMPS,OSWALPUMPS,Industrials,Electrical Equipment & Parts,37176995840,376.28,33.3,29.2,0.1383,92.53,"91.56, 97.5, 94.68",18.78,False,False,2026-08-09
+DPABHUSHAN,D. P. Abhushan Limited,Consumer Cyclical,Luxury Goods,32949819392,211.84,39.6,40.9,0.4754,64.45,"50.6, 73.35, 51.46",24.88,False,False,2026-08-09
+CRIZAC,CRIZAC,Consumer Defensive,Education & Training Services,32893208576,219.18,41.3,30.8,0.0031,74.5,"49.94, 49.94",15.22,False,False,2026-08-09
+DDEVPLSTIK,Ddev Plastiks Industries Limited,Basic Materials,Specialty Chemicals,29821976576,201.82,31.0,21.8,0.0568,54.52,"48.04, 47.11, 52.15",23.46,False,False,2026-08-09
+GKENERGY,GKENERGY,Utilities,Utilities - Renewable,27757570048,204.3,40.9,36.8,0.2405,59.25,"60.82, 46.91, 44.83",12.35,False,False,2026-08-09
+TAJGVK,TAJGVK Hotels & Resorts Limited,Consumer Cyclical,Lodging,22600755200,410.27,21.5,17.2,0.1574,31.66,"319.75, 36.99, 27.55",24.49,False,False,2026-08-09
+WAAREEINDO,Indosolar Limited,Technology,Solar,13629369344,246.6,124.0,151.0,0.0122,36.62,"42.0, 41.47, 116.79",24.46,False,False,2026-08-09
+CMPDI,CMPDI,Basic Materials,Other Industrial Metals & Mining,0,613.18,38.1,28.4,0.0005,116.27,"187.82, 75.56, 276.96",6.64,False,False,2026-08-09
+ASHOKLEY,ASHOKLEY,Industrials,Farm & Heavy Construction Machinery,0,3471.03,38.1,30.2,0.0954,1290.7,"813.49, 755.77, 611.07",11.99,False,False,2026-08-09
+AIAENG,AIAENG,Industrials,Specialty Industrial Machinery,0,1270.16,21.9,17.6,0.0013,393.27,"294.42, 277.44, 305.02",2.54,False,False,2026-08-09
+MCX,MCX,Financial Services,Financial Data & Stock Exchanges,0,1331.55,57.9,43.4,0.0018,413.44,"529.77, 401.12",19.15,True,False,2026-08-09
+TCS,TCS,Technology,Information Technology Services,0,49210.0,76.7,65.2,0.1109,13349.0,"13718.0, 10657.0, 12760.0",5.69,False,False,2026-08-09
+TENNIND,TENNIND,Consumer Cyclical,Auto Parts,0,603.58,22.4,20.3,0.0028,166.58,"118.69, 167.82, 140.14",4.09,False,False,2026-08-09
+TVSMOTOR,TVSMOTOR,Consumer Cyclical,Auto Manufacturers,0,3018.33,38.2,34.4,0.3337,1019.43,"771.52, 841.29, 610.04",8.12,False,False,2026-08-09
