@@ -76,14 +76,14 @@ def test_ath_price_flag_missing_data():
 # ---------------------------------------------------------------------------
 def test_ath_profit_flag_current_eps_at_or_above_historical_max():
     # market_cap=1e9, price=100 -> shares=1e7. TTM profit=10 Cr -> current_eps = 10*1e7/1e7 = 10.
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, current_price=100,
+    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
                                historical_max_eps=8) is True
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, current_price=100,
+    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
                                historical_max_eps=10) is True  # equal counts as ATH
 
 
 def test_ath_profit_flag_current_eps_below_historical_max():
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, current_price=100,
+    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
                                historical_max_eps=12) is False
 
 

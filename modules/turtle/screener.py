@@ -174,13 +174,19 @@ def run_pipeline(
         # or a stock at/near its live ATH can show "Above_MA212 = false" purely because the
         # weekly-cron CSV (up to ~2.5 months stale in the incident that prompted this) is
         # comparing a live-ish number against a stale one. So: live daily close for the
-        # displayed/used price (feeds Current_Price, ATH-price, ATH-profit's share-count
-        # derivation, and above_exit_flag alike), and a live EXIT_MA_PERIOD-day SMA (212,
-        # Turtle's actual methodology) computed from that same daily series for
-        # above_exit_flag. Each falls back independently to the CSV snapshot only when the
-        # live source is unavailable (no daily data at all for price; fewer than
-        # EXIT_MA_PERIOD daily rows for the SMA specifically -- the CSV only has MA200, close
-        # enough for that rare fallback case).
+        # displayed/used price (feeds Current_Price, ATH-price, and above_exit_flag alike),
+        # and a live EXIT_MA_PERIOD-day SMA (212, Turtle's actual methodology) computed from
+        # that same daily series for above_exit_flag. Each falls back independently to the
+        # CSV snapshot only when the live source is unavailable (no daily data at all for
+        # price; fewer than EXIT_MA_PERIOD daily rows for the SMA specifically -- the CSV
+        # only has MA200, close enough for that rare fallback case).
+        #
+        # NOT ath_profit_flag's shares-outstanding derivation, deliberately: Market_Cap only
+        # refreshes weekly, and shares = market_cap / price is only valid when both come from
+        # the SAME moment. Pairing a stale Market_Cap with today's live price doesn't recover
+        # the real share count -- it silently drifts EPS with every price tick even when
+        # profit and shares haven't actually changed. That's why csv_current_price (the CSV's
+        # own matched price) is kept separate below and fed to ath_profit_flag specifically.
         if daily_close is not None:
             live_price = float(daily_close.iloc[-1])
             historical_max_close = max(float(daily_close.max()), monthly_max_close)
@@ -207,6 +213,7 @@ def run_pipeline(
             "Current_Price": live_price,
             "ExitMA": live_exit_ma,
             "Market_Cap": urow.get("Market Cap"),
+            "CSV_Current_Price": csv_current_price,  # same snapshot as Market_Cap -- see above
             "TTM_Net_Profit": _parse_ttm_profit(
                 urow.get("Latest Quarter Profit (Cr)"), urow.get("Last 3Q Profits (Cr)")
             ),
@@ -247,8 +254,11 @@ def run_pipeline(
         sector_rs = _leave_one_out_sector_rs(row["Sector"], row["stock_rs"])
 
         ath_price = compute.ath_price_flag(row["Current_Price"], row["historical_max_close"])
+        # market_cap_price is the CSV's own price (same snapshot as Market_Cap), not the live
+        # price -- see the comment above where CSV_Current_Price is captured. Using the live
+        # price here would silently redefine "shares outstanding" every time the price ticks.
         ath_profit = compute.ath_profit_flag(
-            row["TTM_Net_Profit"], row["Market_Cap"], row["Current_Price"], row["max_eps"]
+            row["TTM_Net_Profit"], row["Market_Cap"], row["CSV_Current_Price"], row["max_eps"]
         )
         above_exit = compute.above_exit_flag(row["Current_Price"], row["ExitMA"])
         outperformance = compute.outperformance_flag(row["stock_rs"], sector_rs, benchmark_rs)

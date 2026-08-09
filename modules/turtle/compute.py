@@ -31,23 +31,33 @@ def ath_price_flag(
 def ath_profit_flag(
     current_ttm_profit_cr: Optional[float],
     market_cap: Optional[float],
-    current_price: Optional[float],
+    market_cap_price: Optional[float],
     historical_max_eps: Optional[float],
 ) -> bool:
     """True if the TTM-profit-derived current EPS is at/above the historical max EPS.
 
     LOCKED decision (ATH-Profit source = EPS-ATH proxy) resolved for the units mismatch
     between TTM profit (Cr) and historical EPS (Rs/share) by deriving current shares
-    outstanding from data already on hand: ``shares = market_cap / current_price``, then
+    outstanding from data already on hand: ``shares = market_cap / market_cap_price``, then
     ``current_eps = current_ttm_profit_cr * 1e7 / shares``.
+
+    ``market_cap_price`` MUST be the same-snapshot price ``market_cap`` was itself computed
+    from (i.e. the weekly-cron CSV's own Current_Price), never a live/intraday price paired
+    with a market cap from an earlier date. Market Cap is *defined* as shares x price at one
+    moment -- dividing it by a price from a *different* moment doesn't recover the real share
+    count, it just returns shares scaled by (old_price / new_price), which drifts with every
+    price tick even though the real share count and profit haven't changed. This produced a
+    real bug: EPS silently changing day to day purely from live-price movement, when the only
+    things that should move EPS are a genuine profit change (quarterly) or a genuine share
+    count change (buyback/issuance/split -- reflected in the next weekly CSV refresh).
     """
-    values = [current_ttm_profit_cr, market_cap, current_price, historical_max_eps]
+    values = [current_ttm_profit_cr, market_cap, market_cap_price, historical_max_eps]
     if any(v is None or (isinstance(v, float) and pd.isna(v)) for v in values):
         return False
-    if market_cap <= 0 or current_price <= 0:
+    if market_cap <= 0 or market_cap_price <= 0:
         return False
 
-    shares_outstanding = market_cap / current_price
+    shares_outstanding = market_cap / market_cap_price
     if shares_outstanding <= 0:
         return False
 

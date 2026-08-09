@@ -504,3 +504,42 @@ def test_build_fundamentals_lookup_latest_and_prior_max_sales():
     assert lookup["X"]["latest_sales"] == 80
     assert lookup["X"]["max_sales_excl_latest"] == 100
     assert lookup["X"]["max_sales"] == 100  # all-time max includes every year
+
+
+# ---------------------------------------------------------------------------
+# ATH_Profit_Flag must use the CSV's own (Market_Cap, Current_Price) snapshot for the
+# shares-outstanding derivation, NOT the live daily price -- otherwise "current EPS" would
+# silently drift every time the live price moves, even with profit and real share count
+# both unchanged. Reported live: DEEPINDS showed a materially different implied EPS on
+# different days purely from price movement, with TTM profit and Market Cap identical.
+# ---------------------------------------------------------------------------
+def test_ath_profit_flag_unaffected_by_live_price_movement():
+    symbol = "STOCKEPSTABLE"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    fundamentals = pd.DataFrame([{"ticker": symbol, "year": 2023, "eps": 8, "sales": 100}])
+    # CSV snapshot: Market Cap=1e9, Current_Price=100 -> shares=1e7; TTM=10 Cr -> CSV-basis
+    # current_EPS = 10*1e7/1e7 = 10, which is >= historical_max_eps=8 -> ATH_Profit_Flag=True,
+    # regardless of whatever the live price happens to be on a given day.
+    row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+
+    try:
+        results = {}
+        for label, live_close_range in [("day_high_price", (400.0, 500.0)), ("day_low_price", (80.0, 50.0))]:
+            DAILY[symbol] = _daily(*live_close_range)
+            universe = pd.DataFrame([row])
+            out = sc.run_pipeline(universe, fundamentals, BENCHMARK_RS, verbose=False)
+            results[label] = out["signals"].set_index("Symbol").loc[symbol]
+
+        # The live/displayed price genuinely differs between the two runs (as it should)...
+        assert results["day_high_price"]["Current_Price"] != results["day_low_price"]["Current_Price"]
+        assert results["day_high_price"]["Current_Price"] == pytest.approx(500.0)
+        assert results["day_low_price"]["Current_Price"] == pytest.approx(50.0)
+
+        # ...but ATH_Profit_Flag must be identical in both, since it's derived from the CSV's
+        # own fixed (Market_Cap, Current_Price) snapshot, not from whichever live price the
+        # daily fetch happened to return that day.
+        assert results["day_high_price"]["ATH_Profit_Flag"] == True  # noqa: E712
+        assert results["day_low_price"]["ATH_Profit_Flag"] == True  # noqa: E712
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
