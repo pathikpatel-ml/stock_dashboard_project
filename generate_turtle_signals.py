@@ -4,7 +4,7 @@ Generate Turtle Strategy signals (docs/TURTLE_STRATEGY_PLAN.md).
 
 Runs the Turtle screening pipeline (modules/turtle/screener.py) over the NSE universe already
 built by the weekly screening job, fetching monthly/daily OHLCV from yfinance for ATH price and
-365-day relative strength, and standalone TTM/historical-max-annual Net Profit + Net Sales from
+52-week (weekly-high-close) relative strength, and standalone TTM/historical-max-annual Net Profit + Net Sales from
 turtle_screener_fundamentals.csv (screener.in, via generate_turtle_fundamentals.py -- run that
 script first/separately, on its own weekly cadence, since screener.in fundamentals don't change
 daily), then writes one dated CSV that the dashboard loads at startup:
@@ -71,7 +71,7 @@ def main():
     # LOCKED decision #2: benchmark = BSE 500, proxied by Nifty 500 (^CRSLDX). A failure here
     # must stop the run, not silently degrade to some other benchmark.
     benchmark_rs = sc.fetch_benchmark_rs()
-    print(f"Benchmark ({sc.C.BENCHMARK_LABEL}) 365d RS: {benchmark_rs:.2f}%")
+    print(f"Benchmark ({sc.C.BENCHMARK_LABEL}) 52wk RS: {benchmark_rs:.2f}%")
 
     out = sc.run_pipeline(
         universe, fundamentals, benchmark_rs,

@@ -3,7 +3,7 @@
 Lightweight intraday price refresh for the Turtle Strategy tab.
 
 generate_turtle_signals.py's full ADD/HOLD/EXIT classification needs ~2 years of daily
-history per symbol (for 365-day relative strength and the ATH check) fetched one symbol at
+history per symbol (for 52-week relative strength and the ATH check) fetched one symbol at
 a time -- that's why it takes 30-60 min and only runs once a day. But the *displayed price*
 doesn't need any of that: it's one number, and Yahoo will hand back hundreds of them in a
 single batched request. So this script is a separate, much cheaper job: BATCHED
@@ -11,7 +11,7 @@ single batched request. So this script is a separate, much cheaper job: BATCHED
 ``modules.stock_screener.add_moving_averages_to_stocks``) that only fetch the latest close,
 meant to run several times during market hours to keep the on-screen price fresh between the
 once-daily full recompute. The ADD/HOLD/EXIT signal itself, and the ATH/Above-MA200/RS flags
-behind it, are intentionally left untouched here -- they depend on 365-day trends that don't
+behind it, are intentionally left untouched here -- they depend on 52-week trends that don't
 meaningfully change hour to hour, and re-deriving them would mean re-running the expensive
 per-symbol pipeline this script exists to avoid.
 

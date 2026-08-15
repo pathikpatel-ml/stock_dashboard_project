@@ -78,13 +78,17 @@ def above_exit_flag(current_price: Optional[float], exit_ma: Optional[float]) ->
 
 def relative_strength(
     close_series: Optional[pd.Series],
-    window_days: int = C.RS_WINDOW_DAYS,
+    window_weeks: int = C.RS_WINDOW_WEEKS,
 ) -> Optional[float]:
-    """365-day (``window_days``) close-to-close % return.
+    """52-week (``window_weeks``) % return, using each week's HIGHEST daily close as that
+    week's representative value -- NOT the last trading day of the week.
 
-    ``close_series`` must have a DatetimeIndex sorted ascending. Uses the closest available
-    trading day on or before ``latest_date - window_days`` as the base. Returns None if the
-    series is empty, undated, or doesn't reach far enough back.
+    ``close_series`` must have a DatetimeIndex sorted ascending. Daily closes are bucketed
+    into Mon-Sun weeks (labelled by each week's Monday); each week's value is
+    ``max(that week's daily closes)``. The result compares the latest available week's high
+    to the week exactly ``window_weeks`` weeks before it -- falling back to the closest
+    available week on/before that target if the exact week is missing (holidays, gaps).
+    Returns None if the series is empty, undated, or doesn't reach far enough back.
     """
     if close_series is None or len(close_series) == 0:
         return None
@@ -95,19 +99,26 @@ def relative_strength(
     if series.empty:
         return None
 
-    latest_date = series.index[-1]
-    latest_close = float(series.iloc[-1])
-    base_date = latest_date - pd.Timedelta(days=window_days)
+    week_start = pd.DatetimeIndex(series.index) - pd.to_timedelta(
+        pd.DatetimeIndex(series.index).weekday, unit="D"
+    )
+    weekly_high = pd.Series(series.values, index=week_start).groupby(level=0).max().sort_index()
+    if weekly_high.empty:
+        return None
 
-    eligible = series[series.index <= base_date]
+    latest_week = weekly_high.index[-1]
+    latest_high = float(weekly_high.iloc[-1])
+    base_week_target = latest_week - pd.Timedelta(weeks=window_weeks)
+
+    eligible = weekly_high[weekly_high.index <= base_week_target]
     if eligible.empty:
         return None
 
-    base_close = float(eligible.iloc[-1])
-    if base_close == 0:
+    base_high = float(eligible.iloc[-1])
+    if base_high == 0:
         return None
 
-    return (latest_close / base_close - 1.0) * 100.0
+    return (latest_high / base_high - 1.0) * 100.0
 
 
 def outperformance_flag(
@@ -167,7 +178,7 @@ def merge_live_prices(signals_df: pd.DataFrame, live_prices_df: pd.DataFrame) ->
 
     Only the displayed price is refreshed here -- ATH_Price_Flag, Above_MA212_Flag,
     RS_vs_Sector/Benchmark, Outperformance_Flag, and Signal all stay exactly as the daily
-    batch computed them (they depend on 365-day trends that don't meaningfully change
+    batch computed them (they depend on 52-week trends that don't meaningfully change
     between intraday refreshes; recomputing them would require the full per-symbol pipeline
     this cache exists to avoid). A symbol missing from ``live_prices_df``, or with a NaN
     ``Live_Price``, keeps whatever price the daily batch already produced.

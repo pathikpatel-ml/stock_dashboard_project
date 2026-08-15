@@ -127,25 +127,46 @@ def test_above_exit_flag_missing_exit_ma():
 
 
 # ---------------------------------------------------------------------------
-# relative_strength -- exact % on a known synthetic daily series
+# relative_strength -- 52-week, weekly HIGH-close basis (not last-trading-day-of-week)
 # ---------------------------------------------------------------------------
+def test_relative_strength_uses_weekly_high_not_last_day():
+    # A week (Mon-Fri) where the close falls mid-week, then drops -- the weekly RS must use
+    # the week's HIGH (Wednesday), not Friday's lower close.
+    dates = pd.date_range("2024-01-01", periods=5, freq="D")  # Mon 1/1 .. Fri 1/5
+    closes = pd.Series([100.0, 110.0, 130.0, 120.0, 90.0], index=dates)  # high=130 on Wed
+    week_start = dates[0] - pd.Timedelta(days=dates[0].weekday())
+    assert week_start == pd.Timestamp("2024-01-01")  # Monday
+
+    # Build a second week exactly 52 weeks later with a known high, then check the ratio.
+    later_dates = dates + pd.Timedelta(weeks=52)
+    later_closes = pd.Series([200.0, 260.0, 240.0, 210.0, 190.0], index=later_dates)  # high=260
+    combined = pd.concat([closes, later_closes])
+
+    result = tt.relative_strength(combined, window_weeks=52)
+    expected = (260.0 / 130.0 - 1.0) * 100.0
+    assert result == pytest.approx(expected)
+
+
 def test_relative_strength_known_series():
     n = 400
     dates = pd.date_range("2024-01-01", periods=n, freq="D")
     closes = pd.Series(100.0 + np.arange(n), index=dates)
 
-    result = tt.relative_strength(closes, window_days=365)
+    result = tt.relative_strength(closes, window_weeks=52)
 
-    base_date = dates[-1] - pd.Timedelta(days=365)
-    base_close = closes[closes.index <= base_date].iloc[-1]
-    expected = (closes.iloc[-1] / base_close - 1.0) * 100.0
+    week_start = pd.DatetimeIndex(dates) - pd.to_timedelta(pd.DatetimeIndex(dates).weekday, unit="D")
+    weekly_high = pd.Series(closes.values, index=week_start).groupby(level=0).max().sort_index()
+    latest_week = weekly_high.index[-1]
+    base_week_target = latest_week - pd.Timedelta(weeks=52)
+    base_high = weekly_high[weekly_high.index <= base_week_target].iloc[-1]
+    expected = (weekly_high.iloc[-1] / base_high - 1.0) * 100.0
     assert result == pytest.approx(expected)
 
 
 def test_relative_strength_insufficient_history():
     dates = pd.date_range("2024-01-01", periods=30, freq="D")
     closes = pd.Series(100.0 + np.arange(30), index=dates)
-    assert tt.relative_strength(closes, window_days=365) is None
+    assert tt.relative_strength(closes, window_weeks=52) is None
 
 
 def test_relative_strength_empty_or_undated():

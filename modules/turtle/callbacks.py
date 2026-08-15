@@ -61,13 +61,14 @@ _COLUMN_TOOLTIPS = {
         "`current_price > MA212`"
     ),
     "RS_vs_Sector": (
-        "Stock's 365-day return minus its sector's *leave-one-out* average 365-day return "
-        "(every other stock in the same sector, excluding itself).\n\n"
+        "Stock's 52-week return (each week's highest daily close vs. 52 weeks earlier) "
+        "minus its sector's *leave-one-out* average 52-week return (every other stock in "
+        "the same sector, excluding itself).\n\n"
         "`stock_RS − sector_RS`   (positive = beating its sector)"
     ),
     "RS_vs_Benchmark": (
-        "Stock's 365-day return minus the benchmark's 365-day return — Nifty 500, standing "
-        "in for BSE 500 (not on yfinance).\n\n"
+        "Stock's 52-week return (weekly high-close basis) minus the benchmark's 52-week "
+        "return — Nifty 500, standing in for BSE 500 (not on yfinance).\n\n"
         "`stock_RS − benchmark_RS`   (positive = beating the market)"
     ),
     "Signal": (

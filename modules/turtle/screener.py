@@ -38,7 +38,7 @@ SIGNAL_COLUMNS = [
 
 
 def fetch_benchmark_rs(session=None) -> float:
-    """Fetch the benchmark's 365-day relative strength (LOCKED decision #2).
+    """Fetch the benchmark's 52-week (weekly high-close) relative strength (LOCKED decision #2).
 
     Tries ``BENCHMARK_TICKER`` (Nifty 500 proxy for BSE 500), then each entry in
     ``BENCHMARK_FALLBACK_TICKERS``. Raises RuntimeError if none return usable data — per the
