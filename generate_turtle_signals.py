@@ -4,14 +4,16 @@ Generate Turtle Strategy signals (docs/TURTLE_STRATEGY_PLAN.md).
 
 Runs the Turtle screening pipeline (modules/turtle/screener.py) over the NSE universe already
 built by the weekly screening job, fetching monthly/daily OHLCV from yfinance for ATH price and
-365-day relative strength, and EPS/sales history from stock_fundamentals_yearly.csv, then writes
-one dated CSV that the dashboard loads at startup:
+365-day relative strength, and standalone TTM/historical-max-annual Net Profit + Net Sales from
+turtle_screener_fundamentals.csv (screener.in, via generate_turtle_fundamentals.py -- run that
+script first/separately, on its own weekly cadence, since screener.in fundamentals don't change
+daily), then writes one dated CSV that the dashboard loads at startup:
 
     turtle_signals_<YYYYMMDD>.csv
 
 Universe source: NSE_EQ_All_Stocks_Analysis.csv (produced weekly by generate_weekly_stock_list.py)
-already carries Sector, Industry, Current_Price, MA200, and the TTM-profit pieces — no separate
-universe download is needed here (unlike generate_breakout_signals.py's nse-full source).
+already carries Sector, Industry, Current_Price, MA200 — no separate universe download is needed
+here (unlike generate_breakout_signals.py's nse-full source).
 
 Usage
 -----
@@ -27,7 +29,7 @@ from modules.turtle import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
-FUNDAMENTALS_FILE = os.path.join(REPO_BASE_PATH, "stock_fundamentals_yearly.csv")
+FUNDAMENTALS_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
 SIGNALS_TEMPLATE = "turtle_signals_{date_str}.csv"
 
 
@@ -46,8 +48,11 @@ def load_universe() -> pd.DataFrame:
 
 def load_fundamentals() -> pd.DataFrame:
     if not os.path.exists(FUNDAMENTALS_FILE):
-        print(f"WARNING: {FUNDAMENTALS_FILE} not found — ATH-Profit/ATH-Sales will be unavailable.")
-        return pd.DataFrame(columns=["ticker", "year", "eps", "sales"])
+        print(f"WARNING: {FUNDAMENTALS_FILE} not found — ATH-Profit/ATH-Sales will be unavailable. "
+              "Run generate_turtle_fundamentals.py first.")
+        return pd.DataFrame(columns=[
+            "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
+        ])
     return pd.read_csv(FUNDAMENTALS_FILE)
 
 

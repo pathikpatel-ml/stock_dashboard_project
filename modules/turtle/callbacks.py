@@ -14,8 +14,8 @@ from . import compute
 
 _DISPLAY_COLUMNS = [
     "Symbol", "Sector", "Industry", "Current_Price", "ATH_Price_Flag", "TTM_Net_Profit",
-    "ATH_Profit_Flag", "ATH_Sales", "ATH_Sales_Flag", "Above_MA212_Flag", "RS_vs_Sector",
-    "RS_vs_Benchmark", "Signal",
+    "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Above_MA212_Flag",
+    "RS_vs_Sector", "RS_vs_Benchmark", "Signal",
 ]
 
 # Shown on hover over each column header (docs/TURTLE_STRATEGY_PLAN.md) so the table is
@@ -33,24 +33,26 @@ _COLUMN_TOOLTIPS = {
         "`current_price ≥ historical_max_close × 0.95`"
     ),
     "TTM_Net_Profit": (
-        "Trailing-twelve-month net profit (₹ Cr).\n\n"
-        "`Latest Quarter Profit + sum(prior 3 quarters' profits)`"
+        "Standalone trailing-twelve-month net profit (₹ Cr), from screener.in's own "
+        "pre-computed TTM column (standalone basis, not consolidated)."
     ),
     "ATH_Profit_Flag": (
-        "True if current EPS (derived from TTM profit) is at/above the stock's best-ever "
-        "historical EPS — the ATH-profit signal, proxied via EPS (no net-profit history is "
-        "available).\n\n"
-        "`shares = Market_Cap ÷ Current_Price`\n"
-        "`current_EPS = (TTM_Net_Profit × 1,00,00,000) ÷ shares`\n"
-        "flag = `current_EPS ≥ historical_max_EPS`"
+        "True if standalone TTM Net Profit is at/above the highest annual Net Profit on "
+        "record (any year, including the latest). TTM and the historical max both come from "
+        "the same screener.in table — same ₹ Cr units, same standalone basis — so this is a "
+        "direct comparison, no EPS/shares-outstanding conversion needed.\n\n"
+        "`ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years)`"
     ),
-    "ATH_Sales": "Highest annual sales (₹ Cr) on record, any year. Purely informational.",
+    "TTM_Net_Sales": (
+        "Standalone trailing-twelve-month net sales/revenue (₹ Cr), from screener.in's own "
+        "pre-computed TTM column (standalone basis, not consolidated)."
+    ),
+    "ATH_Sales": "Highest annual sales (₹ Cr) on record, any year (screener.in). Purely informational.",
     "ATH_Sales_Flag": (
-        "True if the most recent fiscal year's sales set a new all-time high (beat every "
-        "prior year on record). There's no TTM/quarterly sales figure anywhere in the data "
-        "(same reason TTM Net Sales was dropped entirely), so unlike ATH-Profit this compares "
-        "annual to annual, not TTM to annual. Informational only — not used in Signal.\n\n"
-        "`latest_fiscal_year_sales ≥ max(all prior years' sales)`"
+        "True if standalone TTM Net Sales is at/above the highest annual sales on record "
+        "(any year, including the latest) — same shape as ATH_Profit_Flag, same screener.in "
+        "table. Informational only — not used in Signal.\n\n"
+        "`ATH_Sales_Flag = TTM_Net_Sales ≥ max(all annual Net Sales years)`"
     ),
     "Above_MA212_Flag": (
         "True if price is above the live 212-day moving average of daily closes "

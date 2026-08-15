@@ -84,39 +84,45 @@ def _stub_data_feed(monkeypatch):
     monkeypatch.setattr(data_feed, "get_daily", _fake_get_daily)
 
 
-def _universe_row(symbol, sector, latest_q_profit, last_3q, ma200):
+def _universe_row(symbol, sector, ma200):
     return {
         "Symbol": symbol,
         "Company Name": f"{symbol} Ltd.",
         "Sector": sector,
         "Industry": "Test Industry",
-        "Market Cap": 1_000_000_000,   # paired with Current_Price=100 -> shares = 1e7
         "Current_Price": 100.0,
         "MA200": ma200,
-        "Latest Quarter Profit (Cr)": latest_q_profit,
-        "Last 3Q Profits (Cr)": last_3q,
     }
 
 
 UNIVERSE_DF = pd.DataFrame([
-    # current_eps = TTM_Net_Profit_cr exactly, given Market Cap=1e9 & Current_Price=100 (shares=1e7).
-    _universe_row("STOCKA", "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90),   # TTM=10 -> eps 10
-    _universe_row("STOCKB", "Alpha", latest_q_profit=0.4, last_3q="0.2,0.2,0.2", ma200=110),  # TTM=1 -> eps 1
-    _universe_row("STOCKC", "Beta", latest_q_profit=0.4, last_3q="0.2,0.2,0.2", ma200=90),    # TTM=1 -> eps 1 (kept low on purpose)
-    _universe_row("STOCKD", "Beta", latest_q_profit=0.4, last_3q="0.2,0.2,0.2", ma200=110),   # TTM=1 -> eps 1
-    _universe_row("STOCKE", "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90),
-    _universe_row("STOCKF", "Gamma", latest_q_profit=4, last_3q="2,2,2", ma200=90),   # TTM=10 -> eps 10
+    _universe_row("STOCKA", "Alpha", ma200=90),
+    _universe_row("STOCKB", "Alpha", ma200=110),
+    _universe_row("STOCKC", "Beta", ma200=90),
+    _universe_row("STOCKD", "Beta", ma200=110),
+    _universe_row("STOCKE", "Alpha", ma200=90),
+    _universe_row("STOCKF", "Gamma", ma200=90),
 ])
 
+
+def _fundamentals_row(symbol, ttm_net_profit, max_annual_net_profit, ttm_net_sales, max_annual_net_sales):
+    return {
+        "Symbol": symbol,
+        "TTM_Net_Profit": ttm_net_profit,
+        "Max_Annual_Net_Profit": max_annual_net_profit,
+        "TTM_Net_Sales": ttm_net_sales,
+        "Max_Annual_Net_Sales": max_annual_net_sales,
+    }
+
+
 FUNDAMENTALS_DF = pd.DataFrame([
-    # STOCKA/STOCKF: historical max eps (5) is below their current eps (10) -> ATH Profit True.
-    {"ticker": "STOCKA", "year": 2023, "eps": 5, "sales": 100},
-    {"ticker": "STOCKA", "year": 2024, "eps": 3, "sales": 90},
-    {"ticker": "STOCKF", "year": 2023, "eps": 5, "sales": 100},
-    # STOCKB/STOCKC/STOCKD: historical max eps (1000) is far above their current eps (1) -> False.
-    {"ticker": "STOCKB", "year": 2023, "eps": 1000, "sales": 500},
-    {"ticker": "STOCKC", "year": 2023, "eps": 1000, "sales": 500},
-    {"ticker": "STOCKD", "year": 2023, "eps": 1000, "sales": 500},
+    # STOCKA/STOCKF: TTM profit (10) >= max annual profit (8) -> ATH Profit True.
+    _fundamentals_row("STOCKA", ttm_net_profit=10, max_annual_net_profit=8, ttm_net_sales=90, max_annual_net_sales=100),
+    _fundamentals_row("STOCKF", ttm_net_profit=10, max_annual_net_profit=8, ttm_net_sales=90, max_annual_net_sales=100),
+    # STOCKB/STOCKC/STOCKD: TTM profit (1) is far below max annual profit (1000) -> False.
+    _fundamentals_row("STOCKB", ttm_net_profit=1, max_annual_net_profit=1000, ttm_net_sales=None, max_annual_net_sales=None),
+    _fundamentals_row("STOCKC", ttm_net_profit=1, max_annual_net_profit=1000, ttm_net_sales=400, max_annual_net_sales=500),
+    _fundamentals_row("STOCKD", ttm_net_profit=1, max_annual_net_profit=1000, ttm_net_sales=400, max_annual_net_sales=500),
     # STOCKE intentionally omitted (irrelevant -- it's rejected before fundamentals are used).
 ])
 
@@ -194,11 +200,14 @@ def test_ath_sales_from_fundamentals_max(pipeline_result):
 def test_missing_fundamentals_never_crashes():
     # A symbol entirely absent from the fundamentals file must degrade to ATH_Profit_Flag=False,
     # not raise -- build_fundamentals_lookup.get(...) returns {} for it.
-    universe = pd.DataFrame([_universe_row("NODATA", "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)])
+    universe = pd.DataFrame([_universe_row("NODATA", "Alpha", ma200=90)])
     MONTHLY["NODATA"] = _monthly([60, 80, 100])
     DAILY["NODATA"] = _daily(20, 200)
+    empty_fundamentals = pd.DataFrame(
+        columns=["Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales"]
+    )
     try:
-        out = sc.run_pipeline(universe, pd.DataFrame(columns=["ticker", "year", "eps", "sales"]), BENCHMARK_RS, verbose=False)
+        out = sc.run_pipeline(universe, empty_fundamentals, BENCHMARK_RS, verbose=False)
         row = out["signals"].set_index("Symbol").loc["NODATA"]
         assert row["ATH_Profit_Flag"] == False  # noqa: E712
         assert pd.isna(row["ATH_Sales"])
@@ -208,18 +217,22 @@ def test_missing_fundamentals_never_crashes():
 
 
 def test_build_fundamentals_lookup_symbol_normalisation():
-    df = pd.DataFrame([{"ticker": " reliance ", "year": 2024, "eps": 10, "sales": 100}])
+    df = pd.DataFrame([_fundamentals_row(" reliance ", ttm_net_profit=10, max_annual_net_profit=8,
+                                          ttm_net_sales=100, max_annual_net_sales=90)])
     lookup = sc.build_fundamentals_lookup(df)
     assert "RELIANCE" in lookup
-    assert lookup["RELIANCE"]["max_eps"] == 10
+    assert lookup["RELIANCE"]["ttm_net_profit"] == 10
+    assert lookup["RELIANCE"]["max_annual_net_profit"] == 8
 
 
-def test_parse_ttm_profit():
-    assert sc._parse_ttm_profit(4, "2,2,2") == 10
-    assert sc._parse_ttm_profit(4, "2, 2, 2") == 10  # tolerate spaces
-    assert sc._parse_ttm_profit(None, "2,2,2") is None
-    assert sc._parse_ttm_profit(4, None) == 4
-    assert sc._parse_ttm_profit(4, "2,bad,2") == 8  # unparseable pieces are skipped, not fatal
+def test_build_fundamentals_lookup_shape():
+    df = pd.DataFrame([_fundamentals_row("X", ttm_net_profit=110, max_annual_net_profit=100,
+                                          ttm_net_sales=210, max_annual_net_sales=200)])
+    lookup = sc.build_fundamentals_lookup(df)
+    assert lookup["X"] == {
+        "ttm_net_profit": 110, "max_annual_net_profit": 100,
+        "ttm_net_sales": 210, "max_annual_net_sales": 200,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +252,7 @@ def test_leave_one_out_sector_rs_differs_from_naive_mean():
     })
     try:
         universe = pd.DataFrame([
-            _universe_row(s, "Delta", latest_q_profit=4, last_3q="2,2,2", ma200=90) for s in symbols
+            _universe_row(s, "Delta", ma200=90) for s in symbols
         ])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
         signals = out["signals"].set_index("Symbol")
@@ -283,7 +296,7 @@ def test_ath_price_uses_live_daily_close_not_stale_csv_price():
     closes = [90.0] * 399 + [110.0]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         row["Current_Price"] = 80.0  # stale CSV price, well below the live rally
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
@@ -311,7 +324,7 @@ def test_ath_price_combined_max_catches_older_monthly_high_outside_daily_window(
     closes[-1] = 115.0
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         row["Current_Price"] = 115.0
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
@@ -333,7 +346,7 @@ def test_ath_price_falls_back_to_monthly_only_when_daily_missing():
     MONTHLY[symbol] = _monthly([60, 80, 100])
     DAILY[symbol] = None
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         row["Current_Price"] = 100.0  # at the monthly max
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
@@ -370,7 +383,7 @@ def test_ath_and_above_ma212_agree_for_a_stock_near_its_live_high():
     closes = [100.0 + i * (200.0 / (n - 1)) for i in range(n)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         row["Current_Price"] = 50.0  # deliberately wrong/stale CSV price -- must be ignored
         row["MA200"] = 500.0  # deliberately wrong/stale CSV MA200 (would force False if used)
         universe = pd.DataFrame([row])
@@ -396,7 +409,7 @@ def test_ma212_falls_back_to_csv_ma200_when_fewer_than_212_daily_rows():
     closes = [90.0 + i * 0.1 for i in range(150)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
@@ -417,7 +430,7 @@ def test_ma212_boundary_between_200_and_212_rows_still_falls_back():
     closes = [90.0 + i * 0.1 for i in range(205)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=1_000_000)
+        row = _universe_row(symbol, "Alpha", ma200=1_000_000)
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
@@ -442,7 +455,7 @@ def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
     closes = [90.0 + i * 0.1 for i in range(150)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         row["MA200"] = None
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
@@ -455,72 +468,62 @@ def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
 
 
 # ---------------------------------------------------------------------------
-# ATH_Sales_Flag -- latest fiscal year's sales vs. the max of all prior years (annual-to-
-# annual, since there's no TTM sales source -- see compute.ath_sales_flag's docstring).
+# ATH_Sales_Flag -- same shape as ATH_Profit_Flag: standalone TTM Net Sales (screener.in) vs.
+# max annual Net Sales on record, both from the same table -- see compute.ath_sales_flag.
 # ---------------------------------------------------------------------------
-def test_ath_sales_flag_true_when_latest_year_is_a_new_record():
+def test_ath_sales_flag_true_when_ttm_is_a_new_record():
     symbol = "STOCKSALESUP"
     MONTHLY[symbol] = _monthly([60, 80, 100])
     DAILY[symbol] = _daily(20, 200)
     fundamentals = pd.DataFrame([
-        {"ticker": symbol, "year": 2023, "eps": 5, "sales": 100},
-        {"ticker": symbol, "year": 2024, "eps": 5, "sales": 150},  # new record
+        _fundamentals_row(symbol, ttm_net_profit=1, max_annual_net_profit=1000,
+                           ttm_net_sales=150, max_annual_net_sales=100),  # TTM is a new record
     ])
     try:
-        row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+        row = _universe_row(symbol, "Alpha", ma200=90)
         universe = pd.DataFrame([row])
         out = sc.run_pipeline(universe, fundamentals, BENCHMARK_RS, verbose=False)
         signal_row = out["signals"].set_index("Symbol").loc[symbol]
 
         assert signal_row["ATH_Sales_Flag"] == True  # noqa: E712
-        assert signal_row["ATH_Sales"] == 150  # the raw ATH_Sales column is unaffected
+        assert signal_row["ATH_Sales"] == 100  # the raw ATH_Sales column shows the historical max, unaffected
+        assert signal_row["TTM_Net_Sales"] == 150
     finally:
         MONTHLY.pop(symbol, None)
         DAILY.pop(symbol, None)
 
 
-def test_ath_sales_flag_false_when_latest_year_below_prior_record(pipeline_result):
-    # STOCKA's fundamentals (shared fixture): 2023 sales=100, 2024 sales=90 -- the latest
-    # year is below the prior record, so no new all-time-high sales this year.
+def test_ath_sales_flag_false_when_ttm_below_historical_max(pipeline_result):
+    # STOCKA's fundamentals (shared fixture): TTM sales=90, historical max=100 -- TTM hasn't
+    # set a new all-time high.
     row = pipeline_result["signals"].set_index("Symbol").loc["STOCKA"]
     assert row["ATH_Sales_Flag"] == False  # noqa: E712
-    assert row["ATH_Sales"] == 100  # the all-time max (2023) is still shown
+    assert row["ATH_Sales"] == 100  # the all-time max is still shown
 
 
-def test_ath_sales_flag_false_with_only_one_year_of_data(pipeline_result):
-    # STOCKB has a single fundamentals year -- no prior year to compare the latest one
-    # against, so the flag safely defaults to False rather than guessing.
+def test_ath_sales_flag_false_when_sales_data_missing(pipeline_result):
+    # STOCKB's fundamentals (shared fixture) have no sales data at all -- must degrade to
+    # False rather than guessing.
     row = pipeline_result["signals"].set_index("Symbol").loc["STOCKB"]
     assert row["ATH_Sales_Flag"] == False  # noqa: E712
-
-
-def test_build_fundamentals_lookup_latest_and_prior_max_sales():
-    df = pd.DataFrame([
-        {"ticker": "X", "year": 2022, "eps": 1, "sales": 50},
-        {"ticker": "X", "year": 2023, "eps": 1, "sales": 100},
-        {"ticker": "X", "year": 2024, "eps": 1, "sales": 80},
-    ])
-    lookup = sc.build_fundamentals_lookup(df)
-    assert lookup["X"]["latest_sales"] == 80
-    assert lookup["X"]["max_sales_excl_latest"] == 100
-    assert lookup["X"]["max_sales"] == 100  # all-time max includes every year
+    assert pd.isna(row["ATH_Sales"])
 
 
 # ---------------------------------------------------------------------------
-# ATH_Profit_Flag must use the CSV's own (Market_Cap, Current_Price) snapshot for the
-# shares-outstanding derivation, NOT the live daily price -- otherwise "current EPS" would
-# silently drift every time the live price moves, even with profit and real share count
-# both unchanged. Reported live: DEEPINDS showed a materially different implied EPS on
-# different days purely from price movement, with TTM profit and Market Cap identical.
+# ATH_Profit_Flag must come entirely from the screener.in fundamentals lookup (TTM vs max
+# annual), NOT from price at all -- unlike the old EPS-proxy implementation (shares-outstanding
+# derived from Market_Cap / price), which silently drifted "current EPS" with every live price
+# tick even when profit and real share count hadn't changed (the DEEPINDS incident that led to
+# dropping that approach). This regression-guards that ATH_Profit_Flag is fully price-independent.
 # ---------------------------------------------------------------------------
 def test_ath_profit_flag_unaffected_by_live_price_movement():
     symbol = "STOCKEPSTABLE"
     MONTHLY[symbol] = _monthly([60, 80, 100])
-    fundamentals = pd.DataFrame([{"ticker": symbol, "year": 2023, "eps": 8, "sales": 100}])
-    # CSV snapshot: Market Cap=1e9, Current_Price=100 -> shares=1e7; TTM=10 Cr -> CSV-basis
-    # current_EPS = 10*1e7/1e7 = 10, which is >= historical_max_eps=8 -> ATH_Profit_Flag=True,
-    # regardless of whatever the live price happens to be on a given day.
-    row = _universe_row(symbol, "Alpha", latest_q_profit=4, last_3q="2,2,2", ma200=90)
+    fundamentals = pd.DataFrame([
+        _fundamentals_row(symbol, ttm_net_profit=10, max_annual_net_profit=8,
+                           ttm_net_sales=90, max_annual_net_sales=100),
+    ])
+    row = _universe_row(symbol, "Alpha", ma200=90)
 
     try:
         results = {}
@@ -535,9 +538,9 @@ def test_ath_profit_flag_unaffected_by_live_price_movement():
         assert results["day_high_price"]["Current_Price"] == pytest.approx(500.0)
         assert results["day_low_price"]["Current_Price"] == pytest.approx(50.0)
 
-        # ...but ATH_Profit_Flag must be identical in both, since it's derived from the CSV's
-        # own fixed (Market_Cap, Current_Price) snapshot, not from whichever live price the
-        # daily fetch happened to return that day.
+        # ...but ATH_Profit_Flag must be identical in both, since it's sourced purely from the
+        # screener.in fundamentals lookup, never from whichever live price the daily fetch
+        # happened to return that day.
         assert results["day_high_price"]["ATH_Profit_Flag"] == True  # noqa: E712
         assert results["day_low_price"]["ATH_Profit_Flag"] == True  # noqa: E712
     finally:

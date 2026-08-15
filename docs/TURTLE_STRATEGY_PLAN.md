@@ -129,19 +129,36 @@ Sales is computable now).
 
 ## 7. Decisions (LOCKED 2026-08-01)
 
-1. **ATH Profit** → **EPS-ATH proxy** using existing eps history (2000-2026). No scrape in v1.
+1. ~~**ATH Profit** → **EPS-ATH proxy** using existing eps history (2000-2026). No scrape in v1.~~
+   **SUPERSEDED 2026-08-15**: replaced by a direct standalone TTM-vs-max-annual comparison,
+   both sourced from screener.in's own "Profit & Loss" table (`modules/turtle/
+   standalone_fundamentals.py`, scraped weekly by `generate_turtle_fundamentals.py` into
+   `turtle_screener_fundamentals.csv`). The EPS proxy existed only to bridge a units/basis
+   mismatch (yfinance's consolidated TTM profit in Cr vs. a standalone historical EPS series
+   in Rs/share) via a shares-outstanding derivation (`market_cap / price`). screener.in's own
+   table has TTM and every annual year in the same Cr units, same standalone basis, in one
+   place — so the mismatch (and the EPS/shares-outstanding math built to bridge it) is gone
+   entirely: `ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years, incl.
+   latest)`. See `modules/turtle/compute.py::_ttm_ath_flag`.
 2. **Benchmark** → **BSE 500** (Turtle original) for the outperformance test. Universe
    *filters* still use Nifty membership; the RS benchmark is BSE 500. See caveat below.
-3. **Cadence** → **Daily** after market close (weekday), ≈16:00 IST.
+3. **Cadence** → **Daily** after market close (weekday), ≈16:00 IST, for price-driven signals
+   (ATH price, MA212, RS). Fundamentals (TTM/annual profit & sales, screener.in) refresh
+   **weekly** (`turtle_fundamentals.yml`, Sun 02:00 UTC) — they don't change daily.
 4. ~~**212 SMA** → **reuse existing MA200** as the exit-price proxy (not building 212).~~
    **SUPERSEDED 2026-08-08**: switched to a live 212-day SMA (computed from the same daily
    close series already fetched for RS/ATH-price), matching Turtle's actual methodology.
    The weekly CSV's MA200 is kept only as an emergency fallback for symbols with fewer than
    212 days of live daily history (no MA212 column exists anywhere to fall back to).
-5. **TTM Net Sales** → **dropped** from v1 (no source). Column omitted. An **ATH_Sales_Flag**
+5. ~~**TTM Net Sales** → **dropped** from v1 (no source). Column omitted. An **ATH_Sales_Flag**
    was added 2026-08-08 as a display-only signal (not part of Signal/classify()): latest
    fiscal year's annual sales vs. the max of all prior years — an annual-to-annual comparison,
-   not TTM-to-annual, for the same reason TTM sales itself was dropped.
+   not TTM-to-annual, for the same reason TTM sales itself was dropped.~~
+   **SUPERSEDED 2026-08-15**: screener.in's P&L table has a real TTM Net Sales figure after
+   all (same table used for decision #1 above) — **TTM_Net_Sales** is now a real column, and
+   ATH_Sales_Flag is the same TTM-vs-max-annual shape as ATH_Profit_Flag:
+   `ATH_Sales_Flag = TTM_Net_Sales ≥ max(all annual Net Sales years, incl. latest)`. Both
+   remain display-only (not part of Signal/classify()).
 6. **Nifty 100/200 membership** → **in scope** — extend the categories scrape so the
    Indices filter works beyond Nifty 50.
 

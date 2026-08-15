@@ -3,9 +3,13 @@ Orchestration layer for the Turtle Strategy screener (docs/TURTLE_STRATEGY_PLAN.
 
 Wires the pure functions in ``compute.py`` to real data:
   * OHLCV via ``modules.breakout.data_feed`` (reused — no new fetcher, per plan §3).
-  * The pre-computed universe (Sector/Industry/Current_Price/MA200/TTM profit pieces) from
+  * The pre-computed universe (Sector/Industry/Current_Price/MA200) from
     ``NSE_EQ_All_Stocks_Analysis.csv``.
-  * Historical EPS/sales from ``stock_fundamentals_yearly.csv``.
+  * Standalone TTM + historical-max-annual Net Profit/Net Sales from
+    ``turtle_screener_fundamentals.csv`` (screener.in, via ``generate_turtle_fundamentals.py`` —
+    see ``modules.turtle.standalone_fundamentals``). Both ATH_Profit_Flag and ATH_Sales_Flag are
+    a direct TTM-vs-max-annual comparison now, no EPS/shares-outstanding proxy needed, since TTM
+    and annual both come from the same screener.in table (same units, same standalone basis).
   * The benchmark (Nifty 500 proxy, LOCKED decision #2) via a direct yfinance call — NOT
     through ``data_feed``, which always appends ``.NS`` and is NSE-equity-only.
 
@@ -28,7 +32,8 @@ from . import constants as C
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Sector", "Industry", "Current_Price",
     "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA212_Flag",
-    "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag", "ATH_Sales", "ATH_Sales_Flag", "Signal",
+    "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag",
+    "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Signal",
 ]
 
 
@@ -62,47 +67,23 @@ def fetch_benchmark_rs(session=None) -> float:
     )
 
 
-def _parse_ttm_profit(latest_quarter_profit, last_3q_profits_str) -> Optional[float]:
-    """Sum Latest Quarter Profit + Last 3Q Profits (a comma-separated string) into TTM profit."""
-    if latest_quarter_profit is None or pd.isna(latest_quarter_profit):
-        return None
-    total = float(latest_quarter_profit)
-    if last_3q_profits_str is not None and not pd.isna(last_3q_profits_str):
-        for part in str(last_3q_profits_str).split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                total += float(part)
-            except ValueError:
-                continue
-    return total
-
-
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
-    """``stock_fundamentals_yearly.csv`` (ticker, year, eps, sales, ...) -> per-ticker lookup:
-    ``max_eps`` / ``max_sales`` (all-time highs, for ATH_Profit_Flag / the displayed ATH_Sales
-    column), plus ``latest_sales`` and ``max_sales_excl_latest`` (for ATH_Sales_Flag — see
-    ``compute.ath_sales_flag`` for why this is a same-year comparison, unlike profit's TTM one).
+    """``turtle_screener_fundamentals.csv`` (Symbol, TTM_Net_Profit, TTM_Net_Sales,
+    Max_Annual_Net_Profit, Max_Annual_Net_Sales — see ``generate_turtle_fundamentals.py``) ->
+    per-symbol lookup dict, keyed by uppercased Symbol.
     """
     if fundamentals_df is None or fundamentals_df.empty:
         return {}
     df = fundamentals_df.copy()
-    df["ticker"] = df["ticker"].astype(str).str.strip().str.upper()
+    df["Symbol"] = df["Symbol"].astype(str).str.strip().str.upper()
 
     result: Dict[str, Dict[str, float]] = {}
-    for ticker, g in df.groupby("ticker"):
-        g = g.dropna(subset=["year"]).sort_values("year")
-        max_eps = g["eps"].max()
-        max_sales = g["sales"].max()
-        latest_sales = g["sales"].iloc[-1] if not g.empty else None
-        prior_sales = g["sales"].iloc[:-1]
-        max_sales_excl_latest = prior_sales.max() if not prior_sales.empty else None
-        result[ticker] = {
-            "max_eps": max_eps,
-            "max_sales": max_sales,
-            "latest_sales": latest_sales,
-            "max_sales_excl_latest": max_sales_excl_latest,
+    for _, row in df.iterrows():
+        result[row["Symbol"]] = {
+            "ttm_net_profit": row.get("TTM_Net_Profit"),
+            "ttm_net_sales": row.get("TTM_Net_Sales"),
+            "max_annual_net_profit": row.get("Max_Annual_Net_Profit"),
+            "max_annual_net_sales": row.get("Max_Annual_Net_Sales"),
         }
     return result
 
@@ -180,13 +161,6 @@ def run_pipeline(
         # CSV snapshot only when the live source is unavailable (no daily data at all for
         # price; fewer than EXIT_MA_PERIOD daily rows for the SMA specifically -- the CSV
         # only has MA200, close enough for that rare fallback case).
-        #
-        # NOT ath_profit_flag's shares-outstanding derivation, deliberately: Market_Cap only
-        # refreshes weekly, and shares = market_cap / price is only valid when both come from
-        # the SAME moment. Pairing a stale Market_Cap with today's live price doesn't recover
-        # the real share count -- it silently drifts EPS with every price tick even when
-        # profit and shares haven't actually changed. That's why csv_current_price (the CSV's
-        # own matched price) is kept separate below and fed to ath_profit_flag specifically.
         if daily_close is not None:
             live_price = float(daily_close.iloc[-1])
             historical_max_close = max(float(daily_close.max()), monthly_max_close)
@@ -212,17 +186,12 @@ def run_pipeline(
             # number against a stale one.
             "Current_Price": live_price,
             "ExitMA": live_exit_ma,
-            "Market_Cap": urow.get("Market Cap"),
-            "CSV_Current_Price": csv_current_price,  # same snapshot as Market_Cap -- see above
-            "TTM_Net_Profit": _parse_ttm_profit(
-                urow.get("Latest Quarter Profit (Cr)"), urow.get("Last 3Q Profits (Cr)")
-            ),
             "historical_max_close": historical_max_close,
             "stock_rs": stock_rs,
-            "max_eps": fundamentals.get("max_eps"),
-            "max_sales": fundamentals.get("max_sales"),
-            "latest_sales": fundamentals.get("latest_sales"),
-            "max_sales_excl_latest": fundamentals.get("max_sales_excl_latest"),
+            "ttm_net_profit": fundamentals.get("ttm_net_profit"),
+            "ttm_net_sales": fundamentals.get("ttm_net_sales"),
+            "max_annual_net_profit": fundamentals.get("max_annual_net_profit"),
+            "max_annual_net_sales": fundamentals.get("max_annual_net_sales"),
         })
 
         if verbose and i % 100 == 0:
@@ -254,19 +223,14 @@ def run_pipeline(
         sector_rs = _leave_one_out_sector_rs(row["Sector"], row["stock_rs"])
 
         ath_price = compute.ath_price_flag(row["Current_Price"], row["historical_max_close"])
-        # market_cap_price is the CSV's own price (same snapshot as Market_Cap), not the live
-        # price -- see the comment above where CSV_Current_Price is captured. Using the live
-        # price here would silently redefine "shares outstanding" every time the price ticks.
-        ath_profit = compute.ath_profit_flag(
-            row["TTM_Net_Profit"], row["Market_Cap"], row["CSV_Current_Price"], row["max_eps"]
-        )
+        ath_profit = compute.ath_profit_flag(row["ttm_net_profit"], row["max_annual_net_profit"])
         above_exit = compute.above_exit_flag(row["Current_Price"], row["ExitMA"])
         outperformance = compute.outperformance_flag(row["stock_rs"], sector_rs, benchmark_rs)
         signal = compute.classify(ath_price, ath_profit, above_exit, outperformance)
 
         # Informational only -- NOT part of classify() (the locked 3-signal + exit-price
         # methodology is unchanged); mirrors the ATH_Profit_Flag/TTM_Net_Profit display pair.
-        ath_sales = compute.ath_sales_flag(row["latest_sales"], row["max_sales_excl_latest"])
+        ath_sales = compute.ath_sales_flag(row["ttm_net_sales"], row["max_annual_net_sales"])
 
         rs_vs_sector = (
             row["stock_rs"] - sector_rs if row["stock_rs"] is not None and sector_rs is not None else None
@@ -280,13 +244,14 @@ def run_pipeline(
             "Industry": row["Industry"],
             "Current_Price": row["Current_Price"],
             "ATH_Price_Flag": ath_price,
-            "TTM_Net_Profit": row["TTM_Net_Profit"],
+            "TTM_Net_Profit": row["ttm_net_profit"],
             "ATH_Profit_Flag": ath_profit,
             "Above_MA212_Flag": above_exit,
             "RS_vs_Sector": round(rs_vs_sector, 2) if rs_vs_sector is not None else None,
             "RS_vs_Benchmark": round(rs_vs_benchmark, 2) if rs_vs_benchmark is not None else None,
             "Outperformance_Flag": outperformance,
-            "ATH_Sales": row["max_sales"],
+            "TTM_Net_Sales": row["ttm_net_sales"],
+            "ATH_Sales": row["max_annual_net_sales"],
             "ATH_Sales_Flag": ath_sales,
             "Signal": signal,
         })

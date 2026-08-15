@@ -72,43 +72,37 @@ def test_ath_price_flag_missing_data():
 
 
 # ---------------------------------------------------------------------------
-# ath_profit_flag -- shares-outstanding-derived current EPS vs historical max EPS
+# ath_profit_flag / ath_sales_flag -- both now the same shape: standalone TTM (screener.in)
+# vs. max of ALL annual years on record (including the latest), same table/units/basis, so no
+# EPS/shares-outstanding conversion is needed any more.
 # ---------------------------------------------------------------------------
-def test_ath_profit_flag_current_eps_at_or_above_historical_max():
-    # market_cap=1e9, price=100 -> shares=1e7. TTM profit=10 Cr -> current_eps = 10*1e7/1e7 = 10.
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
-                               historical_max_eps=8) is True
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
-                               historical_max_eps=10) is True  # equal counts as ATH
+def test_ath_profit_flag_ttm_at_or_above_historical_max():
+    assert tt.ath_profit_flag(ttm_net_profit=110, historical_max_annual_profit=100) is True
+    assert tt.ath_profit_flag(ttm_net_profit=100, historical_max_annual_profit=100) is True  # equal counts
 
 
-def test_ath_profit_flag_current_eps_below_historical_max():
-    assert tt.ath_profit_flag(current_ttm_profit_cr=10, market_cap=1e9, market_cap_price=100,
-                               historical_max_eps=12) is False
+def test_ath_profit_flag_ttm_below_historical_max():
+    assert tt.ath_profit_flag(ttm_net_profit=90, historical_max_annual_profit=100) is False
 
 
-def test_ath_profit_flag_guards_zero_and_missing():
-    assert tt.ath_profit_flag(10, 0, 100, 8) is False       # zero market cap
-    assert tt.ath_profit_flag(10, 1e9, 0, 8) is False        # zero price
-    assert tt.ath_profit_flag(None, 1e9, 100, 8) is False
-    assert tt.ath_profit_flag(10, 1e9, 100, None) is False
-    assert tt.ath_profit_flag(np.nan, 1e9, 100, 8) is False
+def test_ath_profit_flag_missing_data_is_safe():
+    assert tt.ath_profit_flag(None, 100) is False
+    assert tt.ath_profit_flag(100, None) is False
+    assert tt.ath_profit_flag(np.nan, 100) is False
+    assert tt.ath_profit_flag(100, np.nan) is False
 
 
 # ---------------------------------------------------------------------------
-# ath_sales_flag -- latest fiscal year's sales vs. max of all PRIOR years (annual-to-annual;
-# no TTM sales source exists, unlike profit's TTM-vs-historical comparison).
+# ath_sales_flag -- TTM Net Sales (screener.in) vs. max of all annual Net Sales years, same
+# shape/rationale as ath_profit_flag above.
 # ---------------------------------------------------------------------------
-def test_ath_sales_flag_new_record():
-    assert tt.ath_sales_flag(latest_annual_sales=150, historical_max_sales_excl_latest=100) is True
+def test_ath_sales_flag_ttm_at_or_above_historical_max():
+    assert tt.ath_sales_flag(ttm_net_sales=150, historical_max_annual_sales=100) is True
+    assert tt.ath_sales_flag(ttm_net_sales=100, historical_max_annual_sales=100) is True  # equal counts
 
 
-def test_ath_sales_flag_equal_counts_as_record():
-    assert tt.ath_sales_flag(100, 100) is True
-
-
-def test_ath_sales_flag_below_prior_record():
-    assert tt.ath_sales_flag(90, 100) is False
+def test_ath_sales_flag_ttm_below_historical_max():
+    assert tt.ath_sales_flag(ttm_net_sales=90, historical_max_annual_sales=100) is False
 
 
 def test_ath_sales_flag_missing_data_is_safe():

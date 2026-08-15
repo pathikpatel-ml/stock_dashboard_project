@@ -1,0 +1,40 @@
+name: Generate Turtle Strategy Fundamentals (screener.in)
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'   # 02:00 UTC Sunday — after weekly_stock_screening (00:30 UTC Sun), weekly since TTM/annual figures don't change daily
+  workflow_dispatch:
+
+jobs:
+  generate-turtle-fundamentals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with: { fetch-depth: 0 }
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy requests beautifulsoup4
+    - name: Configure Git User
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+    - name: Generate Turtle standalone fundamentals (screener.in)
+      run: python generate_turtle_fundamentals.py --pause 0.5
+    - name: Commit and push fundamentals
+      run: |
+        git add turtle_screener_fundamentals.csv
+        if git diff --cached --quiet; then
+          echo "No fundamentals changes to commit."
+        else
+          git commit -m "Automated turtle standalone fundamentals refresh (screener.in) for $(date -u +%Y%m%d)"
+          git pull --rebase origin main
+          git push
+        fi

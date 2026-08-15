@@ -28,62 +28,42 @@ def ath_price_flag(
     return current_price >= historical_max_close * (1.0 - threshold_pct / 100.0)
 
 
-def ath_profit_flag(
-    current_ttm_profit_cr: Optional[float],
-    market_cap: Optional[float],
-    market_cap_price: Optional[float],
-    historical_max_eps: Optional[float],
-) -> bool:
-    """True if the TTM-profit-derived current EPS is at/above the historical max EPS.
+def _ttm_ath_flag(ttm_value: Optional[float], historical_max_annual: Optional[float]) -> bool:
+    """Shared shape for both ATH-Profit and ATH-Sales: True if a TTM figure is at/above the
+    max of every annual figure on record (including the latest year -- a TTM window is always
+    a different, more current period than any single fiscal year, so there's no trivial
+    self-match risk in comparing against the full set).
 
-    LOCKED decision (ATH-Profit source = EPS-ATH proxy) resolved for the units mismatch
-    between TTM profit (Cr) and historical EPS (Rs/share) by deriving current shares
-    outstanding from data already on hand: ``shares = market_cap / market_cap_price``, then
-    ``current_eps = current_ttm_profit_cr * 1e7 / shares``.
-
-    ``market_cap_price`` MUST be the same-snapshot price ``market_cap`` was itself computed
-    from (i.e. the weekly-cron CSV's own Current_Price), never a live/intraday price paired
-    with a market cap from an earlier date. Market Cap is *defined* as shares x price at one
-    moment -- dividing it by a price from a *different* moment doesn't recover the real share
-    count, it just returns shares scaled by (old_price / new_price), which drifts with every
-    price tick even though the real share count and profit haven't changed. This produced a
-    real bug: EPS silently changing day to day purely from live-price movement, when the only
-    things that should move EPS are a genuine profit change (quarterly) or a genuine share
-    count change (buyback/issuance/split -- reflected in the next weekly CSV refresh).
+    Both ``ttm_value`` and ``historical_max_annual`` must come from the SAME table (screener.in's
+    standalone Profit & Loss page) so they're already same-units, same-basis -- no EPS/shares
+    conversion needed the way the old ATH-Profit implementation required (see git history: that
+    approach mixed a consolidated yfinance TTM figure against a standalone historical EPS
+    series, which needed a shares-outstanding derivation to even compare; screener.in's own TTM
+    + annual columns sidestep that mismatch entirely).
     """
-    values = [current_ttm_profit_cr, market_cap, market_cap_price, historical_max_eps]
-    if any(v is None or (isinstance(v, float) and pd.isna(v)) for v in values):
+    if ttm_value is None or historical_max_annual is None:
         return False
-    if market_cap <= 0 or market_cap_price <= 0:
+    if pd.isna(ttm_value) or pd.isna(historical_max_annual):
         return False
+    return ttm_value >= historical_max_annual
 
-    shares_outstanding = market_cap / market_cap_price
-    if shares_outstanding <= 0:
-        return False
 
-    current_eps = (current_ttm_profit_cr * 1e7) / shares_outstanding
-    return current_eps >= historical_max_eps
+def ath_profit_flag(
+    ttm_net_profit: Optional[float],
+    historical_max_annual_profit: Optional[float],
+) -> bool:
+    """True if standalone TTM Net Profit (Cr, screener.in) is at/above the max annual Net
+    Profit on record (also screener.in, same table, same units -- see ``_ttm_ath_flag``)."""
+    return _ttm_ath_flag(ttm_net_profit, historical_max_annual_profit)
 
 
 def ath_sales_flag(
-    latest_annual_sales: Optional[float],
-    historical_max_sales_excl_latest: Optional[float],
+    ttm_net_sales: Optional[float],
+    historical_max_annual_sales: Optional[float],
 ) -> bool:
-    """True if the most recent fiscal year's sales set a new all-time high (i.e. beat every
-    prior year on record).
-
-    There's no TTM/quarterly sales figure anywhere in the data (the same gap that got TTM
-    Net Sales dropped from v1 entirely) — only the annual series in
-    ``stock_fundamentals_yearly.csv``. So unlike ATH-Profit (which has a real TTM figure to
-    compare), this is a same-frequency comparison: latest annual sales vs. the max of every
-    *prior* year for that ticker (excluding the latest year itself, or it would trivially
-    match whenever the latest year happens to also be the record year).
-    """
-    if latest_annual_sales is None or historical_max_sales_excl_latest is None:
-        return False
-    if pd.isna(latest_annual_sales) or pd.isna(historical_max_sales_excl_latest):
-        return False
-    return latest_annual_sales >= historical_max_sales_excl_latest
+    """True if standalone TTM Net Sales (Cr, screener.in) is at/above the max annual Net
+    Sales on record (also screener.in, same table, same units -- see ``_ttm_ath_flag``)."""
+    return _ttm_ath_flag(ttm_net_sales, historical_max_annual_sales)
 
 
 def above_exit_flag(current_price: Optional[float], exit_ma: Optional[float]) -> bool:
