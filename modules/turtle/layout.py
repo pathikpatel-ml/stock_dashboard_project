@@ -12,6 +12,11 @@ from dash import dcc, html
 
 import data_manager
 
+# Fallback only -- used if nse_categories_df hasn't loaded yet (e.g. very first cold start).
+# The real option list is built dynamically from whatever index tags actually exist in
+# nse_categories.csv (NIFTY 50/100/200 plus sectoral indices like NIFTY BANK, NIFTY IT,
+# NIFTY PHARMA, etc.) -- compute.filter_by_index already matches any of these generically,
+# this dropdown was just hardcoded to show a subset of what's actually filterable.
 INDEX_OPTIONS = ["All", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
 
 
@@ -21,10 +26,24 @@ def _dropdown_options(series, extra_first="All"):
     return [{"label": v, "value": v} for v in options]
 
 
+def _index_options():
+    df = data_manager.nse_categories_df
+    if df.empty or "NSE_Categories" not in df.columns:
+        return [{"label": v, "value": v} for v in INDEX_OPTIONS]
+    tags = set()
+    for value in df["NSE_Categories"].dropna():
+        for tag in str(value).split(","):
+            tag = tag.strip()
+            if tag:
+                tags.add(tag)
+    return [{"label": v, "value": v} for v in ["All"] + sorted(tags)]
+
+
 def create_turtle_layout():
     df = data_manager.turtle_signals_df
     sector_options = _dropdown_options(df["Sector"]) if not df.empty and "Sector" in df.columns else [{"label": "All", "value": "All"}]
     stock_options = _dropdown_options(df["Symbol"]) if not df.empty and "Symbol" in df.columns else [{"label": "All", "value": "All"}]
+    index_options = _index_options()
 
     return html.Div(className="section-container", children=[
         html.H3("🐢 Turtle Strategy — ADD / HOLD / EXIT"),
@@ -43,10 +62,10 @@ def create_turtle_layout():
                 html.Label("Indices:", style={"fontWeight": "500", "fontSize": "13px"}),
                 dcc.Dropdown(
                     id="tt-indices-filter",
-                    options=[{"label": v, "value": v} for v in INDEX_OPTIONS],
+                    options=index_options,
                     value="All",
                     clearable=False,
-                    style={"width": "160px"},
+                    style={"width": "200px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
