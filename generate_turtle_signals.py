@@ -30,6 +30,7 @@ from modules.turtle import screener as sc
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
 FUNDAMENTALS_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
+CATEGORIES_FILE = os.path.join(REPO_BASE_PATH, "nse_categories.csv")
 SIGNALS_TEMPLATE = "turtle_signals_{date_str}.csv"
 
 
@@ -56,6 +57,14 @@ def load_fundamentals() -> pd.DataFrame:
     return pd.read_csv(FUNDAMENTALS_FILE)
 
 
+def load_categories() -> pd.DataFrame:
+    if not os.path.exists(CATEGORIES_FILE):
+        print(f"WARNING: {CATEGORIES_FILE} not found — RS peer groups will all fall back to "
+              "the broad Sector column (no sectoral-index basket available).")
+        return pd.DataFrame(columns=["Symbol", "NSE_Categories"])
+    return pd.read_csv(CATEGORIES_FILE)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate Turtle Strategy signals")
     ap.add_argument("--limit", type=int, default=None, help="screen only the first N symbols")
@@ -66,7 +75,9 @@ def main():
 
     universe = load_universe()
     fundamentals = load_fundamentals()
-    print(f"Universe: {len(universe)} symbols. Fundamentals rows: {len(fundamentals)}.")
+    categories = load_categories()
+    print(f"Universe: {len(universe)} symbols. Fundamentals rows: {len(fundamentals)}. "
+          f"Category rows: {len(categories)}.")
 
     # LOCKED decision #2: benchmark = BSE 500, proxied by Nifty 500 (^CRSLDX). A failure here
     # must stop the run, not silently degrade to some other benchmark.
@@ -74,7 +85,7 @@ def main():
     print(f"Benchmark ({sc.C.BENCHMARK_LABEL}) 52wk RS: {benchmark_rs:.2f}%")
 
     out = sc.run_pipeline(
-        universe, fundamentals, benchmark_rs,
+        universe, fundamentals, benchmark_rs, categories_df=categories,
         limit=args.limit, verbose=True, pause_seconds=args.pause,
     )
 

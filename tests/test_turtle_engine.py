@@ -198,6 +198,41 @@ def test_outperformance_missing_inputs():
 
 
 # ---------------------------------------------------------------------------
+# sectoral_index_tag -- RS peer-group basket selection (prefers a sectoral NSE index over
+# the broad Sector column)
+# ---------------------------------------------------------------------------
+def test_sectoral_index_tag_returns_the_sectoral_tag():
+    assert tt.sectoral_index_tag("NIFTY 50,NIFTY 100,NIFTY 200,NIFTY PHARMA") == "NIFTY PHARMA"
+
+
+def test_sectoral_index_tag_ignores_broad_market_cap_indices():
+    # Only Nifty 50/100/200 -- no sectoral index -- caller should fall back to Sector.
+    assert tt.sectoral_index_tag("NIFTY 50,NIFTY 100,NIFTY 200") is None
+
+
+def test_sectoral_index_tag_ignores_midcap_smallcap_too():
+    # NIFTY MIDCAP 50 / SMALLCAP 50 are market-CAP-tier groupings (mix every industry within
+    # a size band), not sector groupings -- a pharma stock that's also a Midcap 50
+    # constituent must still resolve to its real sectoral peer group (NIFTY PHARMA), not the
+    # midcap basket. Caught live: without this exclusion, LUPIN/AUROPHARMA/ALKEM etc. were
+    # grouped with unrelated-industry midcap names instead of their pharma peers.
+    assert tt.sectoral_index_tag("NIFTY MIDCAP 50,NIFTY PHARMA") == "NIFTY PHARMA"
+    assert tt.sectoral_index_tag("NIFTY SMALLCAP 50,NIFTY BANK") == "NIFTY BANK"
+    assert tt.sectoral_index_tag("NIFTY MIDCAP 50,NIFTY SMALLCAP 50") is None
+
+
+def test_sectoral_index_tag_none_or_missing():
+    assert tt.sectoral_index_tag(None) is None
+    assert tt.sectoral_index_tag(float("nan")) is None
+    assert tt.sectoral_index_tag("") is None
+
+
+def test_sectoral_index_tag_multiple_sectoral_tags_is_deterministic():
+    # Not expected in real data, but must not raise or be order-dependent.
+    assert tt.sectoral_index_tag("NIFTY METAL,NIFTY BANK") == "NIFTY BANK"
+
+
+# ---------------------------------------------------------------------------
 # filter_by_index -- Nifty 50/100/200/All membership
 # ---------------------------------------------------------------------------
 def test_filter_by_index_all_always_matches():

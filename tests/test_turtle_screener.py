@@ -285,6 +285,106 @@ def test_single_member_sector_rs_vs_sector_is_undefined_not_zero(pipeline_result
 
 
 # ---------------------------------------------------------------------------
+# RS peer group (2026-08-15) -- prefer a stock's NSE sectoral index (NIFTY BANK, NIFTY
+# PHARMA, ...) over the broad Sector column as the RS peer-group basket, when it's in one.
+# ---------------------------------------------------------------------------
+def test_no_categories_df_falls_back_to_broad_sector(pipeline_result):
+    # No categories_df passed to the fixture -> every stock falls back to "Sector: <Sector>",
+    # i.e. exactly the pre-2026-08-15 behaviour (proven by the untouched RS_vs_Sector values
+    # in the other tests above, which all still pass unchanged).
+    row = pipeline_result["signals"].set_index("Symbol").loc["STOCKA"]
+    assert row["RS_Peer_Group"] == "Sector: Alpha"
+
+
+def test_sectoral_index_basket_overrides_broad_sector_grouping():
+    # STOCKX and STOCKY are in different broad Sectors (Alpha vs Beta) but the SAME NIFTY
+    # BANK sectoral index -- with categories_df supplied, they must be grouped together (by
+    # NIFTY BANK), not split apart by their differing Sector column.
+    symbols = ["STOCKX", "STOCKY"]
+    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    DAILY.update({
+        "STOCKX": _daily(20, 200),   # strong
+        "STOCKY": _daily(50, 90),    # mild
+    })
+    try:
+        universe = pd.DataFrame([
+            _universe_row("STOCKX", "Alpha", ma200=90),
+            _universe_row("STOCKY", "Beta", ma200=90),
+        ])
+        categories = pd.DataFrame([
+            {"Symbol": "STOCKX", "NSE_Categories": "NIFTY 50,NIFTY BANK"},
+            {"Symbol": "STOCKY", "NSE_Categories": "NIFTY BANK"},
+        ])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, categories_df=categories, verbose=False)
+        signals = out["signals"].set_index("Symbol")
+
+        assert signals.loc["STOCKX", "RS_Peer_Group"] == "NIFTY BANK"
+        assert signals.loc["STOCKY", "RS_Peer_Group"] == "NIFTY BANK"
+
+        rs_x = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKX"]["Close"], errors="coerce").dropna())
+        rs_y = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKY"]["Close"], errors="coerce").dropna())
+        # Leave-one-out with only 2 members: each stock's peer group is just the OTHER stock.
+        assert signals.loc["STOCKX", "RS_vs_Sector"] == pytest.approx(round(rs_x - rs_y, 2), abs=0.01)
+        assert signals.loc["STOCKY", "RS_vs_Sector"] == pytest.approx(round(rs_y - rs_x, 2), abs=0.01)
+    finally:
+        for s in symbols:
+            MONTHLY.pop(s, None)
+            DAILY.pop(s, None)
+
+
+def test_stock_without_sectoral_index_falls_back_to_broad_sector_even_with_categories_df():
+    # STOCKZ has NSE_Categories but only broad-market tags (Nifty 50/100/200), no sectoral
+    # index -- must fall back to "Sector: <Sector>", not be left ungrouped/None.
+    symbol = "STOCKZ"
+    MONTHLY[symbol] = _monthly([60, 80, 100])
+    DAILY[symbol] = _daily(20, 200)
+    try:
+        universe = pd.DataFrame([_universe_row(symbol, "Gamma", ma200=90)])
+        categories = pd.DataFrame([{"Symbol": symbol, "NSE_Categories": "NIFTY 50,NIFTY 100,NIFTY 200"}])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, categories_df=categories, verbose=False)
+        row = out["signals"].set_index("Symbol").loc[symbol]
+        assert row["RS_Peer_Group"] == "Sector: Gamma"
+    finally:
+        MONTHLY.pop(symbol, None)
+        DAILY.pop(symbol, None)
+
+
+def test_missing_sector_stocks_are_not_grouped_together():
+    # Two stocks with NO Sector value (NaN, e.g. yfinance couldn't classify them) and no
+    # sectoral index tag -- must NOT collapse into a shared "Sector: nan" bucket and get
+    # compared against each other (caught live: this exact bug affected 79 real stocks).
+    # Each must be left with an undefined RS_Peer_Group/RS_vs_Sector, same as any other
+    # stock with zero valid peers.
+    symbols = ["STOCKNOSECTOR1", "STOCKNOSECTOR2"]
+    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    DAILY.update({s: _daily(20, 200) for s in symbols})
+    try:
+        universe = pd.DataFrame([_universe_row(s, sector=None, ma200=90) for s in symbols])
+        out = sc.run_pipeline(universe, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+        signals = out["signals"].set_index("Symbol")
+
+        for s in symbols:
+            assert signals.loc[s, "RS_Peer_Group"] is None or pd.isna(signals.loc[s, "RS_Peer_Group"])
+            assert pd.isna(signals.loc[s, "RS_vs_Sector"])
+    finally:
+        for s in symbols:
+            MONTHLY.pop(s, None)
+            DAILY.pop(s, None)
+
+
+def test_build_categories_lookup_symbol_normalisation():
+    df = pd.DataFrame([{"Symbol": " reliance ", "NSE_Categories": "NIFTY 50,NIFTY BANK"}])
+    lookup = sc.build_categories_lookup(df)
+    assert lookup["RELIANCE"] == "NIFTY 50,NIFTY BANK"
+
+
+def test_build_categories_lookup_empty_or_missing_column():
+    assert sc.build_categories_lookup(None) == {}
+    assert sc.build_categories_lookup(pd.DataFrame()) == {}
+    assert sc.build_categories_lookup(pd.DataFrame({"Symbol": ["X"]})) == {}
+
+
+# ---------------------------------------------------------------------------
 # Fix 2 -- ATH-price source: live daily close + full-history max guard (round-2 review)
 # ---------------------------------------------------------------------------
 def test_ath_price_uses_live_daily_close_not_stale_csv_price():

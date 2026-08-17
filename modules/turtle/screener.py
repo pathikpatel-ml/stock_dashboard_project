@@ -12,9 +12,12 @@ Wires the pure functions in ``compute.py`` to real data:
     and annual both come from the same screener.in table (same units, same standalone basis).
   * The benchmark (Nifty 500 proxy, LOCKED decision #2) via a direct yfinance call — NOT
     through ``data_feed``, which always appends ``.NS`` and is NSE-equity-only.
+  * NSE sectoral index membership from ``nse_categories.csv`` — used to pick each stock's RS
+    peer-group basket (its sectoral index if it's in one, e.g. NIFTY PHARMA, else the broad
+    Sector column) -- see constants.py's ``BROAD_INDEX_TAGS`` note.
 
 ``run_pipeline`` is a two-pass batch: pass 1 fetches OHLCV once per symbol and computes each
-stock's own relative strength; pass 2 derives the equal-weight sector RS basket from those
+stock's own relative strength; pass 2 derives the equal-weight RS peer-group basket from those
 already-computed values (no redundant per-stock refetching), then finalizes flags/classification.
 """
 from __future__ import annotations
@@ -32,7 +35,7 @@ from . import constants as C
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Sector", "Industry", "Current_Price",
     "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA212_Flag",
-    "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag",
+    "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag",
     "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Signal",
 ]
 
@@ -88,6 +91,18 @@ def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[s
     return result
 
 
+def build_categories_lookup(categories_df: pd.DataFrame) -> Dict[str, str]:
+    """``nse_categories.csv`` (Symbol, NSE_Categories) -> per-symbol lookup of the raw
+    comma-joined categories string, keyed by uppercased Symbol. Feeds
+    ``compute.sectoral_index_tag`` for the RS peer-group basket (see constants.py).
+    """
+    if categories_df is None or categories_df.empty or "NSE_Categories" not in categories_df.columns:
+        return {}
+    df = categories_df.copy()
+    df["Symbol"] = df["Symbol"].astype(str).str.strip().str.upper()
+    return dict(zip(df["Symbol"], df["NSE_Categories"]))
+
+
 def _stock_price_history(symbol: str) -> Dict[str, Optional[object]]:
     """Fetch monthly + daily OHLCV for ``symbol`` via the reused breakout data_feed."""
     monthly = data_feed.get_monthly(symbol, period=C.MONTHLY_HISTORY_PERIOD)
@@ -99,6 +114,7 @@ def run_pipeline(
     universe_df: pd.DataFrame,
     fundamentals_df: pd.DataFrame,
     benchmark_rs: float,
+    categories_df: Optional[pd.DataFrame] = None,
     limit: Optional[int] = None,
     verbose: bool = True,
     pause_seconds: float = 0.0,
@@ -110,11 +126,18 @@ def run_pipeline(
     per-flag defaults (see compute.py) rather than dropping the row, since a stock missing
     e.g. fundamentals data can still be meaningfully scored on price-only signals.
 
+    ``categories_df`` (``nse_categories.csv`` shape, optional) drives the RS peer-group
+    basket: a stock in a sectoral NSE index (NIFTY BANK, NIFTY PHARMA, ...) is compared
+    against that index's other members instead of the broad ``Sector`` column -- see
+    constants.py's ``BROAD_INDEX_TAGS`` note. Omitted/empty -> every stock falls back to the
+    broad Sector grouping (the pre-2026-08-15 behaviour).
+
     ``pause_seconds`` (default 0, i.e. off) adds a light delay after each symbol's fetch —
     cheap insurance against Yahoo Finance throttling across the ~2,365-symbol full universe.
     Left at 0 for tests, which stub the fetch entirely and don't need pacing.
     """
     fundamentals_lookup = build_fundamentals_lookup(fundamentals_df)
+    categories_lookup = build_categories_lookup(categories_df)
     rows = universe_df.head(limit) if limit else universe_df
 
     per_symbol: List[dict] = []
@@ -176,6 +199,27 @@ def run_pipeline(
         sector = urow.get("Sector")
         fundamentals = fundamentals_lookup.get(symbol, {})
 
+        # RS peer group: prefer the stock's NSE sectoral index (NIFTY BANK, NIFTY PHARMA,
+        # ...) over the broad Sector tag -- see constants.py's BROAD_INDEX_TAGS note. Falls
+        # back to the broad Sector for stocks not in any sectoral index. ``sector_is_valid``
+        # uses pd.isna, NOT a plain truthy check -- ``bool(float("nan"))`` is True in Python,
+        # so a naive ``if sector`` let NaN-sector stocks all collapse into one bogus
+        # "SECTOR:nan" bucket and get compared against each other, which is meaningless
+        # (caught live: 79 real stocks affected). A missing/NaN sector with no sectoral tag
+        # either now gets peer_group_key=None, which pandas' groupby drops entirely -- same
+        # "undefined, no peers" outcome group-size-1 sectors already get.
+        sectoral_tag = compute.sectoral_index_tag(categories_lookup.get(symbol))
+        sector_is_valid = sector is not None and not (isinstance(sector, float) and pd.isna(sector))
+        if sectoral_tag:
+            peer_group_key = sectoral_tag
+            peer_group_label = sectoral_tag
+        elif sector_is_valid:
+            peer_group_key = f"SECTOR:{sector}"
+            peer_group_label = f"Sector: {sector}"
+        else:
+            peer_group_key = None
+            peer_group_label = None
+
         per_symbol.append({
             "Symbol": symbol,
             "Company": urow.get("Company Name", symbol),
@@ -188,6 +232,8 @@ def run_pipeline(
             "ExitMA": live_exit_ma,
             "historical_max_close": historical_max_close,
             "stock_rs": stock_rs,
+            "peer_group_key": peer_group_key,
+            "peer_group_label": peer_group_label,
             "ttm_net_profit": fundamentals.get("ttm_net_profit"),
             "ttm_net_sales": fundamentals.get("ttm_net_sales"),
             "max_annual_net_profit": fundamentals.get("max_annual_net_profit"),
@@ -202,25 +248,26 @@ def run_pipeline(
 
     fetched_df = pd.DataFrame(per_symbol)
 
-    # Equal-weight sector RS basket, derived from the already-fetched stock_rs values — no
-    # redundant refetching per sector member. Leave-one-out: each stock is compared against
-    # the mean of its *peers*, excluding its own value, so it isn't compared against a
-    # basket it belongs to (which biases small sectors and makes a single-member sector
-    # structurally unable to outperform). sum/count are kept per sector so the per-stock
-    # exclusion is O(1) instead of recomputing a mean per stock.
-    sector_stats = (
-        fetched_df.dropna(subset=["stock_rs"]).groupby("Sector")["stock_rs"].agg(["sum", "count"]).to_dict("index")
+    # Equal-weight RS peer-group basket, derived from the already-fetched stock_rs values —
+    # no redundant refetching per peer. Grouped by peer_group_key (a stock's sectoral NSE
+    # index if it has one, else "SECTOR:<Sector>" -- see the per-symbol loop above). Leave-
+    # one-out: each stock is compared against the mean of its *peers*, excluding its own
+    # value, so it isn't compared against a basket it belongs to (which biases small groups
+    # and makes a single-member group structurally unable to outperform). sum/count are kept
+    # per group so the per-stock exclusion is O(1) instead of recomputing a mean per stock.
+    group_stats = (
+        fetched_df.dropna(subset=["stock_rs"]).groupby("peer_group_key")["stock_rs"].agg(["sum", "count"]).to_dict("index")
     )
 
-    def _leave_one_out_sector_rs(sector, own_stock_rs):
-        stats = sector_stats.get(sector)
+    def _leave_one_out_group_rs(peer_group_key, own_stock_rs):
+        stats = group_stats.get(peer_group_key)
         if stats is None or own_stock_rs is None or stats["count"] <= 1:
-            return None  # undefined for a single-member sector (or no valid peers)
+            return None  # undefined for a single-member group (or no valid peers)
         return (stats["sum"] - own_stock_rs) / (stats["count"] - 1)
 
     signals = []
     for row in per_symbol:
-        sector_rs = _leave_one_out_sector_rs(row["Sector"], row["stock_rs"])
+        sector_rs = _leave_one_out_group_rs(row["peer_group_key"], row["stock_rs"])
 
         ath_price = compute.ath_price_flag(row["Current_Price"], row["historical_max_close"])
         ath_profit = compute.ath_profit_flag(row["ttm_net_profit"], row["max_annual_net_profit"])
@@ -247,6 +294,7 @@ def run_pipeline(
             "TTM_Net_Profit": row["ttm_net_profit"],
             "ATH_Profit_Flag": ath_profit,
             "Above_MA212_Flag": above_exit,
+            "RS_Peer_Group": row["peer_group_label"],
             "RS_vs_Sector": round(rs_vs_sector, 2) if rs_vs_sector is not None else None,
             "RS_vs_Benchmark": round(rs_vs_benchmark, 2) if rs_vs_benchmark is not None else None,
             "Outperformance_Flag": outperformance,

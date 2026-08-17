@@ -18,6 +18,20 @@ ATH_PRICE_THRESHOLD_PCT = 5.0  # within 5% of the historical max close counts as
 # ---------------------------------------------------------------------------
 RS_WINDOW_WEEKS = 52  # weekly-high-close return window for stock / sector / benchmark
 
+# Sector-RS peer group (added 2026-08-15): prefer NSE's own curated sectoral index (NIFTY
+# BANK, NIFTY PHARMA, etc., from nse_categories.csv) over the broad yfinance "Sector" tag as
+# the peer basket, when a stock belongs to one -- a real, market-recognized peer set beats a
+# broad tag that lumps unrelated sub-industries together (e.g. yfinance's "Healthcare" mixing
+# pharma manufacturers with hospitals/diagnostics chains). Falls back to the broad Sector tag
+# for stocks not in any sectoral index (most sectoral indices only cover large/established
+# names). These four are excluded from "sectoral" since they're market-CAP-tier groupings
+# (mix every industry within a size band), not sector groupings -- confirmed live: without
+# excluding MIDCAP/SMALLCAP 50, pharma names like LUPIN/AUROPHARMA/ALKEM (also Nifty Midcap 50
+# constituents) got grouped with random midcap companies from unrelated industries instead of
+# NIFTY PHARMA, the exact "diluted peer group" problem this feature exists to fix. Anything
+# else in NSE_Categories (a true sectoral index) counts as sectoral.
+BROAD_INDEX_TAGS = {"NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50"}
+
 # ---------------------------------------------------------------------------
 # Exit price (plan §1). SUPERSEDES the original LOCKED decision #4 ("reuse MA200, do not
 # build a 212-day SMA") — Turtle's actual methodology uses a 212-day SMA; explicitly

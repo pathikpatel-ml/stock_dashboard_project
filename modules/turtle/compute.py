@@ -148,6 +148,24 @@ def classify(ath_price: bool, ath_profit: bool, above_exit: bool, outperformance
     return "EXIT"
 
 
+def sectoral_index_tag(categories_str: Optional[str]) -> Optional[str]:
+    """Returns the NSE sectoral index tag (e.g. ``"NIFTY PHARMA"``) a stock belongs to, for
+    use as its RS peer-group basket -- or None if it isn't in any sectoral index (only in the
+    broad Nifty 50/100/200, or no index membership at all), in which case the caller should
+    fall back to the broad ``Sector`` column instead.
+
+    ``C.BROAD_INDEX_TAGS`` (Nifty 50/100/200) are market-cap groupings, not sector groupings,
+    so they're excluded -- anything else in the comma-joined ``categories_str`` counts as
+    sectoral. If a stock somehow has more than one sectoral tag (not expected in practice),
+    the alphabetically-first one is used, for determinism.
+    """
+    if categories_str is None or (isinstance(categories_str, float) and pd.isna(categories_str)):
+        return None
+    tags = {t.strip().upper() for t in str(categories_str).split(",") if t.strip()}
+    sectoral = sorted(tags - C.BROAD_INDEX_TAGS)
+    return sectoral[0] if sectoral else None
+
+
 def filter_by_index(categories_str: Optional[str], index_name: str) -> bool:
     """Membership test against a comma-joined ``NSE_Categories`` string (e.g. "NIFTY 50,NIFTY METAL").
 

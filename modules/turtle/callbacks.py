@@ -13,9 +13,9 @@ import data_manager
 from . import compute
 
 _DISPLAY_COLUMNS = [
-    "Symbol", "Sector", "Industry", "Current_Price", "ATH_Price_Flag", "TTM_Net_Profit",
-    "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Above_MA212_Flag",
-    "RS_vs_Sector", "RS_vs_Benchmark", "Signal",
+    "Symbol", "Sector", "Industry", "Current_Price", "Signal", "ATH_Price_Flag",
+    "TTM_Net_Profit", "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag",
+    "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark",
 ]
 
 # Shown on hover over each column header (docs/TURTLE_STRATEGY_PLAN.md) so the table is
@@ -60,11 +60,20 @@ _COLUMN_TOOLTIPS = {
         "than 212 days of live price history exist (no MA212 column exists in that file).\n\n"
         "`current_price > MA212`"
     ),
+    "RS_Peer_Group": (
+        "The peer basket used to compute RS vs Sector. If the stock belongs to an NSE "
+        "sectoral index (NIFTY BANK, NIFTY PHARMA, NIFTY IT, etc.), that index's other "
+        "members are used — a real, market-curated peer set. Only falls back to the broad "
+        "Sector column (e.g. \"Sector: Healthcare\") for stocks not in any sectoral index, "
+        "since sectoral indices only cover large/established names. The broad Sector tag can "
+        "lump unrelated sub-industries together (e.g. pharma manufacturers with hospitals), "
+        "so the sectoral-index basket is preferred whenever one is available."
+    ),
     "RS_vs_Sector": (
         "Stock's 52-week return (each week's highest daily close vs. 52 weeks earlier) "
-        "minus its sector's *leave-one-out* average 52-week return (every other stock in "
-        "the same sector, excluding itself).\n\n"
-        "`stock_RS − sector_RS`   (positive = beating its sector)"
+        "minus its RS-peer-group's *leave-one-out* average 52-week return (every other "
+        "member of the RS_Peer_Group basket, excluding itself).\n\n"
+        "`stock_RS − peer_group_RS`   (positive = beating its peer group)"
     ),
     "RS_vs_Benchmark": (
         "Stock's 52-week return (weekly high-close basis) minus the benchmark's 52-week "
@@ -91,10 +100,17 @@ def _empty_state(message: str, hint: str = "") -> html.Div:
 
 def _table(df):
     cols = [c for c in _DISPLAY_COLUMNS if c in df.columns]
+    display_df = df[cols].copy()
+    if "Current_Price" in display_df.columns:
+        # Whole-rupee display (182.02158 -> 182) -- Int64 (nullable) so a missing price stays
+        # blank instead of forcing every row to a float just to accommodate the rare NaN.
+        display_df["Current_Price"] = pd.to_numeric(
+            display_df["Current_Price"], errors="coerce"
+        ).round(0).astype("Int64")
     return dash_table.DataTable(
         id="tt-signals-table",
         columns=[{"name": c.replace("_", " "), "id": c} for c in cols],
-        data=df[cols].to_dict("records"),
+        data=display_df.to_dict("records"),
         tooltip_header={
             c: {"value": _COLUMN_TOOLTIPS[c], "type": "markdown"}
             for c in cols if c in _COLUMN_TOOLTIPS
