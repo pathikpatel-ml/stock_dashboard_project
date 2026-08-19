@@ -20,8 +20,6 @@ from modules.auth import layout as auth_layout
 from modules.auth import user_store
 from modules.auth.session_store import SupabaseSessionInterface, clear_all_sessions
 from modules.auth.signup import register_signup_route
-from modules.breakout import callbacks as breakout_callbacks
-from modules.breakout import layout as breakout_layout
 from modules.kite import settings_callbacks as kite_settings_callbacks
 from modules.kite import settings_layout as kite_settings_layout
 from modules.turtle import callbacks as turtle_callbacks
@@ -368,8 +366,6 @@ def _main_dashboard_layout():
     tabs = [
         dcc.Tab(label="V20 Strategy", value="tab-v20",
                 children=[v20_layout.create_v20_layout()]),
-        dcc.Tab(label="Multi-Year Breakout", value="tab-breakout",
-                children=[breakout_layout.create_breakout_layout()]),
         dcc.Tab(label="Turtle Strategy", value="tab-turtle",
                 children=[turtle_layout.create_turtle_layout()]),
         dcc.Tab(label="Broker Automation Setup", value="tab-kite-settings",
@@ -388,12 +384,6 @@ def _main_dashboard_layout():
              html.Span("Signals"),
              html.Span(id="signal-count-badge", className="nav-badge")],
             id={"type": "bottom-nav-btn", "tab": "tab-v20"},
-            n_clicks=0,
-            className="bottom-nav-item",
-        ),
-        html.Button(
-            [html.I(className="fas fa-rocket"), html.Span("Breakout")],
-            id={"type": "bottom-nav-btn", "tab": "tab-breakout"},
             n_clicks=0,
             className="bottom-nav-item",
         ),
@@ -495,7 +485,6 @@ app.layout = serve_layout
 
 auth_callbacks.register_auth_callbacks(app)
 v20_callbacks.register_v20_callbacks(app)
-breakout_callbacks.register_breakout_callbacks(app)
 turtle_callbacks.register_turtle_callbacks(app)
 kite_settings_callbacks.register_kite_settings_callbacks(app)
 admin_callbacks.register_admin_callbacks(app)

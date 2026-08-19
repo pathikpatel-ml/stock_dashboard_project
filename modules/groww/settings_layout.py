@@ -18,7 +18,7 @@ def broker_picker_card() -> html.Div:
             html.H4("Automate Your GTT Buy Orders", className="fw-bold mb-2"),
             html.P(
                 "Place GTT orders automatically at 8:30 AM IST before market open — "
-                "based on your V20 STRONG BUY and Breakout signals.",
+                "based on your V20 STRONG BUY signals.",
                 className="text-muted",
                 style={"maxWidth": "520px", "margin": "0 auto", "fontSize": "0.95rem"},
             ),

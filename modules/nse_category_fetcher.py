@@ -5,10 +5,9 @@ NSE publishes each index's constituent list as a small CSV under its index archi
 (``archives.nseindia.com/content/indices/ind_nifty{50,100,200}list.csv``), same domain
 already used for the full equity list in ``modules/stock_screener.get_nse_stock_list``.
 
-Download uses the same browser-like session + retry pattern as
-``modules/breakout/delivery_data.download_bhavcopy`` (NSE's archive endpoints reject
-bare, header-less requests). Parsing/merging/writing are pure functions, unit-tested
-without touching the network.
+Download uses a browser-like session + retry pattern (NSE's archive endpoints reject bare,
+header-less requests). Parsing/merging/writing are pure functions, unit-tested without
+touching the network.
 """
 from __future__ import annotations
 

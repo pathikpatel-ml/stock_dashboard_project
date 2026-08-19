@@ -47,14 +47,13 @@ def _macd_is_bullish(symbol: str) -> bool:
         return True
 
 
-def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float,
+def build_candidates(v20_df, proximity_threshold_pct: float,
                      excluded_symbols: set | None = None) -> list:
     """
     Return list of dicts: {symbol, buy_price, strategy, current_ltp, signal_strength}
-    Only includes signals that are:
+    Only includes V20 signals that are:
       - Within proximity_threshold_pct of the buy target
-      - Have a bullish signal (BUY / BUY NOW / STRONG BUY) for V20
-      - Or are breakout watchlist entries where CMP is just below entry
+      - Have a bullish signal (BUY / BUY NOW / STRONG BUY)
       - Not in excluded_symbols
     """
     excluded = {s.upper() for s in excluded_symbols} if excluded_symbols else set()
@@ -100,27 +99,6 @@ def build_candidates(v20_df, breakout_df, proximity_threshold_pct: float,
                     "current_ltp": round(ltp, 2),
                     "signal_strength": row.get(signal_col, "unknown") if signal_col else "macd_ok",
                 })
-            except (ValueError, KeyError, TypeError):
-                continue
-
-    # ── Breakout watchlist ───────────────────────────────────────────────────
-    if breakout_df is not None and not breakout_df.empty:
-        for _, row in breakout_df.iterrows():
-            try:
-                entry = float(row.get("Entry_Price", 0))
-                cmp = float(row.get("CMP", 0))
-                if entry <= 0 or cmp <= 0:
-                    continue
-                symbol_up = str(row["Symbol"]).strip().upper()
-                prox_pct = (cmp - entry) / entry * 100
-                if -proximity_threshold_pct <= prox_pct <= 0 and symbol_up not in excluded:
-                    candidates.append({
-                        "symbol": symbol_up,
-                        "buy_price": round(entry, 2),
-                        "strategy": "breakout",
-                        "current_ltp": round(cmp, 2),
-                        "signal_strength": "breakout",
-                    })
             except (ValueError, KeyError, TypeError):
                 continue
 

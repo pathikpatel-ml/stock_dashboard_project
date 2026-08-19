@@ -37,10 +37,8 @@ def run_premarket_gtt_job() -> dict:
 
     # ── Load today's signals (shared across brokers) ─────────────────────
     v20_df = data_manager.v20_processed_df
-    breakout_df = data_manager.breakout_signals_df
     v20_count = 0 if v20_df is None or v20_df.empty else len(v20_df)
-    brk_count = 0 if breakout_df is None or breakout_df.empty else len(breakout_df)
-    log(f"Signals loaded — V20: {v20_count} rows, Breakout: {brk_count} rows.")
+    log(f"Signals loaded — V20: {v20_count} rows.")
 
     today = date.today()
 
@@ -55,7 +53,7 @@ def run_premarket_gtt_job() -> dict:
         else "Zerodha: no users with GTT enabled.")
 
     for user in zerodha_users:
-        if _process_zerodha_user(user, v20_df, breakout_df, today, logs):
+        if _process_zerodha_user(user, v20_df, today, logs):
             token_expired = True
 
     # ── Groww users ───────────────────────────────────────────────────────
@@ -69,7 +67,7 @@ def run_premarket_gtt_job() -> dict:
         else "Groww: no users with GTT enabled.")
 
     for user in groww_users:
-        if _process_groww_user(user, v20_df, breakout_df, today, logs):
+        if _process_groww_user(user, v20_df, today, logs):
             token_expired = True
 
     log("GTT job finished.")
@@ -114,7 +112,7 @@ def _delete_previous_gtts(user_id: int, broker: str, today, delete_fn, log):
 
 # ── Zerodha ───────────────────────────────────────────────────────────────────
 
-def _process_zerodha_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
+def _process_zerodha_user(user: dict, v20_df, today, logs) -> bool:
     """Process one Zerodha user. Returns True if token was expired."""
     user_id = user["id"]
     email = user["email"]
@@ -186,7 +184,7 @@ def _process_zerodha_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
     # ── Candidates ───────────────────────────────────────────────────────
     try:
         candidates = gtt_manager.build_candidates(
-            v20_df, breakout_df, proximity_pct, excluded_symbols=exclusions
+            v20_df, proximity_pct, excluded_symbols=exclusions
         )
     except Exception as exc:
         log(f"  ERROR building candidates: {exc}", "error")
@@ -234,7 +232,7 @@ def _process_zerodha_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
 
 # ── Groww ─────────────────────────────────────────────────────────────────────
 
-def _process_groww_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
+def _process_groww_user(user: dict, v20_df, today, logs) -> bool:
     """
     Process one Groww user.
     Auto-refreshes token via TOTP if expired. Returns True if token unavailable.
@@ -332,7 +330,7 @@ def _process_groww_user(user: dict, v20_df, breakout_df, today, logs) -> bool:
     # ── Candidates ───────────────────────────────────────────────────────
     try:
         candidates = gtt_manager.build_candidates(
-            v20_df, breakout_df, proximity_pct, excluded_symbols=exclusions
+            v20_df, proximity_pct, excluded_symbols=exclusions
         )
     except Exception as exc:
         log(f"  ERROR building candidates: {exc}", "error")

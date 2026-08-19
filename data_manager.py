@@ -18,12 +18,6 @@ GITHUB_REPOSITORY = "stock_dashboard_project"
 SIGNALS_FILENAME_TEMPLATE = "stock_candle_signals_from_listing_{date_str}.csv"
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 
-# --- Multi-Year Breakout strategy file configuration ---
-BREAKOUT_SIGNALS_FILENAME_TEMPLATE = "breakout_signals_{date_str}.csv"
-BREAKOUT_WATCHLIST_FILENAME_TEMPLATE = "breakout_watchlist_{date_str}.csv"
-BREAKOUT_REJECTIONS_FILENAME_TEMPLATE = "breakout_rejections_{date_str}.csv"
-BREAKOUT_POSITIONS_FILE = "breakout_positions.csv"
-
 # --- Turtle Strategy file configuration ---
 TURTLE_SIGNALS_FILENAME_TEMPLATE = "turtle_signals_{date_str}.csv"
 NSE_CATEGORIES_FILE = "nse_categories.csv"
@@ -50,14 +44,6 @@ v20_processed_df = pd.DataFrame()
 
 LOADED_V20_FILE_DATE = None
 LOADED_V20_SOURCE = None
-
-# --- Multi-Year Breakout strategy cache state ---
-breakout_signals_df = pd.DataFrame()
-breakout_watchlist_df = pd.DataFrame()
-breakout_rejections_df = pd.DataFrame()
-breakout_positions_df = pd.DataFrame()
-LOADED_BREAKOUT_FILE_DATE = None
-LOADED_BREAKOUT_SOURCE = None
 
 # --- Turtle Strategy cache state ---
 turtle_signals_df = pd.DataFrame()
@@ -329,63 +315,14 @@ def load_v20_data_on_startup():
 
 def load_and_process_data_on_startup():
     load_v20_data_on_startup()
-    load_breakout_data_on_startup()
     load_turtle_data_on_startup()
-
-
-def load_breakout_data_on_startup():
-    """Load Multi-Year Breakout signals, watchlist, and the user-maintained positions file.
-
-    Reuses the same local -> GitHub-raw -> fallback resolution as the V20 loader.
-    """
-    global breakout_signals_df, breakout_watchlist_df, breakout_rejections_df, breakout_positions_df
-    global LOADED_BREAKOUT_FILE_DATE, LOADED_BREAKOUT_SOURCE
-
-    today_str = datetime.now().strftime("%Y%m%d")
-
-    breakout_signals_df, loaded_name, LOADED_BREAKOUT_SOURCE = _read_csv_with_candidates(
-        today_filename=BREAKOUT_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
-        filename_regex=r"breakout_signals_\d{8}\.csv",
-        parse_dates=["Alert_Date"],
-    )
-    LOADED_BREAKOUT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
-    if not breakout_signals_df.empty:
-        breakout_signals_df = _filter_out_psu_symbols(breakout_signals_df)
-
-    breakout_watchlist_df, _, _ = _read_csv_with_candidates(
-        today_filename=BREAKOUT_WATCHLIST_FILENAME_TEMPLATE.format(date_str=today_str),
-        filename_regex=r"breakout_watchlist_\d{8}\.csv",
-    )
-    if not breakout_watchlist_df.empty:
-        breakout_watchlist_df = _filter_out_psu_symbols(breakout_watchlist_df)
-
-    breakout_rejections_df, _, _ = _read_csv_with_candidates(
-        today_filename=BREAKOUT_REJECTIONS_FILENAME_TEMPLATE.format(date_str=today_str),
-        filename_regex=r"breakout_rejections_\d{8}\.csv",
-    )
-
-    positions_path = os.path.join(REPO_BASE_PATH, BREAKOUT_POSITIONS_FILE)
-    if os.path.exists(positions_path):
-        try:
-            breakout_positions_df = pd.read_csv(positions_path)
-        except Exception:
-            breakout_positions_df = pd.DataFrame()
-    else:
-        breakout_positions_df = pd.DataFrame()
-
-    rej_count = int(breakout_rejections_df["Count"].sum()) if not breakout_rejections_df.empty else 0
-    print(
-        f"STARTUP: Breakout — {len(breakout_signals_df)} signals, "
-        f"{len(breakout_watchlist_df)} watchlist, {len(breakout_positions_df)} positions, "
-        f"{rej_count} rejections (source={LOADED_BREAKOUT_SOURCE})."
-    )
 
 
 def load_turtle_data_on_startup():
     """Load Turtle Strategy signals and the (static, not dated) NSE index-membership file.
 
-    Reuses the same local -> GitHub-raw -> fallback resolution as the V20/Breakout loaders.
-    No PSU filtering — Turtle is a general quant screen, unlike V20/Breakout's PSU exclusion.
+    Reuses the same local -> GitHub-raw -> fallback resolution as the V20 loader.
+    No PSU filtering — Turtle is a general quant screen, unlike V20's PSU exclusion.
     """
     global turtle_signals_df, nse_categories_df, turtle_live_prices_df
     global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE
