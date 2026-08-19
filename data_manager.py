@@ -242,6 +242,38 @@ def _read_csv_with_candidates(today_filename, filename_regex, parse_dates=None):
     return pd.DataFrame(), None, None
 
 
+def _read_static_csv_with_github_fallback(filename):
+    """GitHub-raw first, local disk only as a resilience fallback, for a single non-dated
+    rolling file (e.g. ``turtle_live_prices.csv``, ``nse_categories.csv``) that gets
+    overwritten in place rather than written to a new dated filename each time.
+
+    Why GitHub-raw FIRST (the opposite order from ``_read_csv_with_candidates``'s dated-file
+    case): a dated filename is naturally self-healing -- "today's" exact filename usually
+    doesn't exist yet on a Render container's disk frozen from an earlier boot, so the local
+    check misses and falls through to GitHub automatically. A same-name rolling file has no
+    such natural cache-buster: the stale local copy from the last boot always exists at that
+    exact path, so an exists-then-read-local-first check would keep serving stale data
+    forever. Real bug, reported live: the Turtle tab's intraday-price banner showed a 2-day-old
+    timestamp despite the underlying cron running successfully every ~2-3h and updating
+    GitHub fine -- this was why. Local read is kept only as a fallback for when GitHub itself
+    is unreachable.
+    """
+    raw_url = f"https://raw.githubusercontent.com/{GITHUB_USERNAME}/{GITHUB_REPOSITORY}/main/{filename}"
+    try:
+        return pd.read_csv(raw_url)
+    except Exception:
+        pass
+
+    local_path = os.path.join(REPO_BASE_PATH, filename)
+    if os.path.exists(local_path):
+        try:
+            return pd.read_csv(local_path)
+        except Exception:
+            pass
+
+    return pd.DataFrame()
+
+
 def get_v20_for_stock(symbol):
     global v20_signals_df
     if v20_signals_df.empty:
@@ -254,7 +286,16 @@ def get_v20_for_stock(symbol):
     return process_v20_signals(stock_v20)
 
 
-def load_and_process_data_on_startup():
+def load_v20_data_on_startup():
+    """Load V20 signals from disk/GitHub into ``v20_signals_df``/``v20_processed_df``.
+
+    Split out from ``load_and_process_data_on_startup()`` (2026-08-19) so the V20 render
+    callback can call this on every render, not just once at process boot -- mirroring the
+    fix Turtle already had. Without it, a single bad/slow fetch at the one boot-time load (or
+    simply a long-lived Render container that hasn't redeployed since a new day's file was
+    published) left the V20 tab permanently empty/stale until the next redeploy, with no way
+    to self-heal. Reported live: "V20 Strategy — no data is loading."
+    """
     global v20_signals_df, all_available_symbols, v20_processed_df
     global LOADED_V20_FILE_DATE, LOADED_V20_SOURCE
 
@@ -285,6 +326,9 @@ def load_and_process_data_on_startup():
         else []
     )
 
+
+def load_and_process_data_on_startup():
+    load_v20_data_on_startup()
     load_breakout_data_on_startup()
     load_turtle_data_on_startup()
 
@@ -354,25 +398,11 @@ def load_turtle_data_on_startup():
     )
     LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
 
-    categories_path = os.path.join(REPO_BASE_PATH, NSE_CATEGORIES_FILE)
-    if os.path.exists(categories_path):
-        try:
-            nse_categories_df = pd.read_csv(categories_path)
-        except Exception:
-            nse_categories_df = pd.DataFrame()
-    else:
-        nse_categories_df = pd.DataFrame()
-
-    # Not dated -- generate_turtle_live_prices.py overwrites this single rolling file
-    # several times a day, independent of the once-daily turtle_signals_<date>.csv.
-    live_prices_path = os.path.join(REPO_BASE_PATH, TURTLE_LIVE_PRICES_FILE)
-    if os.path.exists(live_prices_path):
-        try:
-            turtle_live_prices_df = pd.read_csv(live_prices_path)
-        except Exception:
-            turtle_live_prices_df = pd.DataFrame()
-    else:
-        turtle_live_prices_df = pd.DataFrame()
+    # Both are non-dated, overwritten-in-place files -- GitHub-raw-first, not local-first (see
+    # _read_static_csv_with_github_fallback's docstring for why local-first silently serves
+    # stale data forever on a long-lived Render container between redeploys).
+    nse_categories_df = _read_static_csv_with_github_fallback(NSE_CATEGORIES_FILE)
+    turtle_live_prices_df = _read_static_csv_with_github_fallback(TURTLE_LIVE_PRICES_FILE)
 
     print(
         f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "

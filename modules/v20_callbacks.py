@@ -84,8 +84,15 @@ def register_v20_callbacks(app):
     )
     def update_v20_comprehensive(_apply_clicks, _refresh_clicks, _indicator_clicks, _intervals, proximity_value):
         try:
+            # Re-sync from disk/GitHub on every render, not just at process boot -- mirrors
+            # the Turtle tab's fix (modules/turtle/callbacks.py::render_turtle). Without this,
+            # a long-lived Render process only ever sees whatever V20 CSV existed when it last
+            # booted; a single bad/slow fetch at that one boot-time load left the tab
+            # permanently stuck (empty or stale) with no way to self-heal short of a redeploy.
+            data_manager.load_v20_data_on_startup()
+
             ctx = dash.callback_context
-            
+
             # Check which button was clicked
             if ctx.triggered and 'refresh-v20-live-data-button' in ctx.triggered[0]['prop_id']:
                 print("V20 REFRESH: Re-processing with new live prices...")
