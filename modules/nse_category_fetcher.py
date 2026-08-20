@@ -22,6 +22,24 @@ INDEX_URLS = {
     "NIFTY 50": "https://archives.nseindia.com/content/indices/ind_nifty50list.csv",
     "NIFTY 100": "https://archives.nseindia.com/content/indices/ind_nifty100list.csv",
     "NIFTY 200": "https://archives.nseindia.com/content/indices/ind_nifty200list.csv",
+    # Sectoral + market-cap-tier indices (added 2026-08-20) -- each URL individually verified
+    # live before adding (NSE's archive doesn't follow one predictable slug-from-name rule;
+    # about 16 other guessed names 404'd and were dropped rather than included unverified --
+    # see docs/TURTLE_STRATEGY_PLAN.md for the full list of names still unresolved).
+    "NIFTY AUTO": "https://archives.nseindia.com/content/indices/ind_niftyautolist.csv",
+    "NIFTY BANK": "https://archives.nseindia.com/content/indices/ind_niftybanklist.csv",
+    "NIFTY ENERGY": "https://archives.nseindia.com/content/indices/ind_niftyenergylist.csv",
+    "NIFTY FMCG": "https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv",
+    "NIFTY IT": "https://archives.nseindia.com/content/indices/ind_niftyitlist.csv",
+    "NIFTY METAL": "https://archives.nseindia.com/content/indices/ind_niftymetallist.csv",
+    "NIFTY PHARMA": "https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv",
+    "NIFTY REALTY": "https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv",
+    "NIFTY MIDCAP 50": "https://archives.nseindia.com/content/indices/ind_niftymidcap50list.csv",
+    "NIFTY SMALLCAP 50": "https://archives.nseindia.com/content/indices/ind_niftysmallcap50list.csv",
+    "NIFTY CONSUMER DURABLES": "https://archives.nseindia.com/content/indices/ind_niftyconsumerdurableslist.csv",
+    "NIFTY MEDIA": "https://archives.nseindia.com/content/indices/ind_niftymedialist.csv",
+    "NIFTY OIL AND GAS": "https://archives.nseindia.com/content/indices/ind_niftyoilgaslist.csv",
+    "NIFTY PSU BANK": "https://archives.nseindia.com/content/indices/ind_niftypsubanklist.csv",
 }
 
 _HEADERS = {
@@ -177,6 +195,13 @@ def refresh_nifty_membership(output_path: str, index_names: Iterable[str] = tupl
 
     existing_map = load_categories_map_from_csv(output_path)
     new_map = build_categories_map(fetched)
-    merged_map = merge_categories_maps(existing_map, new_map)
+    # replace_tags = every index actually attempted this run (not just the original Nifty
+    # 50/100/200 default) -- now that this fetcher covers 14 sectoral/size indices too, their
+    # membership needs the same "drop the stale tag if the stock fell out" treatment on every
+    # refresh, or a symbol that leaves e.g. NIFTY MEDIA would keep that tag forever. Only
+    # indices that were actually fetched THIS run (in `fetched`, not all of `index_names` --
+    # some may have failed) get replaced, so a transient fetch failure for one index doesn't
+    # wipe its existing membership.
+    merged_map = merge_categories_maps(existing_map, new_map, replace_tags=set(fetched))
     save_nse_categories_to_csv(merged_map, output_path)
     return True

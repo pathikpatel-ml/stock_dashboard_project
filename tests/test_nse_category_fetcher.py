@@ -143,6 +143,37 @@ def test_refresh_nifty_membership_merges_into_existing_file(tmp_path, monkeypatc
     assert set(result["ABB"]) == {"NIFTY 100", "NIFTY ENERGY"}
 
 
+def test_refresh_nifty_membership_drops_stale_sectoral_tags_too(tmp_path, monkeypatch):
+    # 2026-08-20: replace_tags now covers every index actually fetched this run, not just the
+    # original Nifty 50/100/200 -- a stock that fell out of a sectoral index (e.g. NIFTY MEDIA)
+    # must lose that stale tag on refresh, the same way Nifty 50/100/200 already did.
+    path = str(tmp_path / "nse_categories.csv")
+    ncf.save_nse_categories_to_csv({"STOCKX": ["NIFTY MEDIA", "NIFTY PHARMA"]}, path)
+
+    def fake_fetch(index_name, session=None, retries=3, pause=1.5):
+        return {"NIFTY MEDIA": ["OTHERSTOCK"]}.get(index_name)  # STOCKX fell out
+
+    monkeypatch.setattr(ncf, "fetch_index_constituents", fake_fetch)
+    monkeypatch.setattr(ncf, "_new_session", lambda: _FakeSession())
+
+    refreshed = ncf.refresh_nifty_membership(path, index_names=["NIFTY MEDIA"])
+    assert refreshed is True
+
+    result = ncf.load_categories_map_from_csv(path)
+    assert "NIFTY MEDIA" not in result.get("STOCKX", [])
+    assert "NIFTY PHARMA" in result["STOCKX"]  # untouched -- not an index this run fetched
+
+
+def test_index_urls_covers_expected_sectoral_and_size_indices():
+    expected = {
+        "NIFTY 50", "NIFTY 100", "NIFTY 200",
+        "NIFTY AUTO", "NIFTY BANK", "NIFTY ENERGY", "NIFTY FMCG", "NIFTY IT", "NIFTY METAL",
+        "NIFTY PHARMA", "NIFTY REALTY", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50",
+        "NIFTY CONSUMER DURABLES", "NIFTY MEDIA", "NIFTY OIL AND GAS", "NIFTY PSU BANK",
+    }
+    assert expected == set(ncf.INDEX_URLS)
+
+
 def test_refresh_nifty_membership_leaves_file_untouched_on_total_failure(tmp_path, monkeypatch):
     path = str(tmp_path / "nse_categories.csv")
     ncf.save_nse_categories_to_csv({"ABB": ["NIFTY ENERGY"]}, path)
