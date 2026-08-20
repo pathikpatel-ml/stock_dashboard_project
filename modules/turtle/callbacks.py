@@ -33,23 +33,23 @@ _COLUMN_TOOLTIPS = {
         "`current_price ≥ historical_max_close × 0.95`"
     ),
     "TTM_Net_Profit": (
-        "Standalone trailing-twelve-month net profit (₹ Cr), from screener.in's own "
-        "pre-computed TTM column (standalone basis, not consolidated)."
+        "Consolidated trailing-twelve-month net profit (₹ Cr), from screener.in's own "
+        "pre-computed TTM column (consolidated basis, includes subsidiaries)."
     ),
     "ATH_Profit_Flag": (
-        "True if standalone TTM Net Profit is at/above the highest annual Net Profit on "
+        "True if consolidated TTM Net Profit is at/above the highest annual Net Profit on "
         "record (any year, including the latest). TTM and the historical max both come from "
-        "the same screener.in table — same ₹ Cr units, same standalone basis — so this is a "
+        "the same screener.in table — same ₹ Cr units, same consolidated basis — so this is a "
         "direct comparison, no EPS/shares-outstanding conversion needed.\n\n"
         "`ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years)`"
     ),
     "TTM_Net_Sales": (
-        "Standalone trailing-twelve-month net sales/revenue (₹ Cr), from screener.in's own "
-        "pre-computed TTM column (standalone basis, not consolidated)."
+        "Consolidated trailing-twelve-month net sales/revenue (₹ Cr), from screener.in's own "
+        "pre-computed TTM column (consolidated basis, includes subsidiaries)."
     ),
     "ATH_Sales": "Highest annual sales (₹ Cr) on record, any year (screener.in). Purely informational.",
     "ATH_Sales_Flag": (
-        "True if standalone TTM Net Sales is at/above the highest annual sales on record "
+        "True if consolidated TTM Net Sales is at/above the highest annual sales on record "
         "(any year, including the latest) — same shape as ATH_Profit_Flag, same screener.in "
         "table. Informational only — not used in Signal.\n\n"
         "`ATH_Sales_Flag = TTM_Net_Sales ≥ max(all annual Net Sales years)`"

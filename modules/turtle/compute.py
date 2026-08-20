@@ -35,7 +35,7 @@ def _ttm_ath_flag(ttm_value: Optional[float], historical_max_annual: Optional[fl
     self-match risk in comparing against the full set).
 
     Both ``ttm_value`` and ``historical_max_annual`` must come from the SAME table (screener.in's
-    standalone Profit & Loss page) so they're already same-units, same-basis -- no EPS/shares
+    consolidated Profit & Loss page) so they're already same-units, same-basis -- no EPS/shares
     conversion needed the way the old ATH-Profit implementation required (see git history: that
     approach mixed a consolidated yfinance TTM figure against a standalone historical EPS
     series, which needed a shares-outstanding derivation to even compare; screener.in's own TTM
@@ -52,7 +52,7 @@ def ath_profit_flag(
     ttm_net_profit: Optional[float],
     historical_max_annual_profit: Optional[float],
 ) -> bool:
-    """True if standalone TTM Net Profit (Cr, screener.in) is at/above the max annual Net
+    """True if consolidated TTM Net Profit (Cr, screener.in) is at/above the max annual Net
     Profit on record (also screener.in, same table, same units -- see ``_ttm_ath_flag``)."""
     return _ttm_ath_flag(ttm_net_profit, historical_max_annual_profit)
 
@@ -61,7 +61,7 @@ def ath_sales_flag(
     ttm_net_sales: Optional[float],
     historical_max_annual_sales: Optional[float],
 ) -> bool:
-    """True if standalone TTM Net Sales (Cr, screener.in) is at/above the max annual Net
+    """True if consolidated TTM Net Sales (Cr, screener.in) is at/above the max annual Net
     Sales on record (also screener.in, same table, same units -- see ``_ttm_ath_flag``)."""
     return _ttm_ath_flag(ttm_net_sales, historical_max_annual_sales)
 

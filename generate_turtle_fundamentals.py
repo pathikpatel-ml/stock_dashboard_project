@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 """
-Generate standalone TTM + historical-max-annual Net Profit and Net Sales for the Turtle
-Strategy universe, scraped from screener.in (modules/turtle/standalone_fundamentals.py).
+Generate consolidated TTM + historical-max-annual Net Profit and Net Sales for the Turtle
+Strategy universe, scraped from screener.in (modules/turtle/standalone_fundamentals.py --
+module name is historical; it fetches the ``/consolidated/`` page, not standalone).
 
 Writes turtle_screener_fundamentals.csv (repo root):
     Symbol, TTM_Net_Profit, Max_Annual_Net_Profit, TTM_Net_Sales, Max_Annual_Net_Sales
 
-generate_turtle_signals.py reads this file (instead of the old, yfinance-consolidated TTM
-profit + stock_fundamentals_yearly.csv EPS history) so ATH_Profit_Flag/ATH_Sales_Flag can do a
+generate_turtle_signals.py reads this file (instead of the old, EPS-proxy-based
+stock_fundamentals_yearly.csv approach) so ATH_Profit_Flag/ATH_Sales_Flag can do a
 direct TTM-vs-max-annual comparison with no unit-conversion step (see modules/turtle/compute.py
 ::_ttm_ath_flag for why that's now possible: both figures come from the same screener.in table).
 
@@ -76,7 +77,7 @@ def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Generate Turtle Strategy standalone fundamentals from screener.in")
+    ap = argparse.ArgumentParser(description="Generate Turtle Strategy consolidated fundamentals from screener.in")
     ap.add_argument("--limit", type=int, default=None, help="fetch only the first N symbols")
     ap.add_argument("--pause", type=float, default=0.5,
                      help="seconds to pause between symbols (screener.in is small, no documented "

@@ -1,21 +1,21 @@
 """
-Standalone (not consolidated) TTM + historical-annual Net Profit and Net Sales for the Turtle
-Strategy, scraped from screener.in's default company page.
+Consolidated TTM + historical-annual Net Profit and Net Sales for the Turtle Strategy,
+scraped from screener.in's ``/consolidated/`` company page.
 
-Why this exists: the old pipeline compared a *consolidated* "current" TTM profit (from
-yfinance) against a *standalone* historical max (derived via an EPS proxy, itself sourced
-from a separately-scraped, partially-consolidated file). Both the basis mismatch and the EPS
-unit-conversion machinery go away if TTM and historical-annual figures come from the SAME
-screener.in table, in the SAME (Cr) units, on the SAME (standalone) basis: ATH_Profit_Flag and
-ATH_Sales_Flag both become a direct ``TTM >= max(all annual years, including the latest)``
-comparison -- see ``modules.turtle.compute``.
+Why this exists: comparing TTM profit against a historical max needs both figures on the
+SAME table, SAME (Cr) units, SAME basis, so there's no EPS/shares-outstanding unit-conversion
+needed: ATH_Profit_Flag and ATH_Sales_Flag both become a direct
+``TTM >= max(all annual years, including the latest)`` comparison -- see
+``modules.turtle.compute``. Consolidated (not standalone) was chosen 2026-08-19 -- a company
+without subsidiaries has no real ``/consolidated/`` page and screener.in serves the same
+(standalone) numbers either way, so this only actually changes anything for companies that do
+have subsidiaries.
 
-``https://www.screener.in/company/{symbol}/`` (NOT the ``/consolidated/`` variant used
-elsewhere in this codebase, e.g. ``enhanced_de_parser.py``) is screener.in's standalone view.
-Its "Profit & Loss" table already has a pre-computed **TTM column** -- no need to sum
-quarters ourselves -- plus every annual year screener.in renders (typically ~12 years).
-Parsing is split from fetching (``parse_profit_and_loss`` takes raw HTML) so it's unit-tested
-against real saved page fixtures, no live network needed.
+``https://www.screener.in/company/{symbol}/consolidated/`` -- its "Profit & Loss" table
+already has a pre-computed **TTM column** -- no need to sum quarters ourselves -- plus every
+annual year screener.in renders (typically ~12 years). Parsing is split from fetching
+(``parse_profit_and_loss`` takes raw HTML) so it's unit-tested against real saved page
+fixtures, no live network needed.
 
 Some NSE tickers don't match their screener.in slug 1:1 (renames, etc. -- e.g. ZOMATO's
 screener.in company is ETERNAL). ``resolve_screener_slug`` falls back to screener.in's own
@@ -246,6 +246,22 @@ def resolve_screener_slug(symbol: str, session: Optional[requests.Session] = Non
             session.close()
 
 
+def _has_usable_data(result: Optional[dict]) -> bool:
+    """True if a parse_profit_and_loss() result actually has at least one real figure.
+
+    A company with no subsidiaries still returns a 200 OK for its ``/consolidated/`` URL --
+    screener.in renders the full row-label shell of the Profit & Loss table but with every
+    data cell empty (nothing to consolidate), which ``parse_profit_and_loss`` correctly parses
+    as a non-None dict of all-None/empty fields. Treating that as "success" (as an earlier
+    version of this function did) meant ~590 of 2,406 real symbols -- about a quarter of the
+    universe -- silently got zero fundamentals data. This check is what triggers the
+    standalone fallback below instead.
+    """
+    if not result:
+        return False
+    return result.get("ttm_net_profit") is not None or result.get("ttm_net_sales") is not None
+
+
 def fetch_profit_and_loss(
     symbol: str,
     session: Optional[requests.Session] = None,
@@ -253,30 +269,35 @@ def fetch_profit_and_loss(
     pause: float = 1.5,
     use_search_fallback: bool = True,
 ) -> Optional[dict]:
-    """Fetch + parse standalone TTM/annual Net Profit + Net Sales (Cr) for ``symbol``.
+    """Fetch + parse consolidated TTM/annual Net Profit + Net Sales (Cr) for ``symbol``,
+    falling back to standalone for companies with no real consolidated statement.
 
-    Tries the direct ``/company/{symbol}/`` URL first. If that loads but has no usable
-    Profit & Loss data (e.g. a renamed ticker whose old symbol 404s or redirects to an
-    unrelated page), falls back once to screener.in's search API to resolve the real slug and
-    retries against that. Never raises -- network/parse/lookup failures all return None so a
-    single bad symbol can't crash a full-universe batch run.
+    For each candidate slug (direct symbol, then the search-API-resolved slug for renamed
+    tickers -- see ``_candidate_slugs``), tries ``/consolidated/`` first; if that loads but has
+    no usable data (see ``_has_usable_data``'s docstring -- a company with no subsidiaries has
+    nothing to consolidate), falls back to that same slug's plain (standalone) URL, since for
+    such a company standalone IS the complete picture. Never raises -- network/parse/lookup
+    failures all return None so a single bad symbol can't crash a full-universe batch run.
     """
     own_session = session is None
     session = session or _new_session()
     try:
         for candidate in _candidate_slugs(symbol, session, use_search_fallback):
-            url = f"https://www.screener.in/company/{candidate}/"
-            for attempt in range(retries):
-                try:
-                    resp = session.get(url, timeout=20)
-                    if resp.status_code == 200 and resp.content:
-                        result = parse_profit_and_loss(resp.text)
-                        if result is not None:
-                            return result
-                        break  # page loaded fine, just no matching data -- try next candidate slug
-                except Exception:
-                    pass
-                time.sleep(pause * (attempt + 1))
+            for url in (
+                f"https://www.screener.in/company/{candidate}/consolidated/",
+                f"https://www.screener.in/company/{candidate}/",
+            ):
+                for attempt in range(retries):
+                    try:
+                        resp = session.get(url, timeout=20)
+                        if resp.status_code == 200 and resp.content:
+                            result = parse_profit_and_loss(resp.text)
+                            if _has_usable_data(result):
+                                return result
+                            break  # page loaded fine, just no usable data -- try next URL/candidate
+                    except Exception:
+                        pass
+                    time.sleep(pause * (attempt + 1))
         return None
     finally:
         if own_session:

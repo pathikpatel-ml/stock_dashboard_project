@@ -1,6 +1,6 @@
 """
-Unit tests for modules/turtle/standalone_fundamentals.py -- the standalone TTM Net Profit
-scraper (screener.in's default, non-consolidated company page).
+Unit tests for modules/turtle/standalone_fundamentals.py -- the TTM Net Profit scraper
+(screener.in's ``/consolidated/`` company page; module name is historical).
 
 HTML fixtures below are minimal but structurally faithful to the real page (verified by hand
 against real screener.in output for both a regular company and a bank during development):
@@ -95,6 +95,22 @@ EMPTY_TTM_CELL_HTML = """
 <table>
 <tr><th></th><th>Mar 2025</th><th>TTM</th></tr>
 <tr><td>Net Profit+</td><td>130</td><td></td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+# A company with no subsidiaries still returns 200 OK for its /consolidated/ URL -- screener.in
+# renders the full row-label shell but every data cell is empty (nothing to consolidate).
+# Verified live against the real ABBOTINDIA page during development.
+EMPTY_CONSOLIDATED_HTML = """
+<html><body>
+<section>
+<h2>Profit & Loss</h2>
+<table>
+<tr><th></th></tr>
+<tr><td>Sales+</td></tr>
+<tr><td>Net Profit+</td></tr>
 </table>
 </section>
 </body></html>
@@ -364,3 +380,58 @@ def test_fetch_pl_search_fallback_disabled_skips_search_call():
     )
     assert result is None
     assert not any("search" in url for url, _ in session.requests)
+
+
+# ---------------------------------------------------------------------------
+# _has_usable_data / consolidated-empty-shell -> standalone fallback (2026-08-19)
+# ---------------------------------------------------------------------------
+def test_has_usable_data_true_when_ttm_profit_present():
+    assert sf._has_usable_data({"ttm_net_profit": 10.0, "ttm_net_sales": None,
+                                 "annual_net_profit": [], "annual_net_sales": []}) is True
+
+
+def test_has_usable_data_true_when_only_ttm_sales_present():
+    assert sf._has_usable_data({"ttm_net_profit": None, "ttm_net_sales": 10.0,
+                                 "annual_net_profit": [], "annual_net_sales": []}) is True
+
+
+def test_has_usable_data_false_when_all_fields_empty():
+    assert sf._has_usable_data({"ttm_net_profit": None, "ttm_net_sales": None,
+                                 "annual_net_profit": [], "annual_net_sales": []}) is False
+
+
+def test_has_usable_data_false_for_none_or_empty():
+    assert sf._has_usable_data(None) is False
+    assert sf._has_usable_data({}) is False
+
+
+def test_fetch_pl_falls_back_from_empty_consolidated_shell_to_standalone():
+    # A company with no subsidiaries (e.g. real ABBOTINDIA) -- /consolidated/ loads fine (200)
+    # but has an empty data shell; must fall back to that SAME slug's standalone URL rather
+    # than treating the empty shell as "success" or jumping straight to the search API.
+    # Insertion order matters here: the /consolidated/ key must be checked before the shorter
+    # standalone key, since the standalone URL is itself a string-prefix of the consolidated
+    # one (see _FakeMultiUrlSession's startswith routing).
+    session = _FakeMultiUrlSession({
+        "https://www.screener.in/company/ABBOTINDIA/consolidated/": _FakeResponse(200, EMPTY_CONSOLIDATED_HTML),
+        "https://www.screener.in/company/ABBOTINDIA/": _FakeResponse(200, REGULAR_COMPANY_HTML),
+    })
+    result = sf.fetch_profit_and_loss(
+        "ABBOTINDIA", session=session, retries=1, pause=0, use_search_fallback=False
+    )
+    assert result["ttm_net_profit"] == 106.0
+    assert not any("search" in url for url, _ in session.requests)
+
+
+def test_fetch_pl_prefers_real_consolidated_data_when_available():
+    # The opposite case: a company that DOES have real consolidated data must use it, not
+    # fall through to standalone -- the standalone mock is deliberately a different (wrong)
+    # fixture here, so the test fails loudly if the fallback fires when it shouldn't.
+    session = _FakeMultiUrlSession({
+        "https://www.screener.in/company/RELIANCE/consolidated/": _FakeResponse(200, REGULAR_COMPANY_HTML),
+        "https://www.screener.in/company/RELIANCE/": _FakeResponse(200, BANK_HTML),
+    })
+    result = sf.fetch_profit_and_loss(
+        "RELIANCE", session=session, retries=1, pause=0, use_search_fallback=False
+    )
+    assert result["ttm_net_profit"] == 106.0  # REGULAR_COMPANY_HTML's value, not BANK_HTML's

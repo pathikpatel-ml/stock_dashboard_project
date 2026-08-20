@@ -48,7 +48,7 @@ def create_turtle_layout():
     return html.Div(className="section-container", children=[
         html.H3("🐢 Turtle Strategy — ADD / HOLD / EXIT"),
         html.P(
-            "Turtle Wealth's Quant Process: ATH price + ATH profit (standalone TTM vs. "
+            "Turtle Wealth's Quant Process: ATH price + ATH profit (consolidated TTM vs. "
             "historical max, screener.in) + 52-week outperformance vs sector and BSE 500 "
             "(Nifty 500 proxy), with a 212-day moving average as the exit-price proxy.",
             className="module-help",

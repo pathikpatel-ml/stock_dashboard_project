@@ -72,7 +72,7 @@ def test_ath_price_flag_missing_data():
 
 
 # ---------------------------------------------------------------------------
-# ath_profit_flag / ath_sales_flag -- both now the same shape: standalone TTM (screener.in)
+# ath_profit_flag / ath_sales_flag -- both now the same shape: consolidated TTM (screener.in)
 # vs. max of ALL annual years on record (including the latest), same table/units/basis, so no
 # EPS/shares-outstanding conversion is needed any more.
 # ---------------------------------------------------------------------------

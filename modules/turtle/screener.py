@@ -5,11 +5,11 @@ Wires the pure functions in ``compute.py`` to real data:
   * OHLCV via ``modules.breakout.data_feed`` (reused — no new fetcher, per plan §3).
   * The pre-computed universe (Sector/Industry/Current_Price/MA200) from
     ``NSE_EQ_All_Stocks_Analysis.csv``.
-  * Standalone TTM + historical-max-annual Net Profit/Net Sales from
+  * Consolidated TTM + historical-max-annual Net Profit/Net Sales from
     ``turtle_screener_fundamentals.csv`` (screener.in, via ``generate_turtle_fundamentals.py`` —
     see ``modules.turtle.standalone_fundamentals``). Both ATH_Profit_Flag and ATH_Sales_Flag are
     a direct TTM-vs-max-annual comparison now, no EPS/shares-outstanding proxy needed, since TTM
-    and annual both come from the same screener.in table (same units, same standalone basis).
+    and annual both come from the same screener.in table (same units, same consolidated basis).
   * The benchmark (Nifty 500 proxy, LOCKED decision #2) via a direct yfinance call — NOT
     through ``data_feed``, which always appends ``.NS`` and is NSE-equity-only.
   * NSE sectoral index membership from ``nse_categories.csv`` — used to pick each stock's RS

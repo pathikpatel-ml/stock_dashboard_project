@@ -130,16 +130,22 @@ Sales is computable now).
 ## 7. Decisions (LOCKED 2026-08-01)
 
 1. ~~**ATH Profit** → **EPS-ATH proxy** using existing eps history (2000-2026). No scrape in v1.~~
-   **SUPERSEDED 2026-08-15**: replaced by a direct standalone TTM-vs-max-annual comparison,
-   both sourced from screener.in's own "Profit & Loss" table (`modules/turtle/
-   standalone_fundamentals.py`, scraped weekly by `generate_turtle_fundamentals.py` into
+   **SUPERSEDED 2026-08-15**: replaced by a direct TTM-vs-max-annual comparison, both sourced
+   from screener.in's own "Profit & Loss" table (`modules/turtle/standalone_fundamentals.py`,
+   scraped weekly by `generate_turtle_fundamentals.py` into
    `turtle_screener_fundamentals.csv`). The EPS proxy existed only to bridge a units/basis
    mismatch (yfinance's consolidated TTM profit in Cr vs. a standalone historical EPS series
    in Rs/share) via a shares-outstanding derivation (`market_cap / price`). screener.in's own
-   table has TTM and every annual year in the same Cr units, same standalone basis, in one
-   place — so the mismatch (and the EPS/shares-outstanding math built to bridge it) is gone
-   entirely: `ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years, incl.
-   latest)`. See `modules/turtle/compute.py::_ttm_ath_flag`.
+   table has TTM and every annual year in the same Cr units, same basis, in one place — so
+   the mismatch (and the EPS/shares-outstanding math built to bridge it) is gone entirely:
+   `ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years, incl. latest)`. See
+   `modules/turtle/compute.py::_ttm_ath_flag`.
+   **SUPERSEDED again 2026-08-19**: basis switched from standalone to **consolidated**
+   (screener.in's `/consolidated/` page instead of its default page) — explicitly requested;
+   standalone was the original deliberate choice (parent-company-only, excludes subsidiaries)
+   but was reversed in favour of consolidated (includes subsidiaries — the more complete
+   picture of overall business performance). Same table/parser/comparison shape, only the
+   URL changed. `standalone_fundamentals.py`'s filename is now historical, not descriptive.
 2. **Benchmark** → **BSE 500** (Turtle original) for the outperformance test. Universe
    *filters* still use Nifty membership; the RS benchmark is BSE 500. See caveat below.
 3. **Cadence** → **Daily** after market close (weekday), ≈16:00 IST, for price-driven signals

@@ -4,7 +4,7 @@ Turtle Strategy — Turtle Wealth's Quant Process screener (docs/TURTLE_STRATEGY
 Classifies every NSE stock into ADD / HOLD / EXIT using three signals plus a pre-decided
 exit price:
   * ATH Price       — latest close at/near its all-time-high close.
-  * ATH Profit      — standalone TTM Net Profit (screener.in) at/above the max annual Net
+  * ATH Profit      — consolidated TTM Net Profit (screener.in) at/above the max annual Net
                        Profit on record.
   * Outperformance  — 52-week return (weekly high-close basis) beats both the stock's
                        sector basket and the benchmark (Nifty 500 proxy for BSE 500).
@@ -15,9 +15,10 @@ Module map (mirrors ``modules/breakout/``):
   * ``constants.py``               — every threshold, named.
   * ``compute.py``                 — pure, injected-data functions (ATH/profit/RS/classifier).
                                       Unit-tested directly with synthetic data, no I/O.
-  * ``standalone_fundamentals.py`` — screener.in scraper: standalone TTM + historical-annual
-                                      Net Profit/Net Sales, with search-API slug fallback for
-                                      NSE-ticker/screener.in-slug mismatches.
+  * ``standalone_fundamentals.py`` — screener.in scraper (module name is historical; fetches
+                                      the ``/consolidated/`` page): consolidated TTM +
+                                      historical-annual Net Profit/Net Sales, with search-API
+                                      slug fallback for NSE-ticker/screener.in-slug mismatches.
   * ``screener.py``                — orchestration: pulls OHLCV via
                                       ``modules.breakout.data_feed``, fundamentals via
                                       ``turtle_screener_fundamentals.csv`` (screener.in), and

@@ -568,7 +568,7 @@ def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
 
 
 # ---------------------------------------------------------------------------
-# ATH_Sales_Flag -- same shape as ATH_Profit_Flag: standalone TTM Net Sales (screener.in) vs.
+# ATH_Sales_Flag -- same shape as ATH_Profit_Flag: consolidated TTM Net Sales (screener.in) vs.
 # max annual Net Sales on record, both from the same table -- see compute.ath_sales_flag.
 # ---------------------------------------------------------------------------
 def test_ath_sales_flag_true_when_ttm_is_a_new_record():
