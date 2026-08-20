@@ -1321,7 +1321,7 @@ ELECTHERM,Electrotherm (India) Limited,Basic Materials,Steel,1012.9000244140625,
 DHANBANK,Dhanlaxmi Bank Limited,Financial Services,Banks - Regional,32.4900016784668,False,115.0,True,True,Sector: Financial Services,16.61,16.93,True,1683.0,1601.0,True,HOLD
 EXCELINDUS,Excel Industries Limited,Basic Materials,Specialty Chemicals,1114.5,False,71.0,False,True,Sector: Basic Materials,-14.85,-14.77,False,1079.0,1178.0,False,EXIT
 JYOTISTRUC,Jyoti Structures Limited,Industrials,Specialty Industrial Machinery,10.6899995803833,False,64.0,True,False,Sector: Industrials,-36.33,-35.38,False,846.0,3636.0,False,EXIT
-EXPLEOSOL,Expleo Solutions Limited,Technology,Information Technology Services,883.1500244140625,False,138.0,True,True,Sector: Technology,-14.1,-15.59,False,1140.0,1108.0,True,HOLD
+EXPLEOSOL,Expleo Solutions Limited,Technology,Information Technology Services,883.1500244140625,False,138.0,True,False,Sector: Technology,-14.1,-15.59,False,1140.0,1108.0,True,EXIT
 SULA,Sula Vineyards Limited,Consumer Defensive,Beverages - Wineries & Distilleries,145.2100067138672,False,25.0,False,False,Sector: Consumer Defensive,-46.5,-46.03,False,559.0,579.0,False,EXIT
 GODAVARIB,GODAVARIB,Basic Materials,Chemicals,245.8000030517578,False,0.0,False,False,Sector: Basic Materials,-8.43,-8.37,False,2013.0,2015.0,False,EXIT
 STLNETWORK,STLNETWORK,Communication Services,Telecom Services,25.25,False,-99.0,False,True,Sector: Communication Services,,,False,945.0,1475.0,False,EXIT
@@ -2059,7 +2059,7 @@ DBSTOCKBRO,DB (International) Stock Brokers Limited,Financial Services,Capital M
 GROBTEA,The Grob Tea Company Limited,Consumer Defensive,Farm Products,938.6500244140625,False,8.0,False,False,Sector: Consumer Defensive,-14.07,-13.83,False,119.0,119.0,True,EXIT
 OSWALSEEDS,ShreeOswal Seeds and Chemicals Limited,Basic Materials,Agricultural Inputs,13.15999984741211,False,12.0,True,True,Sector: Basic Materials,-28.28,-28.16,False,267.0,272.0,False,HOLD
 NAVKARURB,Navkar Urbanstructure Limited,Basic Materials,Building Materials,0.9599999785423279,False,2.96,False,False,Sector: Basic Materials,-64.2,-63.98,False,22.15,154.82,False,EXIT
-VAISHALI,Vaishali Pharma Limited,Healthcare,Drug Manufacturers - Specialty & Generic,7.949999809265137,False,4.0,True,True,Sector: Healthcare,-46.21,-35.39,False,108.0,109.0,False,HOLD
+VAISHALI,Vaishali Pharma Limited,Healthcare,Drug Manufacturers - Specialty & Generic,7.949999809265137,False,4.0,True,False,Sector: Healthcare,-46.21,-35.39,False,108.0,109.0,False,EXIT
 LPDC,Landmark Property Development Company Limited,Real Estate,Real Estate Services,7.170000076293945,False,8.46,True,True,Sector: Real Estate,13.29,-3.2,False,16.35,7.35,True,HOLD
 RAJSREESUG,Rajshree Sugars & Chemicals Limited,Consumer Defensive,Confectioners,40.380001068115234,False,-8.0,False,True,Sector: Consumer Defensive,0.75,0.88,True,557.0,767.0,False,HOLD
 AKSHOPTFBR,Aksh Optifibre Limited,Technology,Communication Equipment,7.300000190734863,False,-2.0,False,True,Sector: Technology,-5.81,-7.36,False,149.0,618.0,False,EXIT
@@ -2152,7 +2152,7 @@ GENSOL,Gensol Engineering Limited,Technology,Solar,18.219999313354492,False,87.0
 DELTAMAGNT,Delta Manufacturing Limited,Consumer Cyclical,Textile Manufacturing,58.27000045776367,False,-11.0,False,False,Sector: Consumer Cyclical,-29.23,-32.31,False,67.0,124.0,False,EXIT
 PALREDTEC,Palred Technologies Limited,Technology,Consumer Electronics,57.2400016784668,False,-5.4,False,True,Sector: Technology,5.48,3.87,True,85.83,148.02,False,HOLD
 GATECHDVR,GACM Technologies Limited,Financial Services,Asset Management,0.5199999809265137,False,6.87,False,True,Sector: Financial Services,-0.26,0.14,False,19.68,233.33,False,EXIT
-ATLASCYCLE,Atlas Cycles (Haryana) Limited,Consumer Cyclical,Leisure,97.94999694824219,False,-8.37,False,True,Sector: Consumer Cyclical,-16.51,-19.63,False,6.46,684.28,False,EXIT
+ATLASCYCLE,Atlas Cycles (Haryana) Limited,Consumer Cyclical,Leisure,97.94999694824219,False,-8.37,False,False,Sector: Consumer Cyclical,-16.51,-19.63,False,6.46,684.28,False,EXIT
 AGRITECH,Agri-tech (India) Limited,Consumer Defensive,Farm Products,102.16000366210938,False,-2.57,False,False,Sector: Consumer Defensive,-31.85,-31.49,False,0.29,0.38,False,EXIT
 FMNL,Future Market Networks Limited,Real Estate,Real Estate Services,8.489999771118164,False,7.99,False,False,Sector: Real Estate,-19.41,-35.43,False,98.73,156.86,False,EXIT
 SECURKLOUD,SecureKloud Technologies Limited,Technology,Software - Application,18.239999771118164,False,-14.0,False,False,Sector: Technology,-26.54,-27.94,False,40.0,849.0,False,EXIT
