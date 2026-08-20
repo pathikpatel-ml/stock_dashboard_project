@@ -13,8 +13,12 @@ import data_manager
 from . import compute
 
 _DISPLAY_COLUMNS = [
+    # TTM_Net_Profit, TTM_Net_Sales, ATH_Sales deliberately omitted (2026-08-20, requested) --
+    # display-only, table-width reduction. The flags they support (ATH_Profit_Flag,
+    # ATH_Sales_Flag) still render; the raw ₹Cr figures stay in the underlying CSV, just not
+    # shown here. No calculation/formula/Signal logic touched.
     "Symbol", "Sector", "Industry", "Current_Price", "Signal", "ATH_Price_Flag",
-    "TTM_Net_Profit", "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag",
+    "ATH_Profit_Flag", "ATH_Sales_Flag",
     "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark",
 ]
 
