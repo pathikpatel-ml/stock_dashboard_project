@@ -15,10 +15,16 @@ Wires the pure functions in ``compute.py`` to real data:
   * NSE sectoral index membership from ``nse_categories.csv`` — used to pick each stock's RS
     peer-group basket (its sectoral index if it's in one, e.g. NIFTY PHARMA, else the broad
     Sector column) -- see constants.py's ``BROAD_INDEX_TAGS`` note.
+  * Each sectoral index's own real 52-week RS, via ``fetch_sectoral_index_rs`` (same direct
+    yfinance treatment as the benchmark) for indices with a verified ticker -- see
+    constants.py's ``SECTORAL_INDEX_TICKERS`` note. Takes priority over the leave-one-out
+    member-average for any peer group it covers.
 
 ``run_pipeline`` is a two-pass batch: pass 1 fetches OHLCV once per symbol and computes each
-stock's own relative strength; pass 2 derives the equal-weight RS peer-group basket from those
-already-computed values (no redundant per-stock refetching), then finalizes flags/classification.
+stock's own relative strength; pass 2 derives the RS peer-group basket from those
+already-computed values (no redundant per-stock refetching) -- using each sectoral index's own
+real RS where available, else falling back to the equal-weight member average -- then finalizes
+flags/classification.
 """
 from __future__ import annotations
 
@@ -40,6 +46,25 @@ SIGNAL_COLUMNS = [
 ]
 
 
+def _fetch_index_rs(ticker: str) -> Optional[float]:
+    """Fetch one index's own 52-week (weekly high-close) relative strength directly from its
+    yfinance ticker -- shared by ``fetch_benchmark_rs`` and ``fetch_sectoral_index_rs``.
+    Returns None (never raises) on any fetch/parse failure; callers decide what that means.
+    """
+    try:
+        hist = yf.Ticker(ticker).history(
+            period=C.DAILY_HISTORY_PERIOD, interval="1d", auto_adjust=False, timeout=20
+        )
+    except Exception:
+        return None
+    if hist is None or hist.empty or "Close" not in hist.columns:
+        return None
+
+    close = pd.to_numeric(hist["Close"], errors="coerce").dropna()
+    close.index = pd.DatetimeIndex(hist.index).tz_localize(None)
+    return compute.relative_strength(close)
+
+
 def fetch_benchmark_rs(session=None) -> float:
     """Fetch the benchmark's 52-week (weekly high-close) relative strength (LOCKED decision #2).
 
@@ -49,18 +74,7 @@ def fetch_benchmark_rs(session=None) -> float:
     """
     tickers = [C.BENCHMARK_TICKER] + list(C.BENCHMARK_FALLBACK_TICKERS)
     for ticker in tickers:
-        try:
-            hist = yf.Ticker(ticker).history(
-                period=C.DAILY_HISTORY_PERIOD, interval="1d", auto_adjust=False, timeout=20
-            )
-        except Exception:
-            hist = None
-        if hist is None or hist.empty or "Close" not in hist.columns:
-            continue
-
-        close = pd.to_numeric(hist["Close"], errors="coerce").dropna()
-        close.index = pd.DatetimeIndex(hist.index).tz_localize(None)
-        rs = compute.relative_strength(close)
+        rs = _fetch_index_rs(ticker)
         if rs is not None:
             return rs
 
@@ -68,6 +82,26 @@ def fetch_benchmark_rs(session=None) -> float:
         f"Could not fetch benchmark relative strength from any of {tickers}. "
         "Per the locked benchmark decision, refusing to silently fall back further."
     )
+
+
+def fetch_sectoral_index_rs(tickers: Optional[Dict[str, str]] = None) -> Dict[str, float]:
+    """Fetch each sectoral index's own 52-week RS directly (same treatment as
+    ``fetch_benchmark_rs``) -- more accurate than averaging member stocks' RS, since it
+    reflects the index's real market-cap-weighted performance. Only ``C.SECTORAL_INDEX_TICKERS``
+    entries are attempted (every one individually verified live before being added -- see that
+    constant's docstring). A single index's fetch failure just means it's absent from the
+    returned dict, NOT a run-stopping error like the benchmark -- ``run_pipeline`` falls back
+    to the leave-one-out peer-average for any tag missing here (unlike the benchmark, which
+    the whole run depends on, an individual sectoral index's RS has a graceful degradation
+    path already built for exactly this "no tag mapping" case).
+    """
+    tickers = tickers if tickers is not None else C.SECTORAL_INDEX_TICKERS
+    result: Dict[str, float] = {}
+    for index_name, ticker in tickers.items():
+        rs = _fetch_index_rs(ticker)
+        if rs is not None:
+            result[index_name] = rs
+    return result
 
 
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
@@ -115,6 +149,7 @@ def run_pipeline(
     fundamentals_df: pd.DataFrame,
     benchmark_rs: float,
     categories_df: Optional[pd.DataFrame] = None,
+    sectoral_index_rs: Optional[Dict[str, float]] = None,
     limit: Optional[int] = None,
     verbose: bool = True,
     pause_seconds: float = 0.0,
@@ -132,12 +167,20 @@ def run_pipeline(
     constants.py's ``BROAD_INDEX_TAGS`` note. Omitted/empty -> every stock falls back to the
     broad Sector grouping (the pre-2026-08-15 behaviour).
 
+    ``sectoral_index_rs`` (optional, from ``fetch_sectoral_index_rs()``) takes priority over
+    the leave-one-out peer-average WHENEVER a stock's peer-group tag has an entry in it: the
+    sectoral index's own real 52-week RS is used directly (same treatment as
+    RS_vs_Benchmark), rather than approximating it via an equal-weight average of member
+    stocks. Falls back to the peer-average for any tag missing here (no verified ticker for
+    that index, or it's a broad-Sector fallback, which never has an index price to fetch).
+
     ``pause_seconds`` (default 0, i.e. off) adds a light delay after each symbol's fetch —
     cheap insurance against Yahoo Finance throttling across the ~2,365-symbol full universe.
     Left at 0 for tests, which stub the fetch entirely and don't need pacing.
     """
     fundamentals_lookup = build_fundamentals_lookup(fundamentals_df)
     categories_lookup = build_categories_lookup(categories_df)
+    sectoral_index_rs = sectoral_index_rs or {}
     rows = universe_df.head(limit) if limit else universe_df
 
     per_symbol: List[dict] = []
@@ -265,9 +308,19 @@ def run_pipeline(
             return None  # undefined for a single-member group (or no valid peers)
         return (stats["sum"] - own_stock_rs) / (stats["count"] - 1)
 
+    def _sector_rs_for(peer_group_key, own_stock_rs):
+        # A sectoral index with a verified ticker (sectoral_index_rs) uses the index's own
+        # real RS directly -- more accurate than the leave-one-out member average, and the
+        # same treatment RS_vs_Benchmark already gets. Falls back to the peer-average for any
+        # tag without a ticker mapping (no verified yfinance ticker for that index, or it's a
+        # "SECTOR:<Sector>" broad fallback key, which never has an index price to fetch).
+        if peer_group_key in sectoral_index_rs:
+            return sectoral_index_rs[peer_group_key]
+        return _leave_one_out_group_rs(peer_group_key, own_stock_rs)
+
     signals = []
     for row in per_symbol:
-        sector_rs = _leave_one_out_group_rs(row["peer_group_key"], row["stock_rs"])
+        sector_rs = _sector_rs_for(row["peer_group_key"], row["stock_rs"])
 
         ath_price = compute.ath_price_flag(row["Current_Price"], row["historical_max_close"])
         ath_profit = compute.ath_profit_flag(row["ttm_net_profit"], row["max_annual_net_profit"])

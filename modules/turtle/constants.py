@@ -32,6 +32,29 @@ RS_WINDOW_WEEKS = 52  # weekly-high-close return window for stock / sector / ben
 # else in NSE_Categories (a true sectoral index) counts as sectoral.
 BROAD_INDEX_TAGS = {"NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50"}
 
+# Sectoral-index-direct RS (added 2026-08-20): for a sectoral index with a real yfinance
+# ticker, RS_vs_Sector compares the stock against the INDEX'S OWN price series directly --
+# same treatment as the benchmark (BENCHMARK_TICKER below) -- instead of averaging its member
+# stocks' individual RS. More accurate: reflects the index's real market-cap-weighted
+# performance rather than an equal-weight approximation of it, and matches how RS_vs_Benchmark
+# already works. Only indices with a verified-live-working yfinance ticker are listed here
+# (each individually confirmed with real 2-year history before being added -- guessed tickers
+# for NIFTY CONSUMER DURABLES and NIFTY OIL AND GAS all 404'd/returned empty, so those two
+# still fall back to compute.py's leave-one-out peer-average in run_pipeline, same as any
+# sectoral index without a ticker mapping here).
+SECTORAL_INDEX_TICKERS = {
+    "NIFTY AUTO": "^CNXAUTO",
+    "NIFTY BANK": "^NSEBANK",
+    "NIFTY ENERGY": "^CNXENERGY",
+    "NIFTY FMCG": "^CNXFMCG",
+    "NIFTY IT": "^CNXIT",
+    "NIFTY METAL": "^CNXMETAL",
+    "NIFTY PHARMA": "^CNXPHARMA",
+    "NIFTY REALTY": "^CNXREALTY",
+    "NIFTY MEDIA": "^CNXMEDIA",
+    "NIFTY PSU BANK": "^CNXPSUBANK",
+}
+
 # ---------------------------------------------------------------------------
 # Exit price (plan §1). SUPERSEDES the original LOCKED decision #4 ("reuse MA200, do not
 # build a 212-day SMA") — Turtle's actual methodology uses a 212-day SMA; explicitly

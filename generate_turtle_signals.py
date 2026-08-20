@@ -83,8 +83,16 @@ def main():
     benchmark_rs = sc.fetch_benchmark_rs()
     print(f"Benchmark ({sc.C.BENCHMARK_LABEL}) 52wk RS: {benchmark_rs:.2f}%")
 
+    # Sectoral indices' own direct RS (2026-08-20) -- takes priority over the leave-one-out
+    # peer-average for any sectoral tag it covers. A failed/missing index here just means
+    # run_pipeline falls back to the peer-average for that one index, not a run-stopping error.
+    sectoral_index_rs = sc.fetch_sectoral_index_rs()
+    print(f"Sectoral index RS: {len(sectoral_index_rs)}/{len(sc.C.SECTORAL_INDEX_TICKERS)} fetched "
+          f"({', '.join(f'{k}={v:.1f}%' for k, v in sectoral_index_rs.items())})")
+
     out = sc.run_pipeline(
         universe, fundamentals, benchmark_rs, categories_df=categories,
+        sectoral_index_rs=sectoral_index_rs,
         limit=args.limit, verbose=True, pause_seconds=args.pause,
     )
 

@@ -349,6 +349,121 @@ def test_stock_without_sectoral_index_falls_back_to_broad_sector_even_with_categ
         DAILY.pop(symbol, None)
 
 
+# ---------------------------------------------------------------------------
+# sectoral_index_rs override (2026-08-20) -- a sectoral index's own real RS (fetched directly,
+# same treatment as the benchmark) takes priority over the leave-one-out member average.
+# ---------------------------------------------------------------------------
+def test_sectoral_index_rs_overrides_leave_one_out_peer_average():
+    # Same 2-member NIFTY BANK setup as the basket test above, but this time a
+    # sectoral_index_rs value is supplied for NIFTY BANK -- it must be used directly, NOT the
+    # leave-one-out peer average (which would give a different, provably distinct number).
+    symbols = ["STOCKX", "STOCKY"]
+    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    DAILY.update({
+        "STOCKX": _daily(20, 200),
+        "STOCKY": _daily(50, 90),
+    })
+    try:
+        universe = pd.DataFrame([
+            _universe_row("STOCKX", "Alpha", ma200=90),
+            _universe_row("STOCKY", "Beta", ma200=90),
+        ])
+        categories = pd.DataFrame([
+            {"Symbol": "STOCKX", "NSE_Categories": "NIFTY BANK"},
+            {"Symbol": "STOCKY", "NSE_Categories": "NIFTY BANK"},
+        ])
+        rs_y = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKY"]["Close"], errors="coerce").dropna())
+        index_rs = rs_y + 1000.0  # deliberately far from the leave-one-out average -- proves the override fired
+        out = sc.run_pipeline(
+            universe, FUNDAMENTALS_DF, BENCHMARK_RS, categories_df=categories,
+            sectoral_index_rs={"NIFTY BANK": index_rs}, verbose=False,
+        )
+        signals = out["signals"].set_index("Symbol")
+
+        rs_x = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKX"]["Close"], errors="coerce").dropna())
+        assert signals.loc["STOCKX", "RS_vs_Sector"] == pytest.approx(round(rs_x - index_rs, 2), abs=0.01)
+        assert signals.loc["STOCKY", "RS_vs_Sector"] == pytest.approx(round(rs_y - index_rs, 2), abs=0.01)
+    finally:
+        for s in symbols:
+            MONTHLY.pop(s, None)
+            DAILY.pop(s, None)
+
+
+def test_sectoral_index_rs_missing_falls_back_to_peer_average():
+    # NIFTY BANK has no entry in sectoral_index_rs this time (e.g. its yfinance ticker fetch
+    # failed) -- must fall back to the leave-one-out peer average, same as if
+    # sectoral_index_rs were never passed at all.
+    symbols = ["STOCKX", "STOCKY"]
+    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    DAILY.update({
+        "STOCKX": _daily(20, 200),
+        "STOCKY": _daily(50, 90),
+    })
+    try:
+        universe = pd.DataFrame([
+            _universe_row("STOCKX", "Alpha", ma200=90),
+            _universe_row("STOCKY", "Beta", ma200=90),
+        ])
+        categories = pd.DataFrame([
+            {"Symbol": "STOCKX", "NSE_Categories": "NIFTY BANK"},
+            {"Symbol": "STOCKY", "NSE_Categories": "NIFTY BANK"},
+        ])
+        out = sc.run_pipeline(
+            universe, FUNDAMENTALS_DF, BENCHMARK_RS, categories_df=categories,
+            sectoral_index_rs={"NIFTY PHARMA": 999.0},  # a different index -- irrelevant here
+            verbose=False,
+        )
+        signals = out["signals"].set_index("Symbol")
+
+        rs_x = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKX"]["Close"], errors="coerce").dropna())
+        rs_y = tt_compute.relative_strength(pd.to_numeric(DAILY["STOCKY"]["Close"], errors="coerce").dropna())
+        assert signals.loc["STOCKX", "RS_vs_Sector"] == pytest.approx(round(rs_x - rs_y, 2), abs=0.01)
+    finally:
+        for s in symbols:
+            MONTHLY.pop(s, None)
+            DAILY.pop(s, None)
+
+
+class _FakeIndexTicker:
+    def __init__(self, closes):
+        self._closes = closes
+
+    def history(self, period=None, interval=None, auto_adjust=None, timeout=None):
+        dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=len(self._closes), freq="D")
+        return pd.DataFrame({"Close": self._closes}, index=dates)
+
+
+def test_fetch_sectoral_index_rs_computes_each_ticker():
+    closes_map = {
+        "^FAKEAUTO": [c for c in range(100, 500)],
+        "^FAKEBANK": [c for c in range(200, 600)],
+    }
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    try:
+        screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
+        result = sc.fetch_sectoral_index_rs({"NIFTY AUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"})
+        assert set(result.keys()) == {"NIFTY AUTO", "NIFTY BANK"}
+        assert all(isinstance(v, float) for v in result.values())
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+def test_fetch_sectoral_index_rs_skips_failing_tickers_without_raising():
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+
+    def _raise(ticker):
+        raise ConnectionError("simulated")
+
+    try:
+        screener_module.yf.Ticker = _raise
+        result = sc.fetch_sectoral_index_rs({"NIFTY AUTO": "^FAKEAUTO"})
+        assert result == {}
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
 def test_missing_sector_stocks_are_not_grouped_together():
     # Two stocks with NO Sector value (NaN, e.g. yfinance couldn't classify them) and no
     # sectoral index tag -- must NOT collapse into a shared "Sector: nan" bucket and get
