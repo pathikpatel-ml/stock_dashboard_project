@@ -464,6 +464,80 @@ def test_fetch_sectoral_index_rs_skips_failing_tickers_without_raising():
         screener_module.yf.Ticker = original_ticker
 
 
+# ---------------------------------------------------------------------------
+# fetch_sector_pulse_table (2026-08-20) -- index-only dashboard summary table
+# ---------------------------------------------------------------------------
+def test_fetch_sector_pulse_table_computes_ath_and_rs_per_index():
+    closes_map = {
+        "^FAKEN50": [100.0 + i for i in range(400)],          # rising -> positive RS
+        "^FAKEAUTO": [200.0 + i * 2 for i in range(400)],      # rising -> ends at its own high
+        "^FAKEBANK": [300.0 - i * 0.5 for i in range(400)],    # falling hard -> lags Nifty50
+    }
+
+    def _expected_rs(closes):
+        dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=len(closes), freq="D")
+        return tt_compute.relative_strength(pd.Series(closes, index=dates))
+
+    n50_rs = _expected_rs(closes_map["^FAKEN50"])
+    bank_rs = _expected_rs(closes_map["^FAKEBANK"])
+
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    try:
+        screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY AUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"},
+            nifty50_ticker="^FAKEN50",
+        )
+        assert set(df.columns) == {"Sector", "ATH_Price_Flag", "RS_vs_Nifty50"}
+        assert set(df["Sector"]) == {"NIFTY AUTO", "NIFTY BANK"}
+
+        auto_row = df[df["Sector"] == "NIFTY AUTO"].iloc[0]
+        bank_row = df[df["Sector"] == "NIFTY BANK"].iloc[0]
+        assert auto_row["ATH_Price_Flag"] == True  # noqa: E712 -- rising series ends at its own high
+        assert bank_row["RS_vs_Nifty50"] == pytest.approx(round(bank_rs - n50_rs, 2), abs=0.01)
+        assert bank_row["RS_vs_Nifty50"] < 0  # falling hard while Nifty50 rises -- unambiguously lags
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+def test_fetch_sector_pulse_table_empty_when_nifty50_unavailable():
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+
+    def _raise(ticker):
+        raise ConnectionError("simulated")
+
+    try:
+        screener_module.yf.Ticker = _raise
+        df = sc.fetch_sector_pulse_table(tickers={"NIFTY AUTO": "^FAKEAUTO"}, nifty50_ticker="^FAKEN50")
+        assert df.empty
+        assert list(df.columns) == ["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"]
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+def test_fetch_sector_pulse_table_skips_one_failing_index_keeps_others():
+    closes_map = {"^FAKEN50": [100.0 + i for i in range(400)], "^FAKEAUTO": [200.0 + i for i in range(400)]}
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+
+    def _fake_ticker(t):
+        if t == "^FAKEBROKEN":
+            raise ConnectionError("simulated")
+        return _FakeIndexTicker(closes_map[t])
+
+    try:
+        screener_module.yf.Ticker = _fake_ticker
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY AUTO": "^FAKEAUTO", "NIFTY BROKEN": "^FAKEBROKEN"},
+            nifty50_ticker="^FAKEN50",
+        )
+        assert list(df["Sector"]) == ["NIFTY AUTO"]
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
 def test_missing_sector_stocks_are_not_grouped_together():
     # Two stocks with NO Sector value (NaN, e.g. yfinance couldn't classify them) and no
     # sectoral index tag -- must NOT collapse into a shared "Sector: nan" bucket and get

@@ -22,6 +22,7 @@ GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv"
 TURTLE_SIGNALS_FILENAME_TEMPLATE = "turtle_signals_{date_str}.csv"
 NSE_CATEGORIES_FILE = "nse_categories.csv"
 TURTLE_LIVE_PRICES_FILE = "turtle_live_prices.csv"
+TURTLE_SECTOR_PULSE_FILE = "turtle_sector_pulse.csv"
 
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
@@ -49,6 +50,7 @@ LOADED_V20_SOURCE = None
 turtle_signals_df = pd.DataFrame()
 nse_categories_df = pd.DataFrame()
 turtle_live_prices_df = pd.DataFrame()
+turtle_sector_pulse_df = pd.DataFrame()
 LOADED_TURTLE_FILE_DATE = None
 LOADED_TURTLE_SOURCE = None
 
@@ -324,7 +326,7 @@ def load_turtle_data_on_startup():
     Reuses the same local -> GitHub-raw -> fallback resolution as the V20 loader.
     No PSU filtering — Turtle is a general quant screen, unlike V20's PSU exclusion.
     """
-    global turtle_signals_df, nse_categories_df, turtle_live_prices_df
+    global turtle_signals_df, nse_categories_df, turtle_live_prices_df, turtle_sector_pulse_df
     global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -335,16 +337,18 @@ def load_turtle_data_on_startup():
     )
     LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
 
-    # Both are non-dated, overwritten-in-place files -- GitHub-raw-first, not local-first (see
-    # _read_static_csv_with_github_fallback's docstring for why local-first silently serves
-    # stale data forever on a long-lived Render container between redeploys).
+    # All three are non-dated, overwritten-in-place files -- GitHub-raw-first, not local-first
+    # (see _read_static_csv_with_github_fallback's docstring for why local-first silently
+    # serves stale data forever on a long-lived Render container between redeploys).
     nse_categories_df = _read_static_csv_with_github_fallback(NSE_CATEGORIES_FILE)
     turtle_live_prices_df = _read_static_csv_with_github_fallback(TURTLE_LIVE_PRICES_FILE)
+    turtle_sector_pulse_df = _read_static_csv_with_github_fallback(TURTLE_SECTOR_PULSE_FILE)
 
     print(
         f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "
         f"{len(nse_categories_df)} category rows, "
-        f"{len(turtle_live_prices_df)} live prices (source={LOADED_TURTLE_SOURCE})."
+        f"{len(turtle_live_prices_df)} live prices, "
+        f"{len(turtle_sector_pulse_df)} sector pulse rows (source={LOADED_TURTLE_SOURCE})."
     )
 
 

@@ -107,6 +107,10 @@ def create_turtle_layout():
         ]),
 
         dcc.Loading(type="circle", children=[
+            html.Div(id="tt-sector-pulse-container")
+        ]),
+
+        dcc.Loading(type="circle", children=[
             html.Div(id="tt-signals-container", className="dash-table-container")
         ]),
     ])

@@ -104,6 +104,82 @@ def fetch_sectoral_index_rs(tickers: Optional[Dict[str, str]] = None) -> Dict[st
     return result
 
 
+def _fetch_index_ath_and_rs(ticker: str) -> Optional[Dict[str, object]]:
+    """Fetch one index's own ATH-price flag + 52-week RS -- same two-series treatment
+    (monthly ``max`` period for the true all-time-high, daily ``2y`` for the RS/current-price)
+    already used for individual stocks in ``run_pipeline``, just fed an index ticker instead
+    of a stock symbol. Returns None (never raises) if the daily fetch fails; the monthly fetch
+    failing just means the ATH check falls back to the daily-only max, mirroring
+    ``run_pipeline``'s existing monthly-fetch-optional behaviour.
+    """
+    try:
+        daily = yf.Ticker(ticker).history(
+            period=C.DAILY_HISTORY_PERIOD, interval="1d", auto_adjust=False, timeout=20
+        )
+    except Exception:
+        daily = None
+    if daily is None or daily.empty or "Close" not in daily.columns:
+        return None
+
+    daily_close = pd.to_numeric(daily["Close"], errors="coerce").dropna()
+    daily_close.index = pd.DatetimeIndex(daily.index).tz_localize(None)
+    if daily_close.empty:
+        return None
+
+    try:
+        monthly = yf.Ticker(ticker).history(
+            period=C.MONTHLY_HISTORY_PERIOD, interval="1mo", timeout=20
+        )
+    except Exception:
+        monthly = None
+    monthly_max = float(monthly["Close"].max()) if monthly is not None and not monthly.empty else None
+
+    current_price = float(daily_close.iloc[-1])
+    historical_max = float(daily_close.max())
+    if monthly_max is not None:
+        historical_max = max(historical_max, monthly_max)
+
+    return {
+        "ath_price_flag": compute.ath_price_flag(current_price, historical_max),
+        "rs": compute.relative_strength(daily_close),
+    }
+
+
+def fetch_sector_pulse_table(
+    tickers: Optional[Dict[str, str]] = None,
+    nifty50_ticker: str = None,
+) -> pd.DataFrame:
+    """Build the "Sector Pulse" dashboard table: one row per sectoral index (not per stock),
+    with its own ATH_Price_Flag and RS_vs_Nifty50 -- both computed the exact same way as for
+    a stock, just applied to the index's own price series directly.
+
+    ``RS_vs_Nifty50`` uses Nifty 50's own RS (``C.NIFTY_50_INDEX_TICKER``) as the comparison
+    baseline -- a deliberately different reference point from RS_vs_Benchmark's Nifty 500, per
+    what was asked for this table specifically. If Nifty 50's own RS can't be fetched, returns
+    an empty DataFrame (this whole table is meaningless without that baseline) rather than a
+    partially-broken one. An individual sectoral index's fetch failure just drops that one row.
+    """
+    tickers = tickers if tickers is not None else C.SECTORAL_INDEX_TICKERS
+    nifty50_ticker = nifty50_ticker if nifty50_ticker is not None else C.NIFTY_50_INDEX_TICKER
+
+    nifty50_rs = _fetch_index_rs(nifty50_ticker)
+    if nifty50_rs is None:
+        return pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+
+    rows = []
+    for index_name, ticker in tickers.items():
+        result = _fetch_index_ath_and_rs(ticker)
+        if result is None:
+            continue
+        rs = result["rs"]
+        rows.append({
+            "Sector": index_name,
+            "ATH_Price_Flag": result["ath_price_flag"],
+            "RS_vs_Nifty50": round(rs - nifty50_rs, 2) if rs is not None else None,
+        })
+    return pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+
+
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
     """``turtle_screener_fundamentals.csv`` (Symbol, TTM_Net_Profit, TTM_Net_Sales,
     Max_Annual_Net_Profit, Max_Annual_Net_Sales — see ``generate_turtle_fundamentals.py``) ->

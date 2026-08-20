@@ -55,6 +55,13 @@ SECTORAL_INDEX_TICKERS = {
     "NIFTY PSU BANK": "^CNXPSUBANK",
 }
 
+# Sector Pulse table (added 2026-08-20): a dashboard-level, index-only summary (one row per
+# sectoral index, not per stock) -- ATH Price Flag and RS computed for each index the exact
+# same way as for a stock, just fed the index's own price series. NIFTY_50_INDEX_TICKER is
+# the comparison baseline for this table's "RS vs Nifty50" column specifically (a different
+# reference point than RS_vs_Benchmark's Nifty 500 -- verified live: ^NSEI, real ticker).
+NIFTY_50_INDEX_TICKER = "^NSEI"
+
 # ---------------------------------------------------------------------------
 # Exit price (plan §1). SUPERSEDES the original LOCKED decision #4 ("reuse MA200, do not
 # build a 212-day SMA") — Turtle's actual methodology uses a 212-day SMA; explicitly

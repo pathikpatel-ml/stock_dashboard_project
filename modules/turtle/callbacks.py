@@ -138,6 +138,57 @@ def _table(df):
     )
 
 
+def _sector_pulse_table(df):
+    """Sector Pulse: one row per sectoral index (not per stock) -- ATH_Price_Flag and
+    RS_vs_Nifty50, both computed directly on the index's own price series (see
+    screener.fetch_sector_pulse_table). Laid out as two side-by-side 3-column halves (Sector
+    Name / ATH Price Flag / RS vs Nifty50), as requested, rather than one long list or a card
+    grid -- 10 real indices split 5-and-5.
+    """
+    if df is None or df.empty:
+        return None
+
+    display = df.copy()
+    display["ATH_Price_Flag"] = display["ATH_Price_Flag"].map({True: "Yes", False: "No"})
+
+    half = (len(display) + 1) // 2
+    left = display.iloc[:half].reset_index(drop=True)
+    right = display.iloc[half:].reset_index(drop=True)
+    while len(right) < len(left):
+        right.loc[len(right)] = {"Sector": "", "ATH_Price_Flag": "", "RS_vs_Nifty50": None}
+
+    combined = pd.DataFrame({
+        "Sector_1": left["Sector"], "ATH_1": left["ATH_Price_Flag"], "RS_1": left["RS_vs_Nifty50"],
+        "Sector_2": right["Sector"], "ATH_2": right["ATH_Price_Flag"], "RS_2": right["RS_vs_Nifty50"],
+    })
+
+    return html.Div([
+        html.H5("Sector Pulse", style={"margin": "16px 0 8px 0", "fontSize": "15px"}),
+        dash_table.DataTable(
+            id="tt-sector-pulse-table",
+            columns=[
+                {"name": "Sector Name", "id": "Sector_1"},
+                {"name": "ATH Price Flag", "id": "ATH_1"},
+                {"name": "RS vs Nifty50", "id": "RS_1"},
+                {"name": "Sector Name", "id": "Sector_2"},
+                {"name": "ATH Price Flag", "id": "ATH_2"},
+                {"name": "RS vs Nifty50", "id": "RS_2"},
+            ],
+            data=combined.to_dict("records"),
+            style_table={"overflowX": "auto"},
+            style_cell={"textAlign": "center", "fontSize": "13px", "padding": "8px",
+                        "fontFamily": "Inter, sans-serif"},
+            style_header={"backgroundColor": "#f1f5f9", "fontWeight": "600"},
+            style_data_conditional=[
+                {"if": {"column_id": "ATH_1", "filter_query": '{ATH_1} = "Yes"'},
+                 "backgroundColor": "#d4edda", "color": "#155724"},
+                {"if": {"column_id": "ATH_2", "filter_query": '{ATH_2} = "Yes"'},
+                 "backgroundColor": "#d4edda", "color": "#155724"},
+            ],
+        ),
+    ])
+
+
 def _staleness_banner(loaded_date):
     if not loaded_date:
         return None
@@ -184,6 +235,18 @@ def _banners(loaded_date, live_prices_df):
 
 def register_turtle_callbacks(app):
     """Register all Turtle Strategy callbacks on the Dash ``app``."""
+
+    @app.callback(
+        Output("tt-sector-pulse-container", "children"),
+        Input("tt-auto-refresh-interval", "n_intervals"),
+        prevent_initial_call=False,
+    )
+    def render_sector_pulse(_n_intervals):
+        # Self-contained reload (same reasoning as render_turtle below) -- independent of the
+        # Indices/Sector/Stock/ATH-only/Yesterday filters, since this panel is index-level,
+        # not stock-level, so those filters don't apply to it at all.
+        data_manager.load_turtle_data_on_startup()
+        return _sector_pulse_table(data_manager.turtle_sector_pulse_df)
 
     @app.callback(
         [Output("tt-signals-container", "children"),

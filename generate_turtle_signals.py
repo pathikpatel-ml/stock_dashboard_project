@@ -31,6 +31,7 @@ UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
 FUNDAMENTALS_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
 CATEGORIES_FILE = os.path.join(REPO_BASE_PATH, "nse_categories.csv")
 SIGNALS_TEMPLATE = "turtle_signals_{date_str}.csv"
+SECTOR_PULSE_FILE = os.path.join(REPO_BASE_PATH, "turtle_sector_pulse.csv")
 
 
 def load_universe() -> pd.DataFrame:
@@ -95,6 +96,15 @@ def main():
         sectoral_index_rs=sectoral_index_rs,
         limit=args.limit, verbose=True, pause_seconds=args.pause,
     )
+
+    # Sector Pulse table (2026-08-20) -- dashboard summary, one row per sectoral index (not
+    # per stock): ATH_Price_Flag + RS_vs_Nifty50, both computed on the index's own price
+    # series directly. Non-dated rolling file (like turtle_live_prices.csv), always
+    # (re)written so a transient fetch failure here doesn't leave a stale file that never
+    # updates -- an empty table just means the dashboard panel shows nothing this run.
+    sector_pulse = sc.fetch_sector_pulse_table()
+    sector_pulse.to_csv(SECTOR_PULSE_FILE, index=False)
+    print(f"Sector Pulse     : {len(sector_pulse):>4}  -> {os.path.basename(SECTOR_PULSE_FILE)}")
 
     date_str = pd.Timestamp.now().strftime("%Y%m%d")
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
