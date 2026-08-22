@@ -108,6 +108,23 @@ def _filter_out_psu_symbols(df):
     return filtered_df[~filtered_df["Symbol"].isin(KNOWN_PSU_SYMBOLS)].reset_index(drop=True)
 
 
+# process_v20_signals runs on every v20-auto-refresh-interval tick (every 5 min, see
+# modules/v20_callbacks.py's update_v20_comprehensive -> data_manager.load_v20_data_on_startup),
+# not just on button click. A prior design spawned a brand-new daemon thread per call and gave
+# up waiting on it after 90s WITHOUT stopping it -- an abandoned thread doing native yfinance/
+# curl HTTP work keeps running in the background, so a slow tick + the next 5-minute tick could
+# easily leave two of these native-networking threads running concurrently in the same process.
+# That's a well-known crash vector for C-extension HTTP clients that aren't safe under
+# concurrent use from multiple Python threads, and matches the SIGSEGV crash-loop observed on
+# Render (roughly one crash per auto-refresh interval). _v20_cmp_lock/_v20_cmp_fetch_thread
+# below ensure at most one fetch is ever in flight; _v20_cmp_cache persists last-known-good
+# prices across calls so a tick that finds a fetch already running (or times out waiting) still
+# has real data to serve instead of an empty table.
+_v20_cmp_lock = threading.Lock()
+_v20_cmp_cache: dict = {}
+_v20_cmp_fetch_thread = None
+
+
 def process_v20_signals(signals_df_local):
     """
     Process V20 signals and calculate proximity from live prices.
@@ -117,20 +134,13 @@ def process_v20_signals(signals_df_local):
         return pd.DataFrame()
 
     df_to_process = signals_df_local.copy()
-    print("DASH (V20 NearestBuy): Fetching CMPs...")
     unique_symbols = df_to_process["Symbol"].dropna().astype(str).str.upper().unique()
     if len(unique_symbols) == 0:
         return pd.DataFrame()
 
     yf_symbols = [f"{symbol}.NS" for symbol in unique_symbols]
 
-    # Run all yfinance downloads in a daemon thread with a 90-second hard cap.
-    # result_holder[0] is updated after every successful chunk so partial data
-    # is preserved even if we hit the deadline mid-way through.
-    result_holder = [{}]
-
     def _fetch_chunks():
-        prices = {}
         for i in range(0, len(yf_symbols), 50):
             chunk = yf_symbols[i:i + 50]
             try:
@@ -155,17 +165,34 @@ def process_v20_signals(signals_df_local):
                     elif "Close" in data.columns and len(chunk) == 1:
                         price_series = data["Close"]
                     if price_series is not None and not price_series.dropna().empty:
-                        prices[base_sym.upper()] = price_series.dropna().iloc[-1]
-                result_holder[0] = dict(prices)  # persist partial progress
+                        _v20_cmp_cache[base_sym.upper()] = price_series.dropna().iloc[-1]
             except Exception:
                 continue
 
-    t = threading.Thread(target=_fetch_chunks, daemon=True)
-    t.start()
-    t.join(timeout=90)
-    if t.is_alive():
-        print(f"WARNING: CMP fetch timed out after 90s — using {len(result_holder[0])} partial prices.")
-    latest_prices_map = result_holder[0]
+    global _v20_cmp_fetch_thread
+    with _v20_cmp_lock:
+        fetch_already_running = _v20_cmp_fetch_thread is not None and _v20_cmp_fetch_thread.is_alive()
+        if fetch_already_running:
+            print("DASH (V20 NearestBuy): CMP fetch already in progress — reusing it instead of "
+                  "starting a second one.")
+        else:
+            print("DASH (V20 NearestBuy): Fetching CMPs...")
+            _v20_cmp_fetch_thread = threading.Thread(target=_fetch_chunks, daemon=True)
+            _v20_cmp_fetch_thread.start()
+        thread_to_wait = _v20_cmp_fetch_thread
+
+    # Wait briefly for fresh prices, but never block past this -- whether the fetch just
+    # started or was already running, serve whatever's in the cache so far rather than risk
+    # the request itself timing out. A real ~190-symbol fetch (4 chunks) measured ~20s end to
+    # end, which leaves too little headroom under gunicorn's default 30s worker timeout once
+    # the rest of the callback (Postgres reads, table rendering) is added on top -- capped
+    # lower here; an in-progress fetch keeps running in the background regardless and its
+    # results are ready for the next call/tick via _v20_cmp_cache.
+    thread_to_wait.join(timeout=12)
+    if thread_to_wait.is_alive():
+        print(f"INFO: CMP fetch still running in background; serving {len(_v20_cmp_cache)} "
+              "cached prices for now.")
+    latest_prices_map = dict(_v20_cmp_cache)
 
     df_to_process["Latest Close Price"] = (
         df_to_process["Symbol"].astype(str).str.upper().map(latest_prices_map)
