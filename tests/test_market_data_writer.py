@@ -177,6 +177,56 @@ def test_replace_table_contents_none_df_still_deletes(_capture_execute_values):
     assert conn.log == [("execute", "DELETE FROM v20_signals_latest")]
 
 
+# ---------------------------------------------------------------------------
+# fetch_dataframe -- read-back for generate_*.py scripts' cross-workflow inputs
+# ---------------------------------------------------------------------------
+class _FakeCursorFetching(_FakeCursor):
+    def __init__(self, description, rows):
+        self.description = description
+        self._rows = rows
+        self.executed = None
+
+    def execute(self, sql, params=None):
+        self.executed = sql
+
+    def fetchall(self):
+        return self._rows
+
+
+class _FakeConnectionFetching:
+    def __init__(self, description, rows):
+        self._cursor = _FakeCursorFetching(description, rows)
+
+    def cursor(self):
+        return self._cursor
+
+
+def test_fetch_dataframe_returns_columns_and_rows():
+    conn = _FakeConnectionFetching(
+        description=[("symbol",), ("price",)],
+        rows=[("TCS", 100.0), ("INFY", 200.0)],
+    )
+
+    df = mdw.fetch_dataframe(conn, "some_table")
+
+    assert list(df.columns) == ["symbol", "price"]
+    assert df.values.tolist() == [["TCS", 100.0], ["INFY", 200.0]]
+    assert conn._cursor.executed == "SELECT * FROM some_table"
+
+
+def test_fetch_dataframe_appends_order_by():
+    conn = _FakeConnectionFetching(description=[("symbol",)], rows=[])
+    mdw.fetch_dataframe(conn, "some_table", order_by="symbol ASC")
+    assert conn._cursor.executed == "SELECT * FROM some_table ORDER BY symbol ASC"
+
+
+def test_fetch_dataframe_empty_table_returns_empty_df():
+    conn = _FakeConnectionFetching(description=[("symbol",), ("price",)], rows=[])
+    df = mdw.fetch_dataframe(conn, "some_table")
+    assert df.empty
+    assert list(df.columns) == ["symbol", "price"]
+
+
 def test_get_connection_raises_clear_error_without_env_var(monkeypatch):
     monkeypatch.delenv("MARKET_DATA_DB_URL", raising=False)
     with pytest.raises(RuntimeError, match="MARKET_DATA_DB_URL"):

@@ -8,7 +8,6 @@ import yfinance as yf
 from datetime import datetime, timedelta, date
 import numpy as np
 import sys
-import subprocess
 
 try:
     from dotenv import load_dotenv
@@ -127,15 +126,40 @@ def analyze_stock_candles(base_symbol, hist_data_df): # Your V20 analysis logic
         })
     return signals
 
+# Postgres column name -> CSV column name, reverse of generate_weekly_stock_list.py's
+# _TREND_ANALYSIS_DB_COLUMNS. market_trend_analysis is produced by a separate, earlier-running
+# weekly workflow -- Postgres is the real cross-workflow hand-off now that its CSV isn't
+# committed to git; the local file read is just a local-dev fallback.
+_MARKET_TREND_FROM_DB = {"symbol": "Symbol", "is_psu": "Is PSU", "public_holding_pct": "Public Holding (%)"}
+
+
+def _load_growth_df(current_growth_file_path):
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, "market_trend_analysis")
+        finally:
+            conn.close()
+        if not df.empty:
+            return df.rename(columns=_MARKET_TREND_FROM_DB)
+    except Exception as exc:
+        print(f"V20 WARNING: Postgres read of market_trend_analysis failed, falling back to local CSV: {exc}")
+
+    if not os.path.exists(current_growth_file_path):
+        return None
+    return pd.read_csv(current_growth_file_path)
+
+
 def generate_and_save_candle_analysis_file(current_growth_file_path, output_candle_file_path): # V20 main generation
     print(f"\n--- GENERATION: Starting V20 Candle Analysis (Enhanced with Dynamic Stock List) ---")
-    if not os.path.exists(current_growth_file_path): 
-        print(f"V20 ERROR: Dynamic stock list '{current_growth_file_path}' NOT FOUND.")
+    try:
+        growth_df = _load_growth_df(current_growth_file_path)
+    except Exception as e: print(f"V20 ERROR: reading dynamic stock list '{current_growth_file_path}': {e}"); return False, 0
+    if growth_df is None:
+        print(f"V20 ERROR: Dynamic stock list not found in Postgres (market_trend_analysis) or at '{current_growth_file_path}'.")
         print("V20 ERROR: Please ensure weekly stock screening has run successfully.")
         return False, 0
-    try: growth_df = pd.read_csv(current_growth_file_path)
-    except Exception as e: print(f"V20 ERROR: reading dynamic stock list '{current_growth_file_path}': {e}"); return False, 0
-    if 'Symbol' not in growth_df.columns: print(f"V20 ERROR: 'Symbol' column missing in '{current_growth_file_path}'."); return False, 0
+    if 'Symbol' not in growth_df.columns: print(f"V20 ERROR: 'Symbol' column missing in dynamic stock list."); return False, 0
     if growth_df.empty: print("V20: Dynamic stock list is empty.");
 
     all_candle_signals = []
@@ -233,72 +257,6 @@ def get_v40_type(v40_value):
 
 
 
-# --- Git Helper Functions (UNCHANGED from your provided code) ---
-def run_git_command(command_list, working_dir="."):
-    try:
-        process = subprocess.Popen(command_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=120)
-        if process.returncode == 0:
-            if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
-            return True
-        else:
-            print(f"GIT ERROR: Command '{' '.join(command_list)}' failed with code {process.returncode}.")
-            if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
-            if stderr.strip(): print(f"GIT STDERR: {stderr.strip()}")
-            return False
-    except subprocess.TimeoutExpired: print(f"GIT TIMEOUT: Command '{' '.join(command_list)}' timed out."); return False
-    except Exception as e: print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}"); return False
-
-def commit_and_push_files_to_github(files_to_add, commit_message):
-    print(f"\n--- GIT OPS: Starting Git Operations for {len(files_to_add)} file(s) ---")
-    today_date_str = datetime.now().strftime("%Y%m%d")
-    new_files_full_paths = [os.path.abspath(os.path.join(REPO_BASE_PATH, f)) for f in files_to_add]
-
-    for item in os.listdir(REPO_BASE_PATH):
-        # Remove old candle and old ATH signal files
-        if (item.startswith("stock_candle_signals_from_listing_") or \
-            item.startswith("ath_triggers_data_")) and item.endswith(".csv"):
-            item_full_path = os.path.abspath(os.path.join(REPO_BASE_PATH, item))
-            if item_full_path not in new_files_full_paths:
-                print(f"GIT OPS: Found old generated file: {item}. Attempting to remove.")
-                if run_git_command(["git", "rm", "-f", item], working_dir=REPO_BASE_PATH):
-                     print(f"GIT OPS: Successfully 'git rm {item}'.")
-                else:
-                    try:
-                        if os.path.exists(item_full_path): os.remove(item_full_path); print(f"GIT OPS: Deleted '{item}' from disk.")
-                    except Exception as e: print(f"GIT OPS WARNING: Could not delete old file '{item}' from disk: {e}")
-    
-    added_successfully = True
-    for file_to_add in files_to_add:
-        if not os.path.exists(os.path.join(REPO_BASE_PATH, file_to_add)):
-            print(f"GIT OPS WARNING: File '{file_to_add}' not found. Skipping add.")
-            continue
-        if not run_git_command(["git", "add", file_to_add], working_dir=REPO_BASE_PATH):
-            print(f"GIT OPS ERROR: Failed to 'git add {file_to_add}'.")
-            added_successfully = False
-        else:
-            print(f"GIT OPS: Successfully added '{file_to_add}' to staging.")
-    
-    status_check_process = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=REPO_BASE_PATH)
-    if not status_check_process.stdout.strip():
-        print("GIT OPS: No changes staged for commit. Skipping commit and push.")
-        return True 
-
-    if not added_successfully and not status_check_process.stdout.strip():
-        print("GIT OPS: No new files were added or found. Aborting commit.")
-        return True 
-
-    if not run_git_command(["git", "commit", "-m", commit_message], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git commit'. Aborting push.")
-        return False
-    print(f"GIT OPS: Successfully committed changes with message: '{commit_message}'.")
-
-    if not run_git_command(["git", "push"], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git push'.")
-        return False
-    print(f"GIT OPS: Successfully pushed changes to remote repository.")
-    return True
-
 # --- Main Execution ---
 if __name__ == "__main__":
     print(f"DAILY DATA GENERATION SCRIPT: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -320,19 +278,15 @@ if __name__ == "__main__":
         print("SCRIPT ERROR: V20 candle analysis file generation failed.")
         overall_success = False
 
-    # --- Commit and Push if any files were successfully generated ---
+    # V20 signals now live in Postgres (v20_signals_latest, written above during
+    # generate_and_save_candle_analysis_file). The CSV is still written to disk as a
+    # local/debug artifact but is no longer committed back to the repo.
     if files_generated_for_commit:
-        commit_msg = f"Automated V20 signals for {today_date_str} ({num_candle_signals} signals from dynamic stock screening)"
-
-        if commit_and_push_files_to_github(files_generated_for_commit, commit_msg):
-            print("SCRIPT: Successfully committed and pushed to GitHub.")
-        else:
-            print("SCRIPT ERROR: Failed to commit and push to GitHub.")
-            overall_success = False
+        print(f"SCRIPT: Signals written locally to {files_generated_for_commit} (not committed to git).")
     elif overall_success:
-        print("SCRIPT: No new data files were generated or found to commit, but script ran without generation errors.")
+        print("SCRIPT: No new data files were generated, but script ran without generation errors.")
     else:
-        print("SCRIPT: No files to commit due to generation errors.")
+        print("SCRIPT: Generation errors occurred; no files produced.")
 
     print(f"DAILY DATA GENERATION SCRIPT: Finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if overall_success and files_generated_for_commit:

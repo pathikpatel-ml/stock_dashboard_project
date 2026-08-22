@@ -7,6 +7,19 @@ output/comprehensive_stock_analysis_*.csv
 # Other output files to ignore
 output/checkpoint_stock_analysis_*.csv
 output/interrupted_stock_analysis_*.csv
+output/turtle_screener_fundamentals_checkpoint.csv
+
+# Market-data CSVs -- migrated to Supabase Postgres (2026-08-22), still written
+# locally as intermediate/debug output by the generate_*.py scripts, but no
+# longer committed to the repo. See migrations/20260820_market_data_tables.sql.
+Master_company_market_trend_analysis.csv
+NSE_EQ_All_Stocks_Analysis.csv
+nse_categories.csv
+turtle_live_prices.csv
+turtle_screener_fundamentals.csv
+turtle_sector_pulse.csv
+turtle_signals_*.csv
+stock_candle_signals_from_listing_*.csv
 
 # Cache files
 http_cache.sqlite

@@ -9,12 +9,9 @@ jobs:
   generate-turtle-signals:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    permissions:
-      contents: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with: { fetch-depth: 0 }
     - name: Set up Python
       uses: actions/setup-python@v5
       with: { python-version: '3.13' }
@@ -22,21 +19,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pandas numpy yfinance requests psycopg2-binary python-dotenv
-    - name: Configure Git User
-      run: |
-        git config --global user.name "${{ github.actor }}"
-        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
     - name: Generate Turtle signals
       env:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
       run: python generate_turtle_signals.py
-    - name: Commit and push signals
-      run: |
-        git add turtle_signals_*.csv
-        if git diff --cached --quiet; then
-          echo "No signal changes to commit."
-        else
-          git commit -m "Automated turtle signals for $(date -u +%Y%m%d)"
-          git pull --rebase origin main
-          git push
-        fi

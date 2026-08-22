@@ -17,6 +17,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import generate_turtle_live_prices as tlp
 
 
+def _raise_no_db():
+    raise RuntimeError("no DB in tests")
+
+
+@pytest.fixture(autouse=True)
+def _no_live_db(monkeypatch):
+    """load_universe_symbols/load_existing_cache try Postgres before falling back to the CSV
+    path these tests exercise -- block the DB call so it always falls through to CSV, keeping
+    this file's declared "no live network" isolation instead of hitting the real DB via
+    whatever MARKET_DATA_DB_URL happens to be in the environment (e.g. from a local .env)."""
+    monkeypatch.setattr(tlp.mdw, "get_connection", _raise_no_db)
+
+
 def _fake_multi_download(prices: dict):
     """Build a fake ``yf.download`` matching its real group_by="ticker" MultiIndex shape."""
     def _downloader(tickers, **kwargs):

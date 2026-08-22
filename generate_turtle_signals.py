@@ -56,14 +56,53 @@ _SIGNALS_DB_COLUMNS = {
     "ATH_Sales": "ath_sales", "ATH_Sales_Flag": "ath_sales_flag", "Signal": "signal",
 }
 
+# Postgres column name -> CSV column name -- the reverse of generate_weekly_stock_list.py's
+# _UNIVERSE_DB_COLUMNS / _FUNDAMENTALS_DB_COLUMNS / _CATEGORIES_DB_COLUMNS. Needed because the
+# universe/fundamentals/categories files this script reads are produced by OTHER, earlier
+# workflows (weekly screening, weekly fundamentals) -- now that those workflows no longer
+# commit their CSVs to git, a fresh checkout here has no local file to read, so Postgres is the
+# real cross-workflow hand-off and the CSV read is just a local-dev fallback.
+_UNIVERSE_FROM_DB = {
+    "symbol": "Symbol", "company_name": "Company Name", "sector": "Sector", "industry": "Industry",
+    "market_cap": "Market Cap", "net_profit_cr": "Net Profit (Cr)", "roce_pct": "ROCE (%)",
+    "roe_pct": "ROE (%)", "debt_to_equity": "Debt to Equity",
+    "latest_quarter_profit_cr": "Latest Quarter Profit (Cr)", "last_3q_profits_cr": "Last 3Q Profits (Cr)",
+    "public_holding_pct": "Public Holding (%)", "is_bank_finance": "Is Bank/Finance", "is_psu": "Is PSU",
+    "passes_criteria": "Passes Criteria", "screening_date": "Screening Date",
+    "ma10": "MA10", "ma50": "MA50", "ma100": "MA100", "ma200": "MA200", "current_price": "Current_Price",
+}
+_FUNDAMENTALS_FROM_DB = {
+    "symbol": "Symbol", "ttm_net_profit": "TTM_Net_Profit",
+    "max_annual_net_profit": "Max_Annual_Net_Profit", "ttm_net_sales": "TTM_Net_Sales",
+    "max_annual_net_sales": "Max_Annual_Net_Sales",
+}
+_CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
+
+
+def _from_postgres(table: str, rename_map: dict) -> pd.DataFrame:
+    """Best-effort read of ``table`` via MARKET_DATA_DB_URL. Empty DataFrame (not an
+    exception) on any failure, so callers fall back to their CSV/default path unchanged."""
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, table)
+        finally:
+            conn.close()
+        return df.rename(columns=rename_map) if not df.empty else df
+    except Exception as exc:
+        print(f"WARNING: Postgres read of {table} failed, falling back to local CSV: {exc}")
+        return pd.DataFrame()
+
 
 def load_universe() -> pd.DataFrame:
-    if not os.path.exists(UNIVERSE_FILE):
-        raise SystemExit(
-            f"Universe file not found: {UNIVERSE_FILE}\n"
-            "Run the weekly stock screening first (generate_weekly_stock_list.py)."
-        )
-    df = pd.read_csv(UNIVERSE_FILE)
+    df = _from_postgres("nse_universe", _UNIVERSE_FROM_DB)
+    if df.empty:
+        if not os.path.exists(UNIVERSE_FILE):
+            raise SystemExit(
+                f"Universe not found in Postgres (nse_universe) or at {UNIVERSE_FILE}.\n"
+                "Run the weekly stock screening first (generate_weekly_stock_list.py)."
+            )
+        df = pd.read_csv(UNIVERSE_FILE)
     df["Symbol"] = df["Symbol"].astype(str).str.upper().str.strip()
     df = df.dropna(subset=["Symbol"])
     df = df[df["Symbol"].str.len() > 0]
@@ -71,9 +110,12 @@ def load_universe() -> pd.DataFrame:
 
 
 def load_fundamentals() -> pd.DataFrame:
+    df = _from_postgres("turtle_fundamentals", _FUNDAMENTALS_FROM_DB)
+    if not df.empty:
+        return df
     if not os.path.exists(FUNDAMENTALS_FILE):
-        print(f"WARNING: {FUNDAMENTALS_FILE} not found — ATH-Profit/ATH-Sales will be unavailable. "
-              "Run generate_turtle_fundamentals.py first.")
+        print(f"WARNING: turtle_fundamentals has no data in Postgres or at {FUNDAMENTALS_FILE} — "
+              "ATH-Profit/ATH-Sales will be unavailable. Run generate_turtle_fundamentals.py first.")
         return pd.DataFrame(columns=[
             "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
         ])
@@ -81,9 +123,12 @@ def load_fundamentals() -> pd.DataFrame:
 
 
 def load_categories() -> pd.DataFrame:
+    df = _from_postgres("nse_categories", _CATEGORIES_FROM_DB)
+    if not df.empty:
+        return df
     if not os.path.exists(CATEGORIES_FILE):
-        print(f"WARNING: {CATEGORIES_FILE} not found — RS peer groups will all fall back to "
-              "the broad Sector column (no sectoral-index basket available).")
+        print(f"WARNING: nse_categories has no data in Postgres or at {CATEGORIES_FILE} — RS peer "
+              "groups will all fall back to the broad Sector column (no sectoral-index basket available).")
         return pd.DataFrame(columns=["Symbol", "NSE_Categories"])
     return pd.read_csv(CATEGORIES_FILE)
 

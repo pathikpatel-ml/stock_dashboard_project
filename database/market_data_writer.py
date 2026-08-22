@@ -94,6 +94,26 @@ def upsert_dataframe(
     return len(values)
 
 
+def fetch_dataframe(conn, table: str, order_by: Optional[str] = None) -> pd.DataFrame:
+    """Read a full table back via this same batch-writer connection.
+
+    Used by generate_*.py scripts for cross-workflow inputs -- e.g. today's NSE universe,
+    produced by a separate, earlier-running weekly workflow -- now that the CSVs those
+    workflows used to hand off via git commits are no longer committed to the repo. ``table``
+    and ``order_by`` are always internal literals from the call site, never user input.
+    Returns an empty DataFrame (not an exception) if the table has no rows yet, so callers can
+    fall back to a bundled/checked-in default the same way they already do for a missing CSV.
+    """
+    query = f"SELECT * FROM {table}"
+    if order_by:
+        query += f" ORDER BY {order_by}"
+    with conn.cursor() as cur:
+        cur.execute(query)
+        columns = [d[0] for d in cur.description]
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=columns)
+
+
 def replace_table_contents(conn, table: str, df: pd.DataFrame) -> int:
     """Delete every row in ``table`` and bulk-insert ``df`` in its place, as one transaction.
 

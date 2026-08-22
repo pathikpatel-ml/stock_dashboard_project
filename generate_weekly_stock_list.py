@@ -8,7 +8,6 @@ Generates dynamic stock list based on financial screening criteria
 
 import os
 import sys
-import subprocess
 from datetime import datetime
 from modules.stock_screener import StockScreener, add_moving_averages_to_stocks, add_nse_categories_to_stocks
 import pandas as pd
@@ -46,6 +45,34 @@ _TREND_ANALYSIS_DB_COLUMNS = {
     if k not in ("Passes Criteria", "MA10", "MA50", "MA100", "MA200", "Current_Price")
 }
 _CATEGORIES_DB_COLUMNS = {"Symbol": "symbol", "NSE_Categories": "nse_categories"}
+_CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
+
+
+def _seed_categories_csv_from_postgres():
+    """Write the current nse_categories table to OUTPUT_CATEGORIES_PATH before
+    add_nse_categories_to_stocks() runs.
+
+    refresh_nifty_membership() (modules/nse_category_fetcher.py) merges freshly-fetched Nifty
+    50/100/200 membership into whatever's already at that path, specifically to preserve
+    thematic tags (e.g. "NIFTY PHARMA") that aren't part of this run's fetch. Now that
+    nse_categories.csv isn't committed to git, a fresh CI checkout has no local file to merge
+    from -- without this, every run would start from an empty map and silently drop every
+    thematic tag. Best-effort: if Postgres has no data yet (or is unreachable), leave whatever
+    local file state exists, matching the CSV-era behaviour of "missing file -> start empty".
+    """
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, "nse_categories")
+        finally:
+            conn.close()
+        if not df.empty:
+            df.rename(columns=_CATEGORIES_FROM_DB)[["Symbol", "NSE_Categories"]].to_csv(
+                OUTPUT_CATEGORIES_PATH, index=False
+            )
+            print(f"DB: seeded {OUTPUT_CATEGORIES_PATH} with {len(df)} rows from nse_categories for merge")
+    except Exception as exc:
+        print(f"WARNING: could not seed nse_categories.csv from Postgres, merge will start empty: {exc}")
 
 
 def _write_to_postgres(table: str, df: pd.DataFrame, rename_map: dict, conflict_columns: list):
@@ -90,6 +117,7 @@ def generate_weekly_stock_list(output_path, full_universe_output_path):
             
             # Add NSE categories
             print("Adding NSE category information...")
+            _seed_categories_csv_from_postgres()
             comprehensive_df = add_nse_categories_to_stocks(comprehensive_df)
             
             # Save enhanced comprehensive data
@@ -123,93 +151,22 @@ def generate_weekly_stock_list(output_path, full_universe_output_path):
     except Exception as e:
         print(f"Error generating stock list: {e}")
         return False, 0, None
-def run_git_command(command_list, working_dir="."):
-    try:
-        process = subprocess.Popen(command_list, cwd=working_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=120)
-        if process.returncode == 0:
-            if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
-            return True
-        else:
-            print(f"GIT ERROR: Command '{' '.join(command_list)}' failed with code {process.returncode}.")
-            if stdout.strip(): print(f"GIT STDOUT: {stdout.strip()}")
-            if stderr.strip(): print(f"GIT STDERR: {stderr.strip()}")
-            return False
-    except subprocess.TimeoutExpired: 
-        print(f"GIT TIMEOUT: Command '{' '.join(command_list)}' timed out.")
-        return False
-    except Exception as e: 
-        print(f"GIT EXCEPTION: running command '{' '.join(command_list)}': {e}")
-        return False
-
-def commit_and_push_stock_list(files_to_add, commit_message):
-    print(f"\n--- GIT OPS: Starting Git Operations for stock list ---")
-
-    for file_path in files_to_add:
-        if not os.path.exists(os.path.join(REPO_BASE_PATH, file_path)):
-            print(f"GIT OPS WARNING: File '{file_path}' not found. Skipping.")
-            continue
-        
-        if not run_git_command(["git", "add", file_path], working_dir=REPO_BASE_PATH):
-            print(f"GIT OPS ERROR: Failed to 'git add {file_path}'.")
-            return False
-        else:
-            print(f"GIT OPS: Successfully added '{file_path}' to staging.")
-    
-    # Check if there are changes to commit
-    status_check_process = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=REPO_BASE_PATH)
-    if not status_check_process.stdout.strip():
-        print("GIT OPS: No changes staged for commit. Skipping commit and push.")
-        return True 
-
-    if not run_git_command(["git", "commit", "-m", commit_message], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git commit'. Aborting push.")
-        return False
-    print(f"GIT OPS: Successfully committed changes with message: '{commit_message}'.")
-
-    # This job takes 1.5-2h end to end; by the time it's ready to push, the daily V20/turtle
-    # crons have almost always moved origin/main, so a bare push is rejected as a
-    # non-fast-forward every time (root cause of the ~May-2026 stale-CSV incident). Rebase first.
-    if not run_git_command(["git", "pull", "--rebase", "origin", "main"], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git pull --rebase origin main'. Aborting push.")
-        return False
-    print(f"GIT OPS: Successfully rebased onto latest origin/main.")
-
-    if not run_git_command(["git", "push"], working_dir=REPO_BASE_PATH):
-        print(f"GIT OPS ERROR: Failed to 'git push'.")
-        return False
-    print(f"GIT OPS: Successfully pushed changes to remote repository.")
-    return True
-
 # --- Main Execution ---
 if __name__ == "__main__":
     print(f"WEEKLY STOCK LIST GENERATION: Started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    
+
     # Generate the stock list using screening criteria
     success, stock_count, comprehensive_file = generate_weekly_stock_list(
         OUTPUT_STOCK_LIST_PATH,
         OUTPUT_FULL_UNIVERSE_PATH,
     )
-    
-    if success:
-        print(f"WEEKLY: Successfully generated stock list with {stock_count} stocks")
-        
-        # Commit and push the updated stock list
-        today_str = datetime.now().strftime("%Y%m%d")
-        commit_message = f"Weekly stock list update {today_str} - {stock_count} stocks screened"
-        
-        files_to_commit = [STOCK_LIST_FILENAME, FULL_UNIVERSE_FILENAME]
-        if os.path.exists(os.path.join(REPO_BASE_PATH, 'nse_categories.csv')):
-            files_to_commit.append('nse_categories.csv')
 
-        if commit_and_push_stock_list(files_to_commit, commit_message):
-            print("WEEKLY: Successfully committed and pushed stock list to GitHub.")
-        else:
-            print("WEEKLY ERROR: Failed to commit and push stock list to GitHub.")
-            sys.exit(1)
+    if success:
+        print(f"WEEKLY: Successfully generated stock list with {stock_count} stocks "
+              "(written to Postgres above; CSVs are a local artifact only, not committed).")
     else:
         print("WEEKLY ERROR: Failed to generate stock list.")
         sys.exit(1)
-    
+
     print(f"WEEKLY STOCK LIST GENERATION: Finished at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     sys.exit(0)

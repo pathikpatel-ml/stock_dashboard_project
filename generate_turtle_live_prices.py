@@ -51,13 +51,29 @@ _LIVE_PRICES_DB_COLUMNS = {"Symbol": "symbol", "Live_Price": "live_price", "Pric
 
 
 def load_universe_symbols(universe_file: str = UNIVERSE_FILE) -> list:
-    if not os.path.exists(universe_file):
-        raise SystemExit(
-            f"Universe file not found: {universe_file}\n"
-            "Run the weekly stock screening first (generate_weekly_stock_list.py)."
-        )
-    df = pd.read_csv(universe_file, usecols=["Symbol"])
-    symbols = df["Symbol"].dropna().astype(str).str.upper().str.strip().unique().tolist()
+    # nse_universe is produced by a separate, earlier-running weekly workflow -- Postgres is
+    # the real cross-workflow hand-off now that its CSV isn't committed to git; the local file
+    # read below is just a local-dev fallback (see generate_turtle_signals.py::_from_postgres).
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, "nse_universe")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres read of nse_universe failed, falling back to local CSV: {exc}")
+        df = pd.DataFrame()
+
+    if not df.empty:
+        symbols = df["symbol"].dropna().astype(str).str.upper().str.strip().unique().tolist()
+    else:
+        if not os.path.exists(universe_file):
+            raise SystemExit(
+                f"Universe not found in Postgres (nse_universe) or at {universe_file}.\n"
+                "Run the weekly stock screening first (generate_weekly_stock_list.py)."
+            )
+        df = pd.read_csv(universe_file, usecols=["Symbol"])
+        symbols = df["Symbol"].dropna().astype(str).str.upper().str.strip().unique().tolist()
     return sorted(s for s in symbols if s)
 
 
@@ -99,6 +115,23 @@ def fetch_batch_prices(symbols: list, downloader=None) -> dict:
 
 
 def load_existing_cache(live_prices_file: str = LIVE_PRICES_FILE) -> dict:
+    # Carry-forward cache for symbols this run's fetch misses. Postgres (this script's own
+    # previous run) is the real source now that turtle_live_prices.csv isn't committed to git
+    # between runs; the local file is just a local-dev fallback.
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, "turtle_live_prices")
+        finally:
+            conn.close()
+        if not df.empty:
+            return {
+                str(row["symbol"]).upper(): {"Live_Price": row["live_price"], "Price_As_Of": row["price_as_of"]}
+                for _, row in df.iterrows()
+            }
+    except Exception as exc:
+        print(f"WARNING: Postgres read of turtle_live_prices failed, falling back to local CSV: {exc}")
+
     if not os.path.exists(live_prices_file):
         return {}
     try:

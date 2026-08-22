@@ -56,13 +56,28 @@ _FUNDAMENTALS_DB_COLUMNS = {
 
 
 def load_universe_symbols() -> list:
-    if not os.path.exists(UNIVERSE_FILE):
-        raise SystemExit(
-            f"Universe file not found: {UNIVERSE_FILE}\n"
-            "Run the weekly stock screening first (generate_weekly_stock_list.py)."
-        )
-    df = pd.read_csv(UNIVERSE_FILE)
-    symbols = df["Symbol"].astype(str).str.upper().str.strip()
+    # nse_universe is produced by a separate, earlier-running weekly workflow -- Postgres is
+    # the real cross-workflow hand-off now that its CSV isn't committed to git; the local file
+    # read below is just a local-dev fallback (see generate_turtle_signals.py::_from_postgres).
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, "nse_universe")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres read of nse_universe failed, falling back to local CSV: {exc}")
+        df = pd.DataFrame()
+
+    if not df.empty:
+        symbols = df["symbol"].astype(str).str.upper().str.strip()
+    else:
+        if not os.path.exists(UNIVERSE_FILE):
+            raise SystemExit(
+                f"Universe not found in Postgres (nse_universe) or at {UNIVERSE_FILE}.\n"
+                "Run the weekly stock screening first (generate_weekly_stock_list.py)."
+            )
+        symbols = pd.read_csv(UNIVERSE_FILE)["Symbol"].astype(str).str.upper().str.strip()
     symbols = symbols[symbols.str.len() > 0]
     return sorted(symbols.unique().tolist())
 
