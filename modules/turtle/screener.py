@@ -60,8 +60,17 @@ def _fetch_index_rs(ticker: str) -> Optional[float]:
     if hist is None or hist.empty or "Close" not in hist.columns:
         return None
 
-    close = pd.to_numeric(hist["Close"], errors="coerce").dropna()
+    # Index must be assigned BEFORE dropna(), not after -- dropna() on the value series alone
+    # can drop a different number of rows than the raw index has (any NaN close in the fetch),
+    # and reassigning the ORIGINAL (undropped) index onto the now-shorter series raises a
+    # length-mismatch ValueError. Assigning first means dropna() correctly drops the matching
+    # index entry along with each dropped value. Real bug, surfaced live by a genuine NaN close
+    # in a sectoral index fetch (the per-stock path in run_pipeline never hit this because
+    # modules.breakout.data_feed already returns a normalised DatetimeIndex upstream, so no
+    # separate reassignment is needed there at all).
+    close = pd.to_numeric(hist["Close"], errors="coerce")
     close.index = pd.DatetimeIndex(hist.index).tz_localize(None)
+    close = close.dropna()
     return compute.relative_strength(close)
 
 
@@ -121,8 +130,11 @@ def _fetch_index_ath_and_rs(ticker: str) -> Optional[Dict[str, object]]:
     if daily is None or daily.empty or "Close" not in daily.columns:
         return None
 
-    daily_close = pd.to_numeric(daily["Close"], errors="coerce").dropna()
+    # Index-before-dropna (see _fetch_index_rs's comment for why the reverse order raises a
+    # length-mismatch ValueError whenever the fetch has any NaN close).
+    daily_close = pd.to_numeric(daily["Close"], errors="coerce")
     daily_close.index = pd.DatetimeIndex(daily.index).tz_localize(None)
+    daily_close = daily_close.dropna()
     if daily_close.empty:
         return None
 

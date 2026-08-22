@@ -10,8 +10,42 @@ import numpy as np
 import sys
 import subprocess
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from database import market_data_writer as mdw
+
 # --- Configuration ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
+# CSV column name -> Postgres column name.
+_V20_DB_COLUMNS = {
+    "Symbol": "symbol", "Buy_Date": "buy_date", "Buy_Price_Low": "buy_price_low",
+    "Sell_Date": "sell_date", "Sell_Price_High": "sell_price_high",
+    "Sequence_Gain_Percent": "sequence_gain_percent", "Days_in_Sequence": "days_in_sequence",
+}
+
+
+def _write_v20_to_postgres(df: pd.DataFrame):
+    """REPLACE (not upsert) v20_signals_latest with today's freshly-detected sequences -- a
+    sequence that no longer qualifies must disappear, not sit stale (see
+    migrations/20260820_market_data_tables.sql's comment on this table). Best-effort: CSV
+    stays the source of truth until the read side is confirmed working end to end.
+    """
+    try:
+        db_df = df.rename(columns=_V20_DB_COLUMNS).copy()
+        db_df["run_date"] = datetime.now().strftime("%Y-%m-%d")
+        conn = mdw.get_connection()
+        try:
+            n = mdw.replace_table_contents(conn, "v20_signals_latest", db_df)
+            print(f"DB: v20_signals_latest replaced with {n} rows")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres write failed, CSV is still the source of truth for now: {exc}")
 
 # For V20 Strategy - Using dynamically generated stock list
 GROWTH_FILE_NAME = "Master_company_market_trend_analysis.csv" # Dynamic stock list from weekly screening
@@ -125,11 +159,19 @@ def generate_and_save_candle_analysis_file(current_growth_file_path, output_cand
     if all_candle_signals:
         signals_df_generated = pd.DataFrame(all_candle_signals, columns=output_df_columns).sort_values(by=['Symbol', 'Buy_Date']).reset_index(drop=True)
         num_signals_generated = len(signals_df_generated)
-        try: signals_df_generated.to_csv(output_candle_file_path, index=False); print(f"V20: Saved {num_signals_generated} signals to '{output_candle_file_path}'"); return True, num_signals_generated
+        try:
+            signals_df_generated.to_csv(output_candle_file_path, index=False)
+            print(f"V20: Saved {num_signals_generated} signals to '{output_candle_file_path}'")
+            _write_v20_to_postgres(signals_df_generated)
+            return True, num_signals_generated
         except Exception as e: print(f"V20 ERROR: saving signals: {e}"); return False, 0
     else:
         print("V20: No signals generated from dynamically screened stocks.")
-        try: pd.DataFrame(columns=output_df_columns).to_csv(output_candle_file_path, index=False); print(f"V20: Saved empty file to '{output_candle_file_path}'."); return True, 0
+        try:
+            pd.DataFrame(columns=output_df_columns).to_csv(output_candle_file_path, index=False)
+            print(f"V20: Saved empty file to '{output_candle_file_path}'.")
+            _write_v20_to_postgres(pd.DataFrame(columns=output_df_columns))
+            return True, 0
         except Exception as e: print(f"V20 ERROR: saving empty signals file: {e}"); return False, 0
 
 

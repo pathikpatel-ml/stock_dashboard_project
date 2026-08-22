@@ -24,6 +24,13 @@ import os
 
 import pandas as pd
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from database import market_data_writer as mdw
 from modules.turtle import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +39,22 @@ FUNDAMENTALS_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.c
 CATEGORIES_FILE = os.path.join(REPO_BASE_PATH, "nse_categories.csv")
 SIGNALS_TEMPLATE = "turtle_signals_{date_str}.csv"
 SECTOR_PULSE_FILE = os.path.join(REPO_BASE_PATH, "turtle_sector_pulse.csv")
+
+# CSV column name -> Postgres column name. Kept explicit here (not a shared implicit
+# convention) so the mapping is visible right next to the write call it feeds -- the
+# equivalent reverse mapping lives in data_manager.py next to the matching read call.
+_SECTOR_PULSE_DB_COLUMNS = {
+    "Sector": "sector", "ATH_Price_Flag": "ath_price_flag", "RS_vs_Nifty50": "rs_vs_nifty50",
+}
+_SIGNALS_DB_COLUMNS = {
+    "Symbol": "symbol", "Company": "company", "Sector": "sector", "Industry": "industry",
+    "Current_Price": "current_price", "ATH_Price_Flag": "ath_price_flag",
+    "TTM_Net_Profit": "ttm_net_profit", "ATH_Profit_Flag": "ath_profit_flag",
+    "Above_MA212_Flag": "above_ma212_flag", "RS_Peer_Group": "rs_peer_group",
+    "RS_vs_Sector": "rs_vs_sector", "RS_vs_Benchmark": "rs_vs_benchmark",
+    "Outperformance_Flag": "outperformance_flag", "TTM_Net_Sales": "ttm_net_sales",
+    "ATH_Sales": "ath_sales", "ATH_Sales_Flag": "ath_sales_flag", "Signal": "signal",
+}
 
 
 def load_universe() -> pd.DataFrame:
@@ -107,6 +130,7 @@ def main():
     print(f"Sector Pulse     : {len(sector_pulse):>4}  -> {os.path.basename(SECTOR_PULSE_FILE)}")
 
     date_str = pd.Timestamp.now().strftime("%Y%m%d")
+    signal_date = pd.Timestamp.now().strftime("%Y-%m-%d")
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
 
     # Always write the file (with headers) so the dashboard has a stable, current target.
@@ -117,6 +141,34 @@ def main():
     print(f"\nTurtle signals   : {len(signals):>4}  -> {os.path.basename(signals_path)}")
     print(f"  ADD={counts.get('ADD', 0)}  HOLD={counts.get('HOLD', 0)}  EXIT={counts.get('EXIT', 0)}")
     print(f"Rejections       : {len(out['rejections']):>4}")
+
+    # Postgres writes (2026-08-20 migration) -- dual-write alongside the CSVs above during the
+    # migration/verification period; CSV writes get removed once every table's read side is
+    # confirmed working end to end (see migrations/20260820_market_data_tables.sql).
+    try:
+        conn = mdw.get_connection()
+        try:
+            n = mdw.upsert_dataframe(
+                conn, "turtle_sector_pulse",
+                sector_pulse.rename(columns=_SECTOR_PULSE_DB_COLUMNS),
+                conflict_columns=["sector"],
+            )
+            print(f"DB: turtle_sector_pulse upserted {n} rows")
+
+            if not signals.empty:
+                db_signals = signals.rename(columns=_SIGNALS_DB_COLUMNS).copy()
+                db_signals["signal_date"] = signal_date
+                n = mdw.upsert_dataframe(conn, "turtle_signals_latest", db_signals, conflict_columns=["symbol"])
+                print(f"DB: turtle_signals_latest upserted {n} rows")
+                n = mdw.upsert_dataframe(
+                    conn, "turtle_signals_history", db_signals,
+                    conflict_columns=["symbol", "signal_date"], touch_updated_at=False,
+                )
+                print(f"DB: turtle_signals_history upserted {n} rows")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres write failed, CSVs above are still the source of truth for now: {exc}")
 
 
 if __name__ == "__main__":

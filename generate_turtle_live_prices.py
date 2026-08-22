@@ -33,10 +33,21 @@ from datetime import datetime, timezone
 import pandas as pd
 import yfinance as yf
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from database import market_data_writer as mdw
+
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
 LIVE_PRICES_FILE = os.path.join(REPO_BASE_PATH, "turtle_live_prices.csv")
 BATCH_SIZE = 100
+
+# CSV column name -> Postgres column name.
+_LIVE_PRICES_DB_COLUMNS = {"Symbol": "symbol", "Live_Price": "live_price", "Price_As_Of": "price_as_of"}
 
 
 def load_universe_symbols(universe_file: str = UNIVERSE_FILE) -> list:
@@ -157,9 +168,24 @@ def main():
         {"Symbol": symbol, "Live_Price": info["Live_Price"], "Price_As_Of": info["Price_As_Of"]}
         for symbol, info in sorted(updated_cache.items())
     ]
-    pd.DataFrame(rows, columns=["Symbol", "Live_Price", "Price_As_Of"]).to_csv(LIVE_PRICES_FILE, index=False)
+    result_df = pd.DataFrame(rows, columns=["Symbol", "Live_Price", "Price_As_Of"])
+    result_df.to_csv(LIVE_PRICES_FILE, index=False)
     print(f"\nLive prices : {len(updated_symbols)} refreshed this run, {len(rows)} total cached "
           f"-> {os.path.basename(LIVE_PRICES_FILE)}")
+
+    try:
+        conn = mdw.get_connection()
+        try:
+            n = mdw.upsert_dataframe(
+                conn, "turtle_live_prices",
+                result_df.rename(columns=_LIVE_PRICES_DB_COLUMNS),
+                conflict_columns=["symbol"],
+            )
+            print(f"DB: turtle_live_prices upserted {n} rows")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
 
 
 if __name__ == "__main__":

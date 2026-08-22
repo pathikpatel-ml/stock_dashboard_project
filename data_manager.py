@@ -54,6 +54,50 @@ turtle_sector_pulse_df = pd.DataFrame()
 LOADED_TURTLE_FILE_DATE = None
 LOADED_TURTLE_SOURCE = None
 
+# Postgres column name -> the app's own CamelCase/Title-Case column names (the exact reverse
+# of the rename each generate_*.py script applies before writing -- see e.g.
+# generate_turtle_signals.py's _SIGNALS_DB_COLUMNS). Reading through this mapping means every
+# downstream consumer (compute.py, screener.py, callbacks.py, and every test) keeps working
+# completely unchanged -- only the LOADING mechanism changed (CSV file -> Postgres table), not
+# the shape of the data once loaded.
+_TURTLE_SIGNALS_FROM_DB = {
+    "symbol": "Symbol", "company": "Company", "sector": "Sector", "industry": "Industry",
+    "current_price": "Current_Price", "ath_price_flag": "ATH_Price_Flag",
+    "ttm_net_profit": "TTM_Net_Profit", "ath_profit_flag": "ATH_Profit_Flag",
+    "above_ma212_flag": "Above_MA212_Flag", "rs_peer_group": "RS_Peer_Group",
+    "rs_vs_sector": "RS_vs_Sector", "rs_vs_benchmark": "RS_vs_Benchmark",
+    "outperformance_flag": "Outperformance_Flag", "ttm_net_sales": "TTM_Net_Sales",
+    "ath_sales": "ATH_Sales", "ath_sales_flag": "ATH_Sales_Flag", "signal": "Signal",
+}
+_SECTOR_PULSE_FROM_DB = {"sector": "Sector", "ath_price_flag": "ATH_Price_Flag", "rs_vs_nifty50": "RS_vs_Nifty50"}
+_LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_as_of": "Price_As_Of"}
+_CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
+_V20_FROM_DB = {
+    "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
+    "sell_date": "Sell_Date", "sell_price_high": "Sell_Price_High",
+    "sequence_gain_percent": "Sequence_Gain_Percent", "days_in_sequence": "Days_in_Sequence",
+}
+
+
+def _from_postgres(table, rename_map, parse_dates=None, order_by=None):
+    """Fetch ``table`` and rename its columns to the app's own names. Returns an empty
+    DataFrame on any failure (table not migrated yet, Supabase unreachable, etc.) -- callers
+    fall back to the existing CSV chain in that case, so a Postgres hiccup degrades to the old
+    behaviour rather than breaking the page. Import is local to avoid a hard dependency for
+    any code path that never touches these tables (mirrors the rest of this module's style of
+    only importing what a given loader actually needs).
+    """
+    from database import market_data_reader as mdr
+
+    df = mdr.fetch_table(table, order_by=order_by)
+    if df.empty:
+        return df
+    df = df.rename(columns=rename_map)
+    for col in parse_dates or []:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+    return df
+
 
 def _filter_out_psu_symbols(df):
     if df.empty or "Symbol" not in df.columns:
@@ -289,13 +333,22 @@ def load_v20_data_on_startup():
 
     today_str = datetime.now().strftime("%Y%m%d")
 
-    v20_filename = SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str)
-    v20_signals_df, loaded_v20_name, LOADED_V20_SOURCE = _read_csv_with_candidates(
-        today_filename=v20_filename,
-        filename_regex=r"stock_candle_signals_from_listing_\d{8}\.csv",
-        parse_dates=["Buy_Date", "Sell_Date"],
-    )
-    LOADED_V20_FILE_DATE = _extract_date_from_name(loaded_v20_name or "", r"(\d{8})")
+    # Postgres first (2026-08-20 migration) -- v20_signals_latest is written with REPLACE
+    # semantics by generate_daily_signals.py, so it's always exactly today's fresh detection
+    # run with nothing stale left behind. Falls back to the CSV chain if the table is empty
+    # (not migrated/populated yet) or Supabase is unreachable.
+    v20_signals_df = _from_postgres("v20_signals_latest", _V20_FROM_DB, parse_dates=["Buy_Date", "Sell_Date"])
+    if not v20_signals_df.empty:
+        LOADED_V20_SOURCE = "postgres"
+        LOADED_V20_FILE_DATE = today_str
+        loaded_v20_name = "v20_signals_latest (Postgres)"
+    else:
+        v20_signals_df, loaded_v20_name, LOADED_V20_SOURCE = _read_csv_with_candidates(
+            today_filename=SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
+            filename_regex=r"stock_candle_signals_from_listing_\d{8}\.csv",
+            parse_dates=["Buy_Date", "Sell_Date"],
+        )
+        LOADED_V20_FILE_DATE = _extract_date_from_name(loaded_v20_name or "", r"(\d{8})")
     if v20_signals_df.empty:
         print("STARTUP ERROR: Failed to load any V20 data file.")
         v20_processed_df = pd.DataFrame()
@@ -331,18 +384,34 @@ def load_turtle_data_on_startup():
 
     today_str = datetime.now().strftime("%Y%m%d")
 
-    turtle_signals_df, loaded_name, LOADED_TURTLE_SOURCE = _read_csv_with_candidates(
-        today_filename=TURTLE_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
-        filename_regex=r"turtle_signals_\d{8}\.csv",
-    )
-    LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+    # Postgres first (2026-08-20 migration), falling back to the CSV chain if the table is
+    # empty (not migrated/populated yet) or Supabase is unreachable -- same reasoning as
+    # load_v20_data_on_startup() above.
+    turtle_signals_df = _from_postgres("turtle_signals_latest", _TURTLE_SIGNALS_FROM_DB)
+    if not turtle_signals_df.empty:
+        LOADED_TURTLE_SOURCE = "postgres"
+        LOADED_TURTLE_FILE_DATE = today_str
+    else:
+        turtle_signals_df, loaded_name, LOADED_TURTLE_SOURCE = _read_csv_with_candidates(
+            today_filename=TURTLE_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
+            filename_regex=r"turtle_signals_\d{8}\.csv",
+        )
+        LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
 
-    # All three are non-dated, overwritten-in-place files -- GitHub-raw-first, not local-first
-    # (see _read_static_csv_with_github_fallback's docstring for why local-first silently
-    # serves stale data forever on a long-lived Render container between redeploys).
-    nse_categories_df = _read_static_csv_with_github_fallback(NSE_CATEGORIES_FILE)
-    turtle_live_prices_df = _read_static_csv_with_github_fallback(TURTLE_LIVE_PRICES_FILE)
-    turtle_sector_pulse_df = _read_static_csv_with_github_fallback(TURTLE_SECTOR_PULSE_FILE)
+    # All three are non-dated, overwritten-in-place files -- same Postgres-first,
+    # CSV-github-raw-fallback reasoning (see _read_static_csv_with_github_fallback's docstring
+    # for why local-first would otherwise silently serve stale data on a long-lived container).
+    nse_categories_df = _from_postgres("nse_categories", _CATEGORIES_FROM_DB)
+    if nse_categories_df.empty:
+        nse_categories_df = _read_static_csv_with_github_fallback(NSE_CATEGORIES_FILE)
+
+    turtle_live_prices_df = _from_postgres("turtle_live_prices", _LIVE_PRICES_FROM_DB)
+    if turtle_live_prices_df.empty:
+        turtle_live_prices_df = _read_static_csv_with_github_fallback(TURTLE_LIVE_PRICES_FILE)
+
+    turtle_sector_pulse_df = _from_postgres("turtle_sector_pulse", _SECTOR_PULSE_FROM_DB)
+    if turtle_sector_pulse_df.empty:
+        turtle_sector_pulse_df = _read_static_csv_with_github_fallback(TURTLE_SECTOR_PULSE_FILE)
 
     print(
         f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "

@@ -30,6 +30,13 @@ import time
 
 import pandas as pd
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from database import market_data_writer as mdw
 from modules.turtle import standalone_fundamentals as sf
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +45,14 @@ OUTPUT_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
 CHECKPOINT_FILE = os.path.join(REPO_BASE_PATH, "output", "turtle_screener_fundamentals_checkpoint.csv")
 OUTPUT_COLUMNS = ["Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales"]
 CHECKPOINT_EVERY = 50
+
+# CSV column name -> Postgres column name (see generate_turtle_signals.py for why this stays
+# explicit at the call site rather than a shared implicit convention).
+_FUNDAMENTALS_DB_COLUMNS = {
+    "Symbol": "symbol", "TTM_Net_Profit": "ttm_net_profit",
+    "Max_Annual_Net_Profit": "max_annual_net_profit", "TTM_Net_Sales": "ttm_net_sales",
+    "Max_Annual_Net_Sales": "max_annual_net_sales",
+}
 
 
 def load_universe_symbols() -> list:
@@ -132,6 +147,20 @@ def main():
     elapsed = time.time() - start
     print(f"\nWrote {len(result_df)} rows -> {os.path.basename(OUTPUT_FILE)} ({elapsed:.0f}s)")
     print(f"  ok={ok_count}  fail(no data)={fail_count}")
+
+    try:
+        conn = mdw.get_connection()
+        try:
+            n = mdw.upsert_dataframe(
+                conn, "turtle_fundamentals",
+                result_df.rename(columns=_FUNDAMENTALS_DB_COLUMNS),
+                conflict_columns=["symbol"],
+            )
+            print(f"DB: turtle_fundamentals upserted {n} rows")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
 
 
 if __name__ == "__main__":

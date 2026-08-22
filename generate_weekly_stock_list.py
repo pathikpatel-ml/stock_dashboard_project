@@ -13,12 +13,53 @@ from datetime import datetime
 from modules.stock_screener import StockScreener, add_moving_averages_to_stocks, add_nse_categories_to_stocks
 import pandas as pd
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+from database import market_data_writer as mdw
+
 # --- Configuration ---
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 STOCK_LIST_FILENAME = "Master_company_market_trend_analysis.csv"
 FULL_UNIVERSE_FILENAME = "NSE_EQ_All_Stocks_Analysis.csv"
+CATEGORIES_FILENAME = "nse_categories.csv"
 OUTPUT_STOCK_LIST_PATH = os.path.join(REPO_BASE_PATH, STOCK_LIST_FILENAME)
 OUTPUT_FULL_UNIVERSE_PATH = os.path.join(REPO_BASE_PATH, FULL_UNIVERSE_FILENAME)
+OUTPUT_CATEGORIES_PATH = os.path.join(REPO_BASE_PATH, CATEGORIES_FILENAME)
+
+# CSV column name -> Postgres column name (see generate_turtle_signals.py for why this stays
+# explicit at the call site rather than a shared implicit convention).
+_UNIVERSE_DB_COLUMNS = {
+    "Symbol": "symbol", "Company Name": "company_name", "Sector": "sector", "Industry": "industry",
+    "Market Cap": "market_cap", "Net Profit (Cr)": "net_profit_cr", "ROCE (%)": "roce_pct",
+    "ROE (%)": "roe_pct", "Debt to Equity": "debt_to_equity",
+    "Latest Quarter Profit (Cr)": "latest_quarter_profit_cr", "Last 3Q Profits (Cr)": "last_3q_profits_cr",
+    "Public Holding (%)": "public_holding_pct", "Is Bank/Finance": "is_bank_finance", "Is PSU": "is_psu",
+    "Passes Criteria": "passes_criteria", "Screening Date": "screening_date",
+    "MA10": "ma10", "MA50": "ma50", "MA100": "ma100", "MA200": "ma200", "Current_Price": "current_price",
+}
+_TREND_ANALYSIS_DB_COLUMNS = {
+    k: v for k, v in _UNIVERSE_DB_COLUMNS.items()
+    if k not in ("Passes Criteria", "MA10", "MA50", "MA100", "MA200", "Current_Price")
+}
+_CATEGORIES_DB_COLUMNS = {"Symbol": "symbol", "NSE_Categories": "nse_categories"}
+
+
+def _write_to_postgres(table: str, df: pd.DataFrame, rename_map: dict, conflict_columns: list):
+    """Best-effort DB upsert alongside the CSV write -- CSV stays the source of truth until
+    every table's read side is confirmed working (see migrations/20260820_market_data_tables.sql)."""
+    try:
+        conn = mdw.get_connection()
+        try:
+            n = mdw.upsert_dataframe(conn, table, df.rename(columns=rename_map), conflict_columns=conflict_columns)
+            print(f"DB: {table} upserted {n} rows")
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres write to {table} failed, CSV is still the source of truth for now: {exc}")
 
 def generate_weekly_stock_list(output_path, full_universe_output_path):
     """Generate weekly screened stock list plus full analyzed NSE universe."""
@@ -62,11 +103,19 @@ def generate_weekly_stock_list(output_path, full_universe_output_path):
             # Save screened stocks for the V20 shortlist
             df.to_csv(output_path, index=False)
             print(f"Screened stock list saved to: {output_path}")
+            _write_to_postgres("market_trend_analysis", df, _TREND_ANALYSIS_DB_COLUMNS, ["symbol"])
 
             # Save full analyzed universe for the screener UI
             comprehensive_df.to_csv(full_universe_output_path, index=False)
             print(f"Full stock universe saved to: {full_universe_output_path}")
-            
+            _write_to_postgres("nse_universe", comprehensive_df, _UNIVERSE_DB_COLUMNS, ["symbol"])
+
+            # add_nse_categories_to_stocks() above already refreshed nse_categories.csv as a
+            # side effect (modules/nse_category_fetcher.py) -- push that same file to Postgres too.
+            if os.path.exists(OUTPUT_CATEGORIES_PATH):
+                categories_df = pd.read_csv(OUTPUT_CATEGORIES_PATH)
+                _write_to_postgres("nse_categories", categories_df, _CATEGORIES_DB_COLUMNS, ["symbol"])
+
             return True, len(df), enhanced_filename
         else:
             print("No stocks found meeting criteria")
