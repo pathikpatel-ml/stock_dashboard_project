@@ -49,6 +49,23 @@ def _fake_download_returning(prices: dict):
     return _downloader
 
 
+def test_fetch_disables_yfinance_internal_threading(monkeypatch):
+    # yfinance's own internal per-ticker thread pool (threads=True is its default) is nested
+    # underneath our outer background thread -- on Render's constrained container this was the
+    # real SIGSEGV source, reproducing even with only one outer fetch in flight. Must stay off.
+    seen_kwargs = {}
+
+    def _downloader(tickers, **kwargs):
+        seen_kwargs.update(kwargs)
+        columns = pd.MultiIndex.from_product([tickers, ["Close"]])
+        return pd.DataFrame({(t, "Close"): [100.0] for t in tickers}, columns=columns)
+
+    monkeypatch.setattr(dm.yf, "download", _downloader)
+    dm.process_v20_signals(_signals_df(["TCS"]))
+
+    assert seen_kwargs.get("threads") is False
+
+
 def test_first_call_fetches_and_populates_prices(monkeypatch):
     monkeypatch.setattr(dm.yf, "download", _fake_download_returning({"TCS": 120.0}))
 

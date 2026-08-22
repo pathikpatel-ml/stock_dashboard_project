@@ -151,6 +151,13 @@ def process_v20_signals(signals_df_local):
                     auto_adjust=False,
                     group_by="ticker",
                     timeout=10,
+                    threads=False,  # yfinance's own internal per-ticker thread pool (default
+                    # True) is nested underneath our outer background thread -- on Render's
+                    # constrained container this looks like the real SIGSEGV source: the crash
+                    # recurred even with only one outer fetch in flight (single-flight guard
+                    # already ruled that out), right after a fresh worker boot. threads=False
+                    # forces yfinance to fetch each ticker in the chunk sequentially, with no
+                    # concurrent native HTTP/SSL work at all.
                 )
                 if data is None or data.empty:
                     continue
