@@ -50,14 +50,17 @@ def _monthly(closes):
     return pd.DataFrame({"Close": closes}, index=dates)
 
 
+# 12 rows (>= MIN_MONTHLY_ROWS_FOR_ATH) -- a too-short monthly series is now treated as
+# unusable (see modules/turtle/constants.py::MIN_MONTHLY_ROWS_FOR_ATH), so these need enough
+# rows to exercise the real ATH-flag logic rather than being rejected outright.
 MONTHLY = {
     # current price = 100 for every symbol (see UNIVERSE); max-close == 100 -> ATH price True.
-    "STOCKA": _monthly([60, 80, 100]),
-    "STOCKC": _monthly([60, 80, 100]),
-    "STOCKF": _monthly([60, 80, 100]),
+    "STOCKA": _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]),
+    "STOCKC": _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]),
+    "STOCKF": _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]),
     # max-close well above 100 -> current price is off its high -> ATH price False.
-    "STOCKB": _monthly([60, 130, 150]),
-    "STOCKD": _monthly([60, 130, 150]),
+    "STOCKB": _monthly([50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 145, 150]),
+    "STOCKD": _monthly([50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 145, 150]),
     # STOCKE: no monthly data at all -> must be rejected, not crash the batch.
 }
 
@@ -201,7 +204,7 @@ def test_missing_fundamentals_never_crashes():
     # A symbol entirely absent from the fundamentals file must degrade to ATH_Profit_Flag=False,
     # not raise -- build_fundamentals_lookup.get(...) returns {} for it.
     universe = pd.DataFrame([_universe_row("NODATA", "Alpha", ma200=90)])
-    MONTHLY["NODATA"] = _monthly([60, 80, 100])
+    MONTHLY["NODATA"] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     DAILY["NODATA"] = _daily(20, 200)
     empty_fundamentals = pd.DataFrame(
         columns=["Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales"]
@@ -244,7 +247,7 @@ def test_leave_one_out_sector_rs_differs_from_naive_mean():
     own (much larger) value -- the two means are shown to be numerically different here.
     """
     symbols = ["STOCKX", "STOCKY", "STOCKZ"]
-    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    MONTHLY.update({s: _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]) for s in symbols})
     DAILY.update({
         "STOCKX": _daily(20, 200),   # strong
         "STOCKY": _daily(50, 90),    # mild
@@ -301,7 +304,7 @@ def test_sectoral_index_basket_overrides_broad_sector_grouping():
     # BANK sectoral index -- with categories_df supplied, they must be grouped together (by
     # NIFTY BANK), not split apart by their differing Sector column.
     symbols = ["STOCKX", "STOCKY"]
-    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    MONTHLY.update({s: _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]) for s in symbols})
     DAILY.update({
         "STOCKX": _daily(20, 200),   # strong
         "STOCKY": _daily(50, 90),    # mild
@@ -336,7 +339,7 @@ def test_stock_without_sectoral_index_falls_back_to_broad_sector_even_with_categ
     # STOCKZ has NSE_Categories but only broad-market tags (Nifty 50/100/200), no sectoral
     # index -- must fall back to "Sector: <Sector>", not be left ungrouped/None.
     symbol = "STOCKZ"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     DAILY[symbol] = _daily(20, 200)
     try:
         universe = pd.DataFrame([_universe_row(symbol, "Gamma", ma200=90)])
@@ -358,7 +361,7 @@ def test_sectoral_index_rs_overrides_leave_one_out_peer_average():
     # sectoral_index_rs value is supplied for NIFTY BANK -- it must be used directly, NOT the
     # leave-one-out peer average (which would give a different, provably distinct number).
     symbols = ["STOCKX", "STOCKY"]
-    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    MONTHLY.update({s: _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]) for s in symbols})
     DAILY.update({
         "STOCKX": _daily(20, 200),
         "STOCKY": _daily(50, 90),
@@ -394,7 +397,7 @@ def test_sectoral_index_rs_missing_falls_back_to_peer_average():
     # failed) -- must fall back to the leave-one-out peer average, same as if
     # sectoral_index_rs were never passed at all.
     symbols = ["STOCKX", "STOCKY"]
-    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    MONTHLY.update({s: _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]) for s in symbols})
     DAILY.update({
         "STOCKX": _daily(20, 200),
         "STOCKY": _daily(50, 90),
@@ -538,6 +541,52 @@ def test_fetch_sector_pulse_table_skips_one_failing_index_keeps_others():
         screener_module.yf.Ticker = original_ticker
 
 
+class _FakeIndexTickerDegenerateMonthly:
+    """Simulates the real bug: daily history is fine, but the monthly ("period=max,
+    interval=1mo") fetch returns a single degenerate row -- reproduced live for 7 of the 10
+    real sectoral index tickers (see constants.py::MIN_MONTHLY_ROWS_FOR_ATH)."""
+
+    def __init__(self, daily_closes, garbage_monthly_close):
+        self._daily_closes = daily_closes
+        self._garbage_monthly_close = garbage_monthly_close
+
+    def history(self, period=None, interval=None, auto_adjust=None, timeout=None):
+        if interval == "1mo":
+            dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=1, freq="D")
+            return pd.DataFrame({"Close": [self._garbage_monthly_close]}, index=dates)
+        dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=len(self._daily_closes), freq="D")
+        return pd.DataFrame({"Close": self._daily_closes}, index=dates)
+
+
+def test_fetch_sector_pulse_table_ignores_degenerate_single_row_monthly_data():
+    # Real bug (2026-08-22): a garbage 1-row monthly fetch, if trusted, corrupts the ATH
+    # comparison. Daily series rises to 300 and stays there -> at its own ATH by daily data
+    # alone. The bogus monthly "close" of 1000 must be ignored (too few rows), not treated as
+    # the historical max -- otherwise current price (300) would look far off a fake ATH (1000)
+    # and wrongly flag False.
+    daily_closes = [100.0 + (i * 200.0 / 399) for i in range(400)]  # 100 -> 300, ends at its high
+    n50_closes = [100.0 + i for i in range(400)]
+
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+
+    def _fake_ticker(t):
+        if t == "^FAKEDEGENERATE":
+            return _FakeIndexTickerDegenerateMonthly(daily_closes, garbage_monthly_close=1000.0)
+        return _FakeIndexTicker(n50_closes)
+
+    try:
+        screener_module.yf.Ticker = _fake_ticker
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY DEGENERATE": "^FAKEDEGENERATE"},
+            nifty50_ticker="^FAKEN50",
+        )
+        row = df[df["Sector"] == "NIFTY DEGENERATE"].iloc[0]
+        assert row["ATH_Price_Flag"] == True  # noqa: E712 -- would be False if 1000 were trusted
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
 def test_missing_sector_stocks_are_not_grouped_together():
     # Two stocks with NO Sector value (NaN, e.g. yfinance couldn't classify them) and no
     # sectoral index tag -- must NOT collapse into a shared "Sector: nan" bucket and get
@@ -545,7 +594,7 @@ def test_missing_sector_stocks_are_not_grouped_together():
     # Each must be left with an undefined RS_Peer_Group/RS_vs_Sector, same as any other
     # stock with zero valid peers.
     symbols = ["STOCKNOSECTOR1", "STOCKNOSECTOR2"]
-    MONTHLY.update({s: _monthly([60, 80, 100]) for s in symbols})
+    MONTHLY.update({s: _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100]) for s in symbols})
     DAILY.update({s: _daily(20, 200) for s in symbols})
     try:
         universe = pd.DataFrame([_universe_row(s, sector=None, ma200=90) for s in symbols])
@@ -580,7 +629,7 @@ def test_ath_price_uses_live_daily_close_not_stale_csv_price():
     # Monthly month-end closes cap out at 100 and the weekly-cron CSV price is a stale 80,
     # but the live daily series just rallied to a new high of 110 today -- above both.
     symbol = "STOCKLIVE"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=400, freq="D")
     closes = [90.0] * 399 + [110.0]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
@@ -607,7 +656,7 @@ def test_ath_price_combined_max_catches_older_monthly_high_outside_daily_window(
     # (~119) and could wrongly flag today's price as near-ATH; the monthly (full-history)
     # max must still be honoured via max(daily_max, monthly_max).
     symbol = "STOCKOLDHIGH"
-    MONTHLY[symbol] = _monthly([100, 500, 150, 120, 115])
+    MONTHLY[symbol] = _monthly([100, 500, 150, 120, 118, 116, 114, 113, 112, 111, 116, 115])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=400, freq="D")
     closes = [100.0 + (i % 20) for i in range(400)]
     closes[-1] = 115.0
@@ -632,7 +681,7 @@ def test_ath_price_falls_back_to_monthly_only_when_daily_missing():
     # the previous monthly-only behaviour (CSV Current_Price vs monthly max) rather than
     # crash or silently treat the symbol as never at its ATH.
     symbol = "STOCKNODAILY"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     DAILY[symbol] = None
     try:
         row = _universe_row(symbol, "Alpha", ma200=90)
@@ -664,7 +713,7 @@ def test_ath_and_above_ma212_agree_for_a_stock_near_its_live_high():
     # this fix, Above_MA212_Flag compared a live-ish signal against a stale CSV MA200 and
     # could disagree.
     symbol = "STOCKNEARHIGH"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     n = 400
     # Steady climb from 100 to 300 over the full window -- the last close (300) is both the
     # series max (ATH) and far above the rolling-212 mean of a rising series.
@@ -693,7 +742,7 @@ def test_ma212_falls_back_to_csv_ma200_when_fewer_than_212_daily_rows():
     # Fewer than 212 daily rows -- can't compute a live 212-DMA -- must fall back to the CSV
     # MA200 rather than crash or silently treat every such stock as never above its exit.
     symbol = "STOCKSHORTDAILY"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")  # < 212
     closes = [90.0 + i * 0.1 for i in range(150)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
@@ -714,7 +763,7 @@ def test_ma212_boundary_between_200_and_212_rows_still_falls_back():
     # 205 daily rows: enough for the OLD 200-day threshold but still short of the current
     # 212-day one -- guards against a silent regression back to comparing against 200.
     symbol = "STOCKBOUNDARY"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=205, freq="D")
     closes = [90.0 + i * 0.1 for i in range(205)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
@@ -739,7 +788,7 @@ def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
     # < 212 daily rows (can't compute live MA212) AND the CSV MA200 is itself missing/NaN --
     # must degrade to Above_MA212_Flag=False, never raise.
     symbol = "STOCKNOMADATA"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=150, freq="D")
     closes = [90.0 + i * 0.1 for i in range(150)]
     DAILY[symbol] = pd.DataFrame({"Close": closes}, index=dates)
@@ -762,7 +811,7 @@ def test_ma212_false_no_crash_when_both_live_and_csv_ma200_unavailable():
 # ---------------------------------------------------------------------------
 def test_ath_sales_flag_true_when_ttm_is_a_new_record():
     symbol = "STOCKSALESUP"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     DAILY[symbol] = _daily(20, 200)
     fundamentals = pd.DataFrame([
         _fundamentals_row(symbol, ttm_net_profit=1, max_annual_net_profit=1000,
@@ -807,7 +856,7 @@ def test_ath_sales_flag_false_when_sales_data_missing(pipeline_result):
 # ---------------------------------------------------------------------------
 def test_ath_profit_flag_unaffected_by_live_price_movement():
     symbol = "STOCKEPSTABLE"
-    MONTHLY[symbol] = _monthly([60, 80, 100])
+    MONTHLY[symbol] = _monthly([50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98, 100])
     fundamentals = pd.DataFrame([
         _fundamentals_row(symbol, ttm_net_profit=10, max_annual_net_profit=8,
                            ttm_net_sales=90, max_annual_net_sales=100),

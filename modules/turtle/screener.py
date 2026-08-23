@@ -144,7 +144,15 @@ def _fetch_index_ath_and_rs(ticker: str) -> Optional[Dict[str, object]]:
         )
     except Exception:
         monthly = None
-    monthly_max = float(monthly["Close"].max()) if monthly is not None and not monthly.empty else None
+    # len(monthly) >= MIN_MONTHLY_ROWS_FOR_ATH, not just "non-empty" -- several sectoral index
+    # tickers return a single degenerate row (today's live quote, not real history); see that
+    # constant's docstring. A too-short monthly series is treated the same as "fetch failed":
+    # historical_max falls back to the daily-only max below.
+    monthly_max = (
+        float(monthly["Close"].max())
+        if monthly is not None and len(monthly) >= C.MIN_MONTHLY_ROWS_FOR_ATH
+        else None
+    )
 
     current_price = float(daily_close.iloc[-1])
     historical_max = float(daily_close.max())
@@ -290,6 +298,14 @@ def run_pipeline(
         monthly, daily = history["monthly"], history["daily"]
         if monthly is None or monthly.empty or "Close" not in monthly.columns:
             rejects.append({"Symbol": symbol, "reason": "no_monthly_data"})
+            continue
+        if len(monthly) < C.MIN_MONTHLY_ROWS_FOR_ATH:
+            # A too-short monthly series is as unusable as no data at all for establishing a
+            # historical ATH -- see MIN_MONTHLY_ROWS_FOR_ATH's docstring (guards against
+            # yfinance's occasional single-degenerate-row response). Not observed live for any
+            # real equity so far (checked large/mid/recently-listed names), but the same
+            # defensive check as the sectoral-index path for consistency.
+            rejects.append({"Symbol": symbol, "reason": "insufficient_monthly_data"})
             continue
 
         monthly_max_close = float(monthly["Close"].max())

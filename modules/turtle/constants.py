@@ -10,6 +10,18 @@ the documented values are followed literally.
 # ---------------------------------------------------------------------------
 ATH_PRICE_THRESHOLD_PCT = 5.0  # within 5% of the historical max close counts as ATH
 
+# yfinance sometimes returns a single degenerate "monthly" row -- today's live quote mislabeled
+# as a historical monthly candle -- for tickers with limited Yahoo Finance coverage. Verified
+# live (2026-08-22): 7 of the 10 SECTORAL_INDEX_TICKERS below (AUTO, ENERGY, FMCG, MEDIA,
+# METAL, PSU BANK, REALTY) do this consistently and reproducibly; only BANK/IT/PHARMA return
+# real multi-year monthly history. Treating that single point as the historical max corrupted
+# the Sector Pulse ATH flag for every affected sector (sometimes True, sometimes False,
+# depending on how that one live quote happened to compare to itself). Individual NSE equities
+# were checked too (RELIANCE/TCS/TATASTEEL/ITC: 289-368 rows; even young listings like
+# IREDA/NYKAA/PAYTM: 34-58 rows) and none showed this pattern, so 12 (a full year) rejects only
+# genuinely-degenerate responses, not real young-but-legitimate listings.
+MIN_MONTHLY_ROWS_FOR_ATH = 12
+
 # ---------------------------------------------------------------------------
 # Outperformance / relative strength (plan §1, §2). SUPERSEDES the original daily-close,
 # 365-calendar-day lookback -- now weekly-bucketed (each week's HIGHEST daily close, not its
