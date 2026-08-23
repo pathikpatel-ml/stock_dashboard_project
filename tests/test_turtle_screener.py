@@ -436,6 +436,74 @@ class _FakeIndexTicker:
         return pd.DataFrame({"Close": self._closes}, index=dates)
 
 
+# ---------------------------------------------------------------------------
+# Tickertape routing (2026-08-23) -- 7 of 10 SECTORAL_INDEX_TICKERS went stale on yfinance
+# (verified live: both daily and monthly endpoints stopped updating in mid-July 2026). These
+# tests prove the routing itself: a Tickertape-mapped index_name never touches yf.Ticker at
+# all, and a non-mapped one is completely unaffected (still goes through yfinance as before).
+# ---------------------------------------------------------------------------
+def test_fetch_index_daily_close_routes_tickertape_indices_to_tickertape(monkeypatch):
+    import modules.turtle.screener as screener_module
+    from modules.turtle import constants as tt_constants
+
+    def _fail_if_called(ticker):
+        raise AssertionError("yf.Ticker must not be called for a Tickertape-routed index")
+
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=5, freq="D")
+    fake_series = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0], index=dates)
+
+    monkeypatch.setattr(screener_module.yf, "Ticker", _fail_if_called)
+    monkeypatch.setattr(
+        screener_module.tickertape_feed, "fetch_index_daily_close",
+        lambda symbol: fake_series if symbol == tt_constants.TICKERTAPE_INDEX_SYMBOLS["NIFTY AUTO"] else None,
+    )
+
+    result = screener_module._fetch_index_daily_close("^CNXAUTO", index_name="NIFTY AUTO")
+    assert result is not None
+    assert list(result.values) == [1.0, 2.0, 3.0, 4.0, 5.0]
+
+
+def test_fetch_index_daily_close_non_tickertape_index_still_uses_yfinance(monkeypatch):
+    import modules.turtle.screener as screener_module
+
+    calls = []
+
+    def _tracking_ticker(t):
+        calls.append(t)
+        return _FakeIndexTicker([100.0 + i for i in range(20)])
+
+    monkeypatch.setattr(screener_module.yf, "Ticker", _tracking_ticker)
+    monkeypatch.setattr(
+        screener_module.tickertape_feed, "fetch_index_daily_close",
+        lambda symbol: (_ for _ in ()).throw(AssertionError("tickertape must not be called for NIFTY BANK")),
+    )
+
+    result = screener_module._fetch_index_daily_close("^NSEBANK", index_name="NIFTY BANK")
+    assert result is not None
+    assert calls == ["^NSEBANK"]
+
+
+def test_fetch_index_ath_and_rs_skips_yfinance_monthly_for_tickertape_index(monkeypatch):
+    import modules.turtle.screener as screener_module
+    from modules.turtle import constants as tt_constants
+
+    def _fail_if_monthly_requested(t):
+        raise AssertionError("yf.Ticker must not be called at all for a Tickertape-routed index")
+
+    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=400, freq="D")
+    fake_series = pd.Series([100.0 + i for i in range(400)], index=dates)  # ends at its own high
+
+    monkeypatch.setattr(screener_module.yf, "Ticker", _fail_if_monthly_requested)
+    monkeypatch.setattr(
+        screener_module.tickertape_feed, "fetch_index_daily_close",
+        lambda symbol: fake_series if symbol == tt_constants.TICKERTAPE_INDEX_SYMBOLS["NIFTY AUTO"] else None,
+    )
+
+    result = screener_module._fetch_index_ath_and_rs("^CNXAUTO", index_name="NIFTY AUTO")
+    assert result is not None
+    assert result["ath_price_flag"] is True  # rising series ends at its own high -> ATH
+
+
 def test_fetch_sectoral_index_rs_computes_each_ticker():
     closes_map = {
         "^FAKEAUTO": [c for c in range(100, 500)],
@@ -445,8 +513,8 @@ def test_fetch_sectoral_index_rs_computes_each_ticker():
     original_ticker = screener_module.yf.Ticker
     try:
         screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
-        result = sc.fetch_sectoral_index_rs({"NIFTY AUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"})
-        assert set(result.keys()) == {"NIFTY AUTO", "NIFTY BANK"}
+        result = sc.fetch_sectoral_index_rs({"NIFTY FAKEAUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"})
+        assert set(result.keys()) == {"NIFTY FAKEAUTO", "NIFTY BANK"}
         assert all(isinstance(v, float) for v in result.values())
     finally:
         screener_module.yf.Ticker = original_ticker
@@ -461,7 +529,7 @@ def test_fetch_sectoral_index_rs_skips_failing_tickers_without_raising():
 
     try:
         screener_module.yf.Ticker = _raise
-        result = sc.fetch_sectoral_index_rs({"NIFTY AUTO": "^FAKEAUTO"})
+        result = sc.fetch_sectoral_index_rs({"NIFTY FAKEAUTO": "^FAKEAUTO"})
         assert result == {}
     finally:
         screener_module.yf.Ticker = original_ticker
@@ -489,13 +557,13 @@ def test_fetch_sector_pulse_table_computes_ath_and_rs_per_index():
     try:
         screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
         df = sc.fetch_sector_pulse_table(
-            tickers={"NIFTY AUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"},
+            tickers={"NIFTY FAKEAUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"},
             nifty50_ticker="^FAKEN50",
         )
         assert set(df.columns) == {"Sector", "ATH_Price_Flag", "RS_vs_Nifty50"}
-        assert set(df["Sector"]) == {"NIFTY AUTO", "NIFTY BANK"}
+        assert set(df["Sector"]) == {"NIFTY FAKEAUTO", "NIFTY BANK"}
 
-        auto_row = df[df["Sector"] == "NIFTY AUTO"].iloc[0]
+        auto_row = df[df["Sector"] == "NIFTY FAKEAUTO"].iloc[0]
         bank_row = df[df["Sector"] == "NIFTY BANK"].iloc[0]
         assert auto_row["ATH_Price_Flag"] == True  # noqa: E712 -- rising series ends at its own high
         assert bank_row["RS_vs_Nifty50"] == pytest.approx(round(bank_rs - n50_rs, 2), abs=0.01)
@@ -513,7 +581,7 @@ def test_fetch_sector_pulse_table_empty_when_nifty50_unavailable():
 
     try:
         screener_module.yf.Ticker = _raise
-        df = sc.fetch_sector_pulse_table(tickers={"NIFTY AUTO": "^FAKEAUTO"}, nifty50_ticker="^FAKEN50")
+        df = sc.fetch_sector_pulse_table(tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_ticker="^FAKEN50")
         assert df.empty
         assert list(df.columns) == ["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"]
     finally:
@@ -533,10 +601,10 @@ def test_fetch_sector_pulse_table_skips_one_failing_index_keeps_others():
     try:
         screener_module.yf.Ticker = _fake_ticker
         df = sc.fetch_sector_pulse_table(
-            tickers={"NIFTY AUTO": "^FAKEAUTO", "NIFTY BROKEN": "^FAKEBROKEN"},
+            tickers={"NIFTY FAKEAUTO": "^FAKEAUTO", "NIFTY BROKEN": "^FAKEBROKEN"},
             nifty50_ticker="^FAKEN50",
         )
-        assert list(df["Sector"]) == ["NIFTY AUTO"]
+        assert list(df["Sector"]) == ["NIFTY FAKEAUTO"]
     finally:
         screener_module.yf.Ticker = original_ticker
 

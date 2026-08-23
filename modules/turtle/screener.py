@@ -37,6 +37,7 @@ import yfinance as yf
 from modules.breakout import data_feed
 from . import compute
 from . import constants as C
+from . import tickertape_feed
 
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Sector", "Industry", "Current_Price",
@@ -46,11 +47,15 @@ SIGNAL_COLUMNS = [
 ]
 
 
-def _fetch_index_rs(ticker: str) -> Optional[float]:
-    """Fetch one index's own 52-week (weekly high-close) relative strength directly from its
-    yfinance ticker -- shared by ``fetch_benchmark_rs`` and ``fetch_sectoral_index_rs``.
-    Returns None (never raises) on any fetch/parse failure; callers decide what that means.
+def _fetch_index_daily_close(ticker: str, index_name: Optional[str] = None) -> Optional[pd.Series]:
+    """Daily close series for one index -- Tickertape for the 7 sectoral indices verified stale
+    on yfinance (``index_name in C.TICKERTAPE_INDEX_SYMBOLS``), yfinance for everything else
+    (benchmark, Nifty 50, and the 3 sectoral indices yfinance still serves fresh). Returns None
+    (never raises) on any fetch/parse failure; callers decide what that means.
     """
+    if index_name and index_name in C.TICKERTAPE_INDEX_SYMBOLS:
+        return tickertape_feed.fetch_index_daily_close(C.TICKERTAPE_INDEX_SYMBOLS[index_name])
+
     try:
         hist = yf.Ticker(ticker).history(
             period=C.DAILY_HISTORY_PERIOD, interval="1d", auto_adjust=False, timeout=20
@@ -70,7 +75,17 @@ def _fetch_index_rs(ticker: str) -> Optional[float]:
     # separate reassignment is needed there at all).
     close = pd.to_numeric(hist["Close"], errors="coerce")
     close.index = pd.DatetimeIndex(hist.index).tz_localize(None)
-    close = close.dropna()
+    return close.dropna()
+
+
+def _fetch_index_rs(ticker: str, index_name: Optional[str] = None) -> Optional[float]:
+    """Fetch one index's own 52-week (weekly high-close) relative strength -- shared by
+    ``fetch_benchmark_rs`` and ``fetch_sectoral_index_rs``. Returns None (never raises) on any
+    fetch/parse failure; callers decide what that means.
+    """
+    close = _fetch_index_daily_close(ticker, index_name)
+    if close is None or close.empty:
+        return None
     return compute.relative_strength(close)
 
 
@@ -107,52 +122,44 @@ def fetch_sectoral_index_rs(tickers: Optional[Dict[str, str]] = None) -> Dict[st
     tickers = tickers if tickers is not None else C.SECTORAL_INDEX_TICKERS
     result: Dict[str, float] = {}
     for index_name, ticker in tickers.items():
-        rs = _fetch_index_rs(ticker)
+        rs = _fetch_index_rs(ticker, index_name=index_name)
         if rs is not None:
             result[index_name] = rs
     return result
 
 
-def _fetch_index_ath_and_rs(ticker: str) -> Optional[Dict[str, object]]:
+def _fetch_index_ath_and_rs(ticker: str, index_name: Optional[str] = None) -> Optional[Dict[str, object]]:
     """Fetch one index's own ATH-price flag + 52-week RS -- same two-series treatment
     (monthly ``max`` period for the true all-time-high, daily ``2y`` for the RS/current-price)
     already used for individual stocks in ``run_pipeline``, just fed an index ticker instead
     of a stock symbol. Returns None (never raises) if the daily fetch fails; the monthly fetch
     failing just means the ATH check falls back to the daily-only max, mirroring
     ``run_pipeline``'s existing monthly-fetch-optional behaviour.
+
+    For a Tickertape-backed index (``index_name in C.TICKERTAPE_INDEX_SYMBOLS``), the monthly
+    yfinance fetch is skipped entirely -- it's known-degenerate garbage for exactly these
+    tickers (see MIN_MONTHLY_ROWS_FOR_ATH's docstring), so there's nothing to gain by trying it,
+    and the 2-year Tickertape daily window is both fresher and already the same fallback these
+    indices were already using.
     """
-    try:
-        daily = yf.Ticker(ticker).history(
-            period=C.DAILY_HISTORY_PERIOD, interval="1d", auto_adjust=False, timeout=20
-        )
-    except Exception:
-        daily = None
-    if daily is None or daily.empty or "Close" not in daily.columns:
+    daily_close = _fetch_index_daily_close(ticker, index_name)
+    if daily_close is None or daily_close.empty:
         return None
 
-    # Index-before-dropna (see _fetch_index_rs's comment for why the reverse order raises a
-    # length-mismatch ValueError whenever the fetch has any NaN close).
-    daily_close = pd.to_numeric(daily["Close"], errors="coerce")
-    daily_close.index = pd.DatetimeIndex(daily.index).tz_localize(None)
-    daily_close = daily_close.dropna()
-    if daily_close.empty:
-        return None
-
-    try:
-        monthly = yf.Ticker(ticker).history(
-            period=C.MONTHLY_HISTORY_PERIOD, interval="1mo", timeout=20
-        )
-    except Exception:
-        monthly = None
-    # len(monthly) >= MIN_MONTHLY_ROWS_FOR_ATH, not just "non-empty" -- several sectoral index
-    # tickers return a single degenerate row (today's live quote, not real history); see that
-    # constant's docstring. A too-short monthly series is treated the same as "fetch failed":
-    # historical_max falls back to the daily-only max below.
-    monthly_max = (
-        float(monthly["Close"].max())
-        if monthly is not None and len(monthly) >= C.MIN_MONTHLY_ROWS_FOR_ATH
-        else None
-    )
+    monthly_max = None
+    if not (index_name and index_name in C.TICKERTAPE_INDEX_SYMBOLS):
+        try:
+            monthly = yf.Ticker(ticker).history(
+                period=C.MONTHLY_HISTORY_PERIOD, interval="1mo", timeout=20
+            )
+        except Exception:
+            monthly = None
+        # len(monthly) >= MIN_MONTHLY_ROWS_FOR_ATH, not just "non-empty" -- several sectoral
+        # index tickers return a single degenerate row (today's live quote, not real history);
+        # see that constant's docstring. A too-short monthly series is treated the same as
+        # "fetch failed": historical_max falls back to the daily-only max below.
+        if monthly is not None and len(monthly) >= C.MIN_MONTHLY_ROWS_FOR_ATH:
+            monthly_max = float(monthly["Close"].max())
 
     current_price = float(daily_close.iloc[-1])
     historical_max = float(daily_close.max())
@@ -188,7 +195,7 @@ def fetch_sector_pulse_table(
 
     rows = []
     for index_name, ticker in tickers.items():
-        result = _fetch_index_ath_and_rs(ticker)
+        result = _fetch_index_ath_and_rs(ticker, index_name=index_name)
         if result is None:
             continue
         rs = result["rs"]

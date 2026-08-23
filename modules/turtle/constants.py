@@ -67,6 +67,23 @@ SECTORAL_INDEX_TICKERS = {
     "NIFTY PSU BANK": "^CNXPSUBANK",
 }
 
+# 7 of the 10 SECTORAL_INDEX_TICKERS above went stale on yfinance in mid-July 2026 (both daily
+# and monthly endpoints stopped updating -- verified live 2026-08-22/23, over a month stale by
+# the time it was caught). Tickertape's chart API (modules/turtle/tickertape_feed.py) returns
+# fresh, accurate data for all 7 -- confirmed matching NSE's own official daily archive exactly.
+# Only these 7 use Tickertape; NIFTY BANK/IT/PHARMA (and Nifty 50, and the benchmark) are still
+# fresh on yfinance and are left alone -- see screener.py::_fetch_index_daily_close for the
+# selection logic.
+TICKERTAPE_INDEX_SYMBOLS = {
+    "NIFTY AUTO": ".NIFTYAUTO",
+    "NIFTY ENERGY": ".NIFTYENR",
+    "NIFTY FMCG": ".NIFTYFMCG",
+    "NIFTY MEDIA": ".NIFTYMED",
+    "NIFTY METAL": ".NIFTYMET",
+    "NIFTY PSU BANK": ".NIFTYPSU",
+    "NIFTY REALTY": ".NIFTYREAL",
+}
+
 # Sector Pulse table (added 2026-08-20): a dashboard-level, index-only summary (one row per
 # sectoral index, not per stock) -- ATH Price Flag and RS computed for each index the exact
 # same way as for a stock, just fed the index's own price series. NIFTY_50_INDEX_TICKER is
