@@ -2,14 +2,21 @@
 Dash callbacks for the Turtle Strategy tab (docs/TURTLE_STRATEGY_PLAN.md).
 
 One main render callback: Indices/Sector/Stock/ATH-only/Yesterday filters -> a colour-coded
-results table, plus a staleness banner. Read-only — nothing here places or modifies trades.
+results table, plus a staleness banner. Read-only — nothing here places or modifies trades
+EXCEPT the watchlist add/remove callback, which writes only to the logged-in user's own
+turtle_watchlist rows (via modules.auth.user_store) -- never touches market-data tables.
 """
+import json
 from datetime import datetime
 
+import dash
+import dash_bootstrap_components as dbc
+import flask_login
 import pandas as pd
-from dash import Input, Output, dash_table, html
+from dash import ALL, Input, Output, State, dash_table, html
 
 import data_manager
+from modules.auth import user_store
 from . import compute
 
 _DISPLAY_COLUMNS = [
@@ -233,6 +240,12 @@ def _banners(loaded_date, live_prices_df):
     return html.Div(parts) if parts else None
 
 
+def _current_user_id():
+    if flask_login.current_user.is_authenticated:
+        return flask_login.current_user.id
+    return None
+
+
 def register_turtle_callbacks(app):
     """Register all Turtle Strategy callbacks on the Dash ``app``."""
 
@@ -249,6 +262,38 @@ def register_turtle_callbacks(app):
         return _sector_pulse_table(data_manager.turtle_sector_pulse_df)
 
     @app.callback(
+        Output("tt-watchlist-tags", "children"),
+        Output("tt-watchlist-add-dropdown", "value"),
+        Input("tt-watchlist-add-btn", "n_clicks"),
+        Input({"type": "del-watchlist", "symbol": ALL}, "n_clicks"),
+        State("tt-watchlist-add-dropdown", "value"),
+        prevent_initial_call=False,
+    )
+    def manage_watchlist(_add_clicks, del_clicks, new_symbol):
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+
+        ctx = dash.callback_context
+        triggered = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+        if "tt-watchlist-add-btn" in triggered and new_symbol:
+            user_store.add_to_watchlist(user_id, new_symbol)
+        elif "del-watchlist" in triggered and any(del_clicks):
+            id_dict = json.loads(triggered.split(".")[0])
+            user_store.remove_from_watchlist(user_id, id_dict["symbol"])
+
+        symbols = user_store.get_watchlist(user_id)
+        tags = [
+            dbc.Badge(
+                [sym, html.Span(" ×", id={"type": "del-watchlist", "symbol": sym},
+                                 style={"cursor": "pointer", "marginLeft": "4px"}, n_clicks=0)],
+                color="secondary", className="me-1 mb-1 p-2", style={"fontSize": "0.8rem"},
+            )
+            for sym in symbols
+        ]
+        return tags, None
+
+    @app.callback(
         [Output("tt-signals-container", "children"),
          Output("tt-staleness-banner", "children")],
         [Input("tt-indices-filter", "value"),
@@ -256,10 +301,12 @@ def register_turtle_callbacks(app):
          Input("tt-stock-filter", "value"),
          Input("tt-ath-only-toggle", "value"),
          Input("tt-yesterday-toggle", "value"),
-         Input("tt-auto-refresh-interval", "n_intervals")],
+         Input("tt-auto-refresh-interval", "n_intervals"),
+         Input("tt-watchlist-tags", "children")],  # re-render immediately on add/remove, so
+         # "Indices: My Watchlist" reflects the change without waiting for the next 5-min tick
         prevent_initial_call=False,
     )
-    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, _n_intervals):
+    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, _n_intervals, _watchlist_tags):
         # Re-sync from disk/GitHub on every render, not just at process boot. Without this,
         # a long-lived running instance would only ever see whatever turtle_signals_<date>.csv
         # / turtle_live_prices.csv / nse_categories.csv existed when the process last started --
@@ -292,13 +339,20 @@ def register_turtle_callbacks(app):
         if live_prices_df is not None and not live_prices_df.empty:
             df = compute.merge_live_prices(df, live_prices_df)
 
-        categories_df = data_manager.nse_categories_df
-        if indices_value and indices_value != "All" and not categories_df.empty:
-            categories_map = dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
-            mask = df["Symbol"].map(
-                lambda sym: compute.filter_by_index(categories_map.get(sym), indices_value)
-            )
-            df = df[mask]
+        if indices_value == "My Watchlist":
+            # Not a real NSE index -- filter to the logged-in user's own turtle_watchlist rows
+            # instead of the NSE-category membership check below.
+            user_id = _current_user_id()
+            watchlist_symbols = set(user_store.get_watchlist(user_id)) if user_id else set()
+            df = df[df["Symbol"].isin(watchlist_symbols)]
+        else:
+            categories_df = data_manager.nse_categories_df
+            if indices_value and indices_value != "All" and not categories_df.empty:
+                categories_map = dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
+                mask = df["Symbol"].map(
+                    lambda sym: compute.filter_by_index(categories_map.get(sym), indices_value)
+                )
+                df = df[mask]
 
         if sector_value and sector_value != "All":
             df = df[df["Sector"] == sector_value]

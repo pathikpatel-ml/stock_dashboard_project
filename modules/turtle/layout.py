@@ -8,6 +8,7 @@ options are populated once, at layout-build time, from whatever ``data_manager``
 app startup (same refresh model as the rest of the app — new data appears on the next
 restart/redeploy, matching how the daily-cron CSVs are already surfaced elsewhere).
 """
+import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 import data_manager
@@ -16,8 +17,10 @@ import data_manager
 # The real option list is built dynamically from whatever index tags actually exist in
 # nse_categories.csv (NIFTY 50/100/200 plus sectoral indices like NIFTY BANK, NIFTY IT,
 # NIFTY PHARMA, etc.) -- compute.filter_by_index already matches any of these generically,
-# this dropdown was just hardcoded to show a subset of what's actually filterable.
-INDEX_OPTIONS = ["All", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
+# this dropdown was just hardcoded to show a subset of what's actually filterable. "My
+# Watchlist" is not a real NSE index -- modules/turtle/callbacks.py::render_turtle special-cases
+# it to filter by the logged-in user's own turtle_watchlist rows instead.
+INDEX_OPTIONS = ["All", "My Watchlist", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
 
 
 def _dropdown_options(series, extra_first="All"):
@@ -36,7 +39,7 @@ def _index_options():
             tag = tag.strip()
             if tag:
                 tags.add(tag)
-    return [{"label": v, "value": v} for v in ["All"] + sorted(tags)]
+    return [{"label": v, "value": v} for v in ["All", "My Watchlist"] + sorted(tags)]
 
 
 def create_turtle_layout():
@@ -44,6 +47,9 @@ def create_turtle_layout():
     sector_options = _dropdown_options(df["Sector"]) if not df.empty and "Sector" in df.columns else [{"label": "All", "value": "All"}]
     stock_options = _dropdown_options(df["Symbol"]) if not df.empty and "Symbol" in df.columns else [{"label": "All", "value": "All"}]
     index_options = _index_options()
+    # No "All" entry here -- this dropdown is for picking ONE real symbol to add to the
+    # watchlist, not for filtering, so an "All" placeholder wouldn't mean anything.
+    watchlist_add_options = _dropdown_options(df["Symbol"], extra_first=None) if not df.empty and "Symbol" in df.columns else []
 
     return html.Div(className="section-container", children=[
         html.H3("🐢 Turtle Strategy — ADD / HOLD / EXIT"),
@@ -104,6 +110,20 @@ def create_turtle_layout():
                     style={"fontSize": "13px"},
                 ),
             ]),
+        ]),
+
+        html.Div(className="control-bar", style={"alignItems": "center"}, children=[
+            html.Label("⭐ My Watchlist:", style={"fontWeight": "500", "fontSize": "13px"}),
+            dcc.Dropdown(
+                id="tt-watchlist-add-dropdown",
+                options=watchlist_add_options,
+                placeholder="Search & select a stock to add…",
+                clearable=True,
+                style={"width": "260px"},
+            ),
+            dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
+                       id="tt-watchlist-add-btn", color="secondary", outline=True, n_clicks=0),
+            html.Div(id="tt-watchlist-tags", style={"display": "flex", "flexWrap": "wrap", "gap": "4px"}),
         ]),
 
         dcc.Loading(type="circle", children=[

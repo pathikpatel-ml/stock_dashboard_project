@@ -393,6 +393,34 @@ def remove_exclusion(user_id: int, symbol: str):
 
 
 # ---------------------------------------------------------------------------
+# Turtle Strategy watchlist
+# ---------------------------------------------------------------------------
+
+def get_watchlist(user_id: int) -> list:
+    rows = _get("turtle_watchlist", {"user_id": f"eq.{user_id}", "select": "symbol"})
+    return [r["symbol"] for r in rows]
+
+
+def add_to_watchlist(user_id: int, symbol: str):
+    symbol = symbol.strip().upper()
+    if not symbol:
+        return
+    try:
+        _post("turtle_watchlist",
+              {"user_id": user_id, "symbol": symbol},
+              prefer="return=minimal")
+    except Exception:
+        pass  # ignore duplicate (UNIQUE constraint)
+
+
+def remove_from_watchlist(user_id: int, symbol: str):
+    _delete("turtle_watchlist", {
+        "user_id": f"eq.{user_id}",
+        "symbol": f"eq.{symbol.upper()}",
+    })
+
+
+# ---------------------------------------------------------------------------
 # GTT log
 # ---------------------------------------------------------------------------
 

@@ -51,6 +51,14 @@ CREATE TABLE IF NOT EXISTS kite_exclusions (
     UNIQUE (user_id, symbol)
 );
 
+CREATE TABLE IF NOT EXISTS turtle_watchlist (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol     TEXT        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, symbol)
+);
+
 CREATE TABLE IF NOT EXISTS gtt_log (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER     NOT NULL REFERENCES users(id),
