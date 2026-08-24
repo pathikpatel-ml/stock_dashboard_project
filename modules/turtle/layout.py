@@ -29,6 +29,25 @@ def _dropdown_options(series, extra_first="All"):
     return [{"label": v, "value": v} for v in options]
 
 
+def _stock_dropdown_options(df, extra_first="All"):
+    """Stock-picking dropdown options: label = "Company Name (SYMBOL)", value = Symbol --
+    the value stays the symbol so every downstream filter/store/callback (render_turtle's
+    Stock filter match, the watchlist add callback, user_store's symbol columns) is completely
+    unaffected; only what's DISPLAYED to the user changes. Sorted by company name, not symbol,
+    since that's what the user is now reading to find a stock."""
+    if df.empty or "Symbol" not in df.columns or "Company" not in df.columns:
+        return [{"label": extra_first, "value": extra_first}] if extra_first else []
+
+    sub = df[["Symbol", "Company"]].dropna(subset=["Symbol"]).copy()
+    sub["Symbol"] = sub["Symbol"].astype(str)
+    sub["Company"] = sub["Company"].fillna(sub["Symbol"]).astype(str)
+    sub = sub.drop_duplicates(subset=["Symbol"]).sort_values("Company")
+
+    options = [{"label": extra_first, "value": extra_first}] if extra_first else []
+    options += [{"label": f"{row.Company} ({row.Symbol})", "value": row.Symbol} for row in sub.itertuples()]
+    return options
+
+
 def _index_options():
     df = data_manager.nse_categories_df
     if df.empty or "NSE_Categories" not in df.columns:
@@ -45,11 +64,11 @@ def _index_options():
 def create_turtle_layout():
     df = data_manager.turtle_signals_df
     sector_options = _dropdown_options(df["Sector"]) if not df.empty and "Sector" in df.columns else [{"label": "All", "value": "All"}]
-    stock_options = _dropdown_options(df["Symbol"]) if not df.empty and "Symbol" in df.columns else [{"label": "All", "value": "All"}]
+    stock_options = _stock_dropdown_options(df)
     index_options = _index_options()
     # No "All" entry here -- this dropdown is for picking ONE real symbol to add to the
     # watchlist, not for filtering, so an "All" placeholder wouldn't mean anything.
-    watchlist_add_options = _dropdown_options(df["Symbol"], extra_first=None) if not df.empty and "Symbol" in df.columns else []
+    watchlist_add_options = _stock_dropdown_options(df, extra_first=None)
 
     return html.Div(className="section-container", children=[
         html.H3("🐢 Turtle Strategy — ADD / HOLD / EXIT"),
