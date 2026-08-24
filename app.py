@@ -503,7 +503,7 @@ app.clientside_callback(
         return window.dash_clientside.no_update;
     }
     """,
-    dash.Output("kite-oauth-url", "data"),
+    dash.Output("kite-oauth-url", "data", allow_duplicate=True),
     dash.Input("kite-oauth-url", "data"),
     prevent_initial_call=True,
 )
