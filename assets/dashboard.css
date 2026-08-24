@@ -284,39 +284,41 @@ h1.main-title,
 /* =====================================================================
    9. Dash Dropdown (react-select / dcc.Dropdown)
    ===================================================================== */
-/* Hardcoded black (#000) rather than the --bg-surface/--bg-elevated variables -- reported
-   repeatedly as rendering white/unreadable in some environments despite those variables
-   already resolving to near-black locally (never reproduced directly, so this removes any
-   dependency on custom-property resolution entirely: a literal color can't fail to resolve
-   the way a var() theoretically could under some browser/extension interference). */
+/* White background + black text, hardcoded (not the --bg-surface/--bg-elevated variables) --
+   the previous black-background/light-text version was reported repeatedly as unreadable after
+   selecting a value, in some environments, and was never fully reproduced/fixed despite several
+   rounds of !important overrides. Switched to the opposite, maximum-contrast combination
+   (white bg, black text) instead of chasing the exact cause further -- a literal color can't
+   fail to resolve the way a var() theoretically could under some browser/extension
+   interference. */
 .Select-control {
   min-height: 36px;
   border: 1px solid var(--border) !important;
   border-radius: var(--r-sm) !important;
-  background-color: #000 !important;
+  background-color: #fff !important;
 }
 
 .Select-value-label,
 .Select-placeholder {
-  color: #f0f0f8 !important;
+  color: #000 !important;
 }
 
 .Select-input input {
-  color: #f0f0f8 !important;
+  color: #000 !important;
 }
 
 .Select-menu-outer {
-  background-color: #000 !important;
+  background-color: #fff !important;
   border: 1px solid var(--border) !important;
 }
 
 .Select-option {
-  background-color: #000 !important;
-  color: #f0f0f8 !important;
+  background-color: #fff !important;
+  color: #000 !important;
 }
 
 .Select-option.is-focused {
-  background-color: #222 !important;
+  background-color: #e0e0e0 !important;
 }
 
 .Select-option.is-selected {
@@ -325,25 +327,25 @@ h1.main-title,
 }
 
 /* Dash 2.x VirtualizedSelect */
-.dash-dropdown .Select-control { background-color: #000 !important; }
+.dash-dropdown .Select-control { background-color: #fff !important; }
 
-/* Defensive reinforcement: guarantee a black background and readable text on every element
-   inside the control and the open menu, not just the specific classes above -- covers any
-   nested element (future react-select DOM changes, browser/OS forced-dark-mode
-   double-inversion, etc.) that would otherwise inherit or default to an unreadable color. */
+/* Defensive reinforcement: guarantee a white background and black text on every element inside
+   the control and the open menu, not just the specific classes above -- covers any nested
+   element (future react-select DOM changes, browser/OS forced-dark-mode double-inversion, etc.)
+   that would otherwise inherit or default to an unreadable color. */
 .dash-dropdown .Select-control,
 .dash-dropdown .Select-control * {
-  background-color: #000 !important;
-  color: #f0f0f8 !important;
+  background-color: #fff !important;
+  color: #000 !important;
 }
 .dash-dropdown .Select-menu-outer,
 .dash-dropdown .Select-menu-outer * {
-  background-color: #000 !important;
-  color: #f0f0f8 !important;
+  background-color: #fff !important;
+  color: #000 !important;
 }
 .dash-dropdown .Select-option.is-focused,
 .dash-dropdown .Select-option.is-focused * {
-  background-color: #222 !important;
+  background-color: #e0e0e0 !important;
 }
 .dash-dropdown .Select-option.is-selected,
 .dash-dropdown .Select-option.is-selected * {
