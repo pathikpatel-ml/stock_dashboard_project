@@ -59,6 +59,71 @@ CREATE TABLE IF NOT EXISTS turtle_watchlist (
     UNIQUE (user_id, symbol)
 );
 
+-- Simulator tab: agentic paper-trading (LangGraph + OpenRouter LLM) over the app's real V20
+-- and Turtle signals. Per-user, accessed via the same SUPABASE_URL/SUPABASE_SERVICE_KEY REST
+-- path as every other table on this page -- written by a daily GitHub Actions batch job
+-- (generate_simulator_decisions.py), read by the live app for display + config changes.
+CREATE TABLE IF NOT EXISTS simulator_config (
+    id                SERIAL PRIMARY KEY,
+    user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    strategy          TEXT NOT NULL CHECK (strategy IN ('v20', 'turtle')),
+    starting_balance  NUMERIC NOT NULL DEFAULT 100000,
+    max_position_pct  REAL NOT NULL DEFAULT 12.0,
+    is_active         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reset_at          TIMESTAMPTZ,
+    UNIQUE (user_id, strategy)
+);
+
+CREATE TABLE IF NOT EXISTS simulator_portfolio (
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    strategy      TEXT NOT NULL CHECK (strategy IN ('v20', 'turtle')),
+    cash_balance  NUMERIC NOT NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, strategy)
+);
+
+CREATE TABLE IF NOT EXISTS simulator_holdings (
+    id               SERIAL PRIMARY KEY,
+    user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    strategy         TEXT NOT NULL CHECK (strategy IN ('v20', 'turtle')),
+    symbol           TEXT NOT NULL,
+    quantity         NUMERIC NOT NULL,
+    entry_price      NUMERIC NOT NULL,
+    entry_date       DATE NOT NULL,
+    entry_rationale  TEXT,
+    UNIQUE (user_id, strategy, symbol)
+);
+
+CREATE TABLE IF NOT EXISTS simulator_trades (
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    strategy      TEXT NOT NULL CHECK (strategy IN ('v20', 'turtle')),
+    symbol        TEXT NOT NULL,
+    action        TEXT NOT NULL CHECK (action IN ('BUY', 'SELL')),
+    price         NUMERIC NOT NULL,
+    quantity      NUMERIC NOT NULL,
+    trade_date    DATE NOT NULL,
+    realized_pnl  NUMERIC,  -- only set on SELL
+    rationale     TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Records EVERY candidate reviewed, including ones the agent chose not to act on -- the
+-- transparency/trust mechanism ("why didn't it buy X today") and the debugging tool when
+-- something looks wrong.
+CREATE TABLE IF NOT EXISTS simulator_decision_log (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    strategy    TEXT NOT NULL CHECK (strategy IN ('v20', 'turtle')),
+    symbol      TEXT NOT NULL,
+    decision    TEXT NOT NULL CHECK (decision IN ('BUY', 'SELL', 'HOLD', 'SKIP')),
+    rationale   TEXT,
+    run_date    DATE NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS gtt_log (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER     NOT NULL REFERENCES users(id),

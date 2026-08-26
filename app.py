@@ -24,6 +24,8 @@ from modules.kite import settings_callbacks as kite_settings_callbacks
 from modules.kite import settings_layout as kite_settings_layout
 from modules.turtle import callbacks as turtle_callbacks
 from modules.turtle import layout as turtle_layout
+from modules.simulator import callbacks as simulator_callbacks
+from modules.simulator import layout as simulator_layout
 
 try:
     from dotenv import load_dotenv
@@ -368,6 +370,8 @@ def _main_dashboard_layout():
                 children=[v20_layout.create_v20_layout()]),
         dcc.Tab(label="Turtle Strategy", value="tab-turtle",
                 children=[turtle_layout.create_turtle_layout()]),
+        dcc.Tab(label="Simulator", value="tab-simulator",
+                children=[simulator_layout.create_simulator_layout()]),
         dcc.Tab(label="Broker Automation Setup", value="tab-kite-settings",
                 children=[kite_settings_layout.create_kite_settings_layout()]),
     ]
@@ -390,6 +394,12 @@ def _main_dashboard_layout():
         html.Button(
             [html.I(className="fa-solid fa-shield"), html.Span("Turtle")],
             id={"type": "bottom-nav-btn", "tab": "tab-turtle"},
+            n_clicks=0,
+            className="bottom-nav-item",
+        ),
+        html.Button(
+            [html.I(className="fa-solid fa-flask"), html.Span("Simulator")],
+            id={"type": "bottom-nav-btn", "tab": "tab-simulator"},
             n_clicks=0,
             className="bottom-nav-item",
         ),
@@ -486,6 +496,7 @@ app.layout = serve_layout
 auth_callbacks.register_auth_callbacks(app)
 v20_callbacks.register_v20_callbacks(app)
 turtle_callbacks.register_turtle_callbacks(app)
+simulator_callbacks.register_simulator_callbacks(app)
 kite_settings_callbacks.register_kite_settings_callbacks(app)
 admin_callbacks.register_admin_callbacks(app)
 register_signup_route(server)
