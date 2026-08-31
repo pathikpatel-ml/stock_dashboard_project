@@ -49,11 +49,11 @@ BROAD_INDEX_TAGS = {"NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY MIDCAP 50", "NI
 # same treatment as the benchmark (BENCHMARK_TICKER below) -- instead of averaging its member
 # stocks' individual RS. More accurate: reflects the index's real market-cap-weighted
 # performance rather than an equal-weight approximation of it, and matches how RS_vs_Benchmark
-# already works. Only indices with a verified-live-working yfinance ticker are listed here
-# (each individually confirmed with real 2-year history before being added -- guessed tickers
-# for NIFTY CONSUMER DURABLES and NIFTY OIL AND GAS all 404'd/returned empty, so those two
-# still fall back to compute.py's leave-one-out peer-average in run_pipeline, same as any
-# sectoral index without a ticker mapping here).
+# already works. NIFTY CONSUMER DURABLES and NIFTY OIL AND GAS (added 2026-08-31) have no
+# working yfinance ticker under any guessed name (^CNXCONSUMDUR, ^NIFTYCONSDUR, ^CNXOILGAS all
+# 404 -- re-checked, still true) -- both are 100% Tickertape-routed (see
+# TICKERTAPE_INDEX_SYMBOLS below), so their entries here are placeholders never actually used
+# by _fetch_index_daily_close, kept only so every dict key below has *some* string value.
 SECTORAL_INDEX_TICKERS = {
     "NIFTY AUTO": "^CNXAUTO",
     "NIFTY BANK": "^NSEBANK",
@@ -65,14 +65,18 @@ SECTORAL_INDEX_TICKERS = {
     "NIFTY REALTY": "^CNXREALTY",
     "NIFTY MEDIA": "^CNXMEDIA",
     "NIFTY PSU BANK": "^CNXPSUBANK",
+    "NIFTY CONSUMER DURABLES": None,  # no working yfinance ticker -- always Tickertape-routed
+    "NIFTY OIL AND GAS": None,        # no working yfinance ticker -- always Tickertape-routed
 }
 
-# 7 of the 10 SECTORAL_INDEX_TICKERS above went stale on yfinance in mid-July 2026 (both daily
-# and monthly endpoints stopped updating -- verified live 2026-08-22/23, over a month stale by
-# the time it was caught). Tickertape's chart API (modules/turtle/tickertape_feed.py) returns
-# fresh, accurate data for all 7 -- confirmed matching NSE's own official daily archive exactly.
-# Only these 7 use Tickertape; NIFTY BANK/IT/PHARMA (and Nifty 50, and the benchmark) are still
-# fresh on yfinance and are left alone -- see screener.py::_fetch_index_daily_close for the
+# 9 of the 12 SECTORAL_INDEX_TICKERS above are Tickertape-routed: 7 went stale on yfinance in
+# mid-July 2026 (both daily and monthly endpoints stopped updating -- verified live
+# 2026-08-22/23, over a month stale by the time it was caught), and 2 more (Consumer Durables,
+# Oil and Gas) simply never had a working yfinance ticker at all (verified 2026-08-31 -- their
+# Tickertape values cross-checked exactly against NSE's own official daily archive before
+# adding). Tickertape's chart API (modules/turtle/tickertape_feed.py) returns fresh, accurate
+# data for all 9. Only NIFTY BANK/IT/PHARMA (and Nifty 50, and the benchmark) are still fresh
+# on yfinance and are left alone -- see screener.py::_fetch_index_daily_close for the
 # selection logic.
 TICKERTAPE_INDEX_SYMBOLS = {
     "NIFTY AUTO": ".NIFTYAUTO",
@@ -82,6 +86,8 @@ TICKERTAPE_INDEX_SYMBOLS = {
     "NIFTY METAL": ".NIFTYMET",
     "NIFTY PSU BANK": ".NIFTYPSU",
     "NIFTY REALTY": ".NIFTYREAL",
+    "NIFTY CONSUMER DURABLES": ".NIFCDUR",
+    "NIFTY OIL AND GAS": ".NIFOILGAS",
 }
 
 # Sector Pulse table (added 2026-08-20): a dashboard-level, index-only summary (one row per
