@@ -47,24 +47,24 @@ _COLUMN_TOOLTIPS = {
     ),
     "RS_Long_Term": (
         "52-week relative strength vs NSE:NIFTY: (1 + stock's 52wk return/100) / "
-        "(1 + Nifty's 52wk return/100) - 1. Above 0 = outperforming Nifty over the year; "
-        "at/below -0.25 triggers SELL."
+        "(1 + Nifty's 52wk return/100) - 1. Above 0 = outperforming Nifty over the year "
+        "(required for BUY); below 0 required for SELL (along with 5 other conditions)."
     ),
     "RS_Short_Term": "Same formula as RS Long Term, over a 13-week window -- recent momentum.",
-    "ADX": "Trend strength (13-period DMI smoothing). >= 20 required for BUY.",
-    "RSI": "21-period RSI. >= 55 required for BUY; <= 45 alone triggers SELL.",
-    "SuperTrend_Direction": "SuperTrend(10, 3) on weekly bars. BEARISH alone triggers SELL.",
-    "Volume_Building": "True if the latest week's volume is above its own 13-week average volume.",
-    "Price_Above_MA13": "True if the latest weekly close is above its own 13-week moving average.",
+    "ADX": "Trend strength (13-period DMI smoothing). >= 20 required for BUY; < 20 required for SELL.",
+    "RSI": "21-period RSI. >= 55 required for BUY; < 45 required for SELL.",
+    "SuperTrend_Direction": "SuperTrend(10, 3) on weekly bars. Bullish required for BUY; bearish required for SELL.",
+    "Volume_Building": "True if the latest week's volume is above its own 13-week average volume. BUY-only -- not part of SELL.",
+    "Price_Above_MA13": "True if the latest weekly close is above its own 13-week moving average. Below required for SELL.",
     "Signal": (
         "**Blank** — no validated BUY has ever been recorded for this stock yet (tracking "
         "started 2026-09-05) -- even if it's currently technically weak, there's nothing to "
         "'exit' without a prior recorded entry.\n\n"
-        "**BUY** — every entry condition aligned (SuperTrend bullish, RS Long & Short Term both "
-        "positive, ADX >= 20, volume building, price above its 13w MA, RSI >= 55), and it's the "
-        "most recent validated event for this stock.\n\n"
-        "**SELL** — a weakening signal (SuperTrend bearish, OR RS Long Term <= -0.25, OR RSI "
-        "<= 45) fired after a prior validated BUY -- a real exit, not just a currently-weak stock."
+        "**BUY** — all 7 hold together: SuperTrend bullish, RS Long & Short Term both positive, "
+        "ADX >= 20, volume building, price above its 13w MA, RSI >= 55.\n\n"
+        "**SELL** — all 6 hold together (volume not included): SuperTrend bearish, RS Long & "
+        "Short Term both negative, ADX < 20, price below its 13w MA, RSI < 45 -- and it's the "
+        "most recent validated event, coming after a prior validated BUY."
     ),
 }
 

@@ -165,30 +165,42 @@ def test_classify_buy_requires_every_condition():
     ) == "BUY"
 
 
-def test_classify_sell_via_supertrend_bearish_alone():
-    # Every other condition looks BUY-worthy -- SuperTrend bearish alone must still win.
+def test_classify_sell_requires_every_condition():
+    # All 6 reversed conditions together (2026-09-05: SELL is now symmetric with BUY, no longer
+    # "any single trigger"). Volume is deliberately absent from this call signature's SELL path
+    # -- it's a BUY-only requirement.
     assert tq.classify(
-        rs_long=0.30, rs_short=0.05, adx_value=25.0, volume_ok=True,
-        price_trend_ok_=True, rsi_value=60.0, supertrend_bullish=False,
+        rs_long=-0.10, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=40.0, supertrend_bullish=False,
     ) == "SELL"
 
 
-def test_classify_sell_via_rs_long_exit_threshold_alone():
+def test_classify_hold_when_sell_missing_just_one_condition():
+    # Every SELL condition holds except ADX (still >= 20) -- must NOT fire SELL anymore, since
+    # it's all-or-nothing now, not "any single trigger".
     assert tq.classify(
-        rs_long=-0.25, rs_short=0.05, adx_value=25.0, volume_ok=True,
-        price_trend_ok_=True, rsi_value=60.0, supertrend_bullish=True,
-    ) == "SELL"
+        rs_long=-0.10, rs_short=-0.05, adx_value=25.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=40.0, supertrend_bullish=False,
+    ) == "HOLD"
+    # Every SELL condition holds except RSI (not below 45) -- also must be HOLD.
     assert tq.classify(
-        rs_long=-0.30, rs_short=0.05, adx_value=25.0, volume_ok=True,
-        price_trend_ok_=True, rsi_value=60.0, supertrend_bullish=True,
-    ) == "SELL"
+        rs_long=-0.10, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=50.0, supertrend_bullish=False,
+    ) == "HOLD"
+    # SuperTrend bullish alone, everything else SELL-worthy -- must be HOLD, not SELL.
+    assert tq.classify(
+        rs_long=-0.10, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=40.0, supertrend_bullish=True,
+    ) == "HOLD"
 
 
-def test_classify_sell_via_rsi_exit_alone():
+def test_classify_sell_price_none_does_not_satisfy_below_ma():
+    # price_trend_ok_=None ("unknown", e.g. insufficient history) must NOT count as "price
+    # below its MA" -- only an explicit False does.
     assert tq.classify(
-        rs_long=0.30, rs_short=0.05, adx_value=25.0, volume_ok=True,
-        price_trend_ok_=True, rsi_value=45.0, supertrend_bullish=True,
-    ) == "SELL"
+        rs_long=-0.10, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=None, rsi_value=40.0, supertrend_bullish=False,
+    ) == "HOLD"
 
 
 def test_classify_hold_when_supertrend_bullish_but_buy_not_confirmed():
@@ -197,7 +209,8 @@ def test_classify_hold_when_supertrend_bullish_but_buy_not_confirmed():
         rs_long=0.30, rs_short=0.05, adx_value=10.0, volume_ok=True,
         price_trend_ok_=True, rsi_value=60.0, supertrend_bullish=True,
     ) == "HOLD"
-    # RS long/short flat-to-negative but above the exit threshold, RSI healthy.
+    # RS long/short flat-to-negative, RSI healthy -- not SELL-worthy (SuperTrend still bullish)
+    # and not BUY-worthy (RS not positive).
     assert tq.classify(
         rs_long=-0.05, rs_short=-0.02, adx_value=25.0, volume_ok=True,
         price_trend_ok_=True, rsi_value=60.0, supertrend_bullish=True,
@@ -220,6 +233,21 @@ def test_classify_none_inputs_never_buy():
     assert tq.classify(
         rs_long=0.30, rs_short=0.05, adx_value=25.0, volume_ok=True,
         price_trend_ok_=True, rsi_value=None, supertrend_bullish=True,
+    ) == "HOLD"
+
+
+def test_classify_none_inputs_never_sell():
+    assert tq.classify(
+        rs_long=None, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=40.0, supertrend_bullish=False,
+    ) == "HOLD"
+    assert tq.classify(
+        rs_long=-0.10, rs_short=-0.05, adx_value=None, volume_ok=True,
+        price_trend_ok_=False, rsi_value=40.0, supertrend_bullish=False,
+    ) == "HOLD"
+    assert tq.classify(
+        rs_long=-0.10, rs_short=-0.05, adx_value=15.0, volume_ok=True,
+        price_trend_ok_=False, rsi_value=None, supertrend_bullish=False,
     ) == "HOLD"
 
 

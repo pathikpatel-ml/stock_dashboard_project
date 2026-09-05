@@ -20,14 +20,16 @@ COMPARATIVE_LABEL = "vs NSE:NIFTY"
 
 RS_LONG_TERM_WEEKS = 52
 RS_SHORT_TERM_WEEKS = 13
-RS_LONG_TERM_EXIT_THRESHOLD = -0.25   # ratio-based RS (see compute.py) at/below this -> SELL
 
 SUPERTREND_ATR_LENGTH = 10
 SUPERTREND_ATR_FACTOR = 3.0
 
 RSI_LENGTH = 21
 RSI_ENTRY = 55.0                      # RSI >= this required for BUY
-RSI_EXIT = 45.0                       # RSI <= this alone triggers SELL
+RSI_EXIT = 45.0                       # RSI < this required for SELL (2026-09-05: SELL is now
+                                       # symmetric with BUY -- see compute.py::classify -- so
+                                       # this is one of six conditions that must ALL hold, not
+                                       # an independent trigger on its own anymore)
 
 DMI_LENGTH = 13                       # smoothing period fed into the ADX/DI calculation
 ADX_MIN_THRESHOLD = 20.0              # the indicator's plain "ADX: 20" input -- minimum ADX

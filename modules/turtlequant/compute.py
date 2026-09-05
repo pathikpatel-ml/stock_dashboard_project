@@ -200,18 +200,23 @@ def classify(
     screened stock rather than only ones the user personally holds -- SELL/HOLD are screener
     labels, not portfolio state).
 
-    SELL -- any single weakening signal (approved "any single weakening signal" exit strictness):
-      SuperTrend bearish, OR RS Long Term <= exit threshold, OR RSI <= RSI_EXIT. This also
-      covers a stock that was never in an uptrend at all (SuperTrend bearish) -- there is no
-      separate "not applicable" state, same as the existing Turtle tab's EXIT.
-    BUY  -- every entry condition holds: SuperTrend bullish, RS Long Term and RS Short Term both
-      positive, ADX >= threshold, volume building, price above its own MA, RSI >= RSI_ENTRY.
-    HOLD -- SuperTrend bullish but the full BUY confirmation isn't met.
+    SELL and BUY are symmetric, both all-or-nothing (confirmed with the user 2026-09-05, a
+    deliberate reversal of the earlier "any single weakening signal" design):
+      SELL -- every one of: RS Long Term < 0, RS Short Term < 0, ADX < threshold, RSI < RSI_EXIT,
+        SuperTrend bearish, price below its own MA. Volume is NOT part of SELL (explicitly
+        excluded by the user) -- it's a BUY-only requirement.
+      BUY  -- every one of: RS Long Term > 0, RS Short Term > 0, ADX >= threshold, RSI >= RSI_ENTRY,
+        SuperTrend bullish, volume building, price above its own MA.
+    HOLD -- everything else (e.g. RSI sitting between RSI_EXIT and RSI_ENTRY, or a mix of
+      bullish and bearish conditions) -- neither full set is satisfied.
     """
     if (
-        not supertrend_bullish
-        or (rs_long is not None and rs_long <= C.RS_LONG_TERM_EXIT_THRESHOLD)
-        or (rsi_value is not None and rsi_value <= C.RSI_EXIT)
+        rs_long is not None and rs_long < 0
+        and rs_short is not None and rs_short < 0
+        and adx_value is not None and adx_value < C.ADX_MIN_THRESHOLD
+        and rsi_value is not None and rsi_value < C.RSI_EXIT
+        and not supertrend_bullish
+        and price_trend_ok_ is False
     ):
         return "SELL"
 
@@ -222,6 +227,7 @@ def classify(
         and volume_ok
         and price_trend_ok_
         and rsi_value is not None and rsi_value >= C.RSI_ENTRY
+        and supertrend_bullish
     ):
         return "BUY"
 

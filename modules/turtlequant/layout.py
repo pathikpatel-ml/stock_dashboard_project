@@ -64,10 +64,11 @@ def create_turtlequant_layout():
         html.H3("⚡ Turtle Quant — BUY / SELL"),
         html.P(
             "Weekly relative strength (52-week & 13-week) vs NSE:NIFTY, confirmed by SuperTrend, "
-            "ADX/DMI trend strength, RSI, and price/volume moving-average build-up. BUY needs "
-            "every condition to align; SELL fires on any single weakening signal. The Signal "
-            "column only shows a VALIDATED event -- blank until a stock has had a genuine BUY, "
-            "then it alternates BUY/SELL from there; never shows HOLD.",
+            "ADX/DMI trend strength, RSI, and price/volume moving-average build-up. BUY and SELL "
+            "are both all-or-nothing -- BUY needs all 7 conditions to align, SELL needs all 6 of "
+            "the reversed conditions (volume isn't part of SELL). The Signal column only shows a "
+            "VALIDATED event -- blank until a stock has had a genuine BUY, then it alternates "
+            "BUY/SELL from there; never shows HOLD.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),

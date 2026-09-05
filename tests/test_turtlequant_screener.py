@@ -6,9 +6,12 @@ modules.turtlequant.screener._fetch_index_weekly_close.
 
 Symbol design (deterministic by construction):
   - BUYSTOCK  -> BUY  (steady strong uptrend, far outperforming the index, rising volume)
-  - SELLSTOCK -> SELL (steady downtrend -- SuperTrend bearish alone is enough)
-  - HOLDSTOCK -> HOLD (steady uptrend but underperforming the index on both RS windows --
-                        RS negative but not past the -0.25 exit threshold)
+  - SELLSTOCK -> SELL (weak, choppy decline -- deliberately LOW ADX, not a sharp strongly-
+                        trending crash: SELL is now all-6-conditions-together (2026-09-05),
+                        including ADX < 20, so a high-ADX strong downtrend would actually fail
+                        the ADX condition and land in HOLD instead -- see the classify()
+                        docstring for the full symmetric BUY/SELL truth table)
+  - HOLDSTOCK -> HOLD (steady uptrend but underperforming the index on both RS windows)
   - REJECT_NODATA  -> rejected, reason "no_weekly_data" (fetch returns None)
   - REJECT_SHORT   -> rejected, reason "insufficient_weekly_data" (fewer than MIN_WEEKLY_ROWS)
 
@@ -20,6 +23,7 @@ alignment fact used directly.
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -34,6 +38,16 @@ N = 81
 def _linear(start, end, n=N):
     step = (end - start) / (n - 1)
     return [start + step * i for i in range(n)]
+
+
+def _choppy_decline(start, end, n=N):
+    """A declining series with an alternating zigzag superimposed -- keeps ADX low (weak/
+    choppy trend) despite the net downward drift, unlike a smooth monotonic decline (which
+    has very HIGH ADX, since ADX measures directional persistence, not direction). Needed
+    because SELL now requires ADX < 20 -- see module docstring."""
+    base = np.linspace(start, end, n)
+    zigzag = np.array([-22 if i % 2 == 0 else 3 for i in range(n)])
+    return (base + zigzag).tolist()
 
 
 def _weekly_df(closes, volumes=None):
@@ -54,7 +68,7 @@ INDEX_WEEKLY_CLOSE = _weekly_close_series(_linear(100, 160))
 
 WEEKLY = {
     "BUYSTOCK": _weekly_df(_linear(100, 400), volumes=_linear(100_000, 500_000)),
-    "SELLSTOCK": _weekly_df(_linear(400, 100)),
+    "SELLSTOCK": _weekly_df(_choppy_decline(300, 90)),
     "HOLDSTOCK": _weekly_df(_linear(100, 140)),
     "REJECT_SHORT": _weekly_df(_linear(100, 120, n=20)),  # < MIN_WEEKLY_ROWS (60)
     # REJECT_NODATA: no entry at all -> fake_get_weekly returns None.
