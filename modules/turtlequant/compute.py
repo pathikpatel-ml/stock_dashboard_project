@@ -228,6 +228,33 @@ def classify(
     return "HOLD"
 
 
+def relative_strength_vs_index_series(
+    stock_close_weekly: pd.Series,
+    index_close_weekly: pd.Series,
+    window_weeks: int,
+) -> pd.Series:
+    """Vectorized version of ``relative_strength_vs_index``, computing the ratio-based RS at
+    EVERY point in ``stock_close_weekly`` at once (not just the latest) -- used for historical
+    backtesting (walking every past week), where calling the point-in-time function once per
+    historical week would be far slower.
+
+    Unlike ``modules.turtle.compute.relative_strength`` (which the point-in-time function reuses
+    and which buckets DAILY closes into weeks), this operates on already-native weekly bars, so
+    a straight N-bar ``.shift()`` is the direct, correct equivalent -- no bucketing needed. Both
+    approaches agree at the latest point on real weekly-spaced data (see
+    tests/test_turtlequant_engine.py's consistency check).
+
+    ``index_close_weekly`` is reindexed onto ``stock_close_weekly``'s own dates (forward-filled)
+    since the two series may not have identical fetch histories. Returns a Series aligned with
+    ``stock_close_weekly``'s index; NaN wherever there isn't ``window_weeks`` of prior history yet.
+    """
+    index_aligned = index_close_weekly.reindex(stock_close_weekly.index, method="ffill")
+    stock_return = (stock_close_weekly / stock_close_weekly.shift(window_weeks) - 1.0) * 100.0
+    index_return = (index_aligned / index_aligned.shift(window_weeks) - 1.0) * 100.0
+    denom = 1.0 + index_return / 100.0
+    return (1.0 + stock_return / 100.0) / denom - 1.0
+
+
 def last_signal_dates(history_df: Optional[pd.DataFrame]) -> pd.DataFrame:
     """Per-symbol most-recent BUY date and most-recent SELL date, derived from the full
     ``turtlequant_signals_history`` table (one row per symbol per actual week -- see

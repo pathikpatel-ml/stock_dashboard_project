@@ -33,15 +33,21 @@ SIGNAL_COLUMNS = [
 ]
 
 
-def _fetch_index_weekly_close(ticker: str = C.COMPARATIVE_TICKER) -> Optional[pd.Series]:
+def _fetch_index_weekly_close(
+    ticker: str = C.COMPARATIVE_TICKER, period: str = C.WEEKLY_HISTORY_PERIOD
+) -> Optional[pd.Series]:
     """Weekly close series for the comparative index. Returns None (never raises) on any
     fetch/parse failure -- callers decide what that means. ``^NSEI`` is not one of the tickers
     that went stale on yfinance this session (only sectoral indices were affected), so no
     Tickertape fallback is needed here.
+
+    ``period`` defaults to the live pipeline's 5-year window; the historical backfill script
+    (backfill_turtlequant_transitions.py) passes ``period="max"`` to get the index's own full
+    history, needed to compute RS at old historical weeks too, not just recent ones.
     """
     try:
         hist = yf.Ticker(ticker).history(
-            period=C.WEEKLY_HISTORY_PERIOD, interval="1wk", auto_adjust=False, timeout=20
+            period=period, interval="1wk", auto_adjust=False, timeout=20
         )
     except Exception:
         return None

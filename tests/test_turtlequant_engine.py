@@ -140,6 +140,21 @@ def test_relative_strength_vs_index_none_when_either_leg_missing():
     assert tq.relative_strength_vs_index(None, stock, window_weeks=52) is None
 
 
+def test_relative_strength_vs_index_series_matches_point_in_time_at_latest():
+    # The vectorized (whole-series) backtest version must agree with the point-in-time (single
+    # value) live version at the latest position -- they're two different implementations of
+    # the same formula and must never silently diverge.
+    stock = _weekly_close(_linear(100, 250, 90))
+    index = _weekly_close(_linear(100, 140, 90))
+
+    point_in_time = tq.relative_strength_vs_index(stock, index, window_weeks=52)
+    series = tq.relative_strength_vs_index_series(stock, index, window_weeks=52)
+
+    assert series.iloc[-1] == pytest.approx(point_in_time, rel=1e-6)
+    # earlier points before 52 weeks of history exist must be NaN, not a bogus value.
+    assert pd.isna(series.iloc[10])
+
+
 # ---------------------------------------------------------------------------
 # classify -- truth table
 # ---------------------------------------------------------------------------
