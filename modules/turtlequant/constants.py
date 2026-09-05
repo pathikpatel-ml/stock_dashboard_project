@@ -25,8 +25,7 @@ RS_LONG_TERM_EXIT_THRESHOLD = -0.25   # ratio-based RS (see compute.py) at/below
 SUPERTREND_ATR_LENGTH = 10
 SUPERTREND_ATR_FACTOR = 3.0
 
-RSI_LENGTH = 13                       # changed from the indicator screenshot's literal "21"
-                                       # per the user's explicit instruction (2026-09-05)
+RSI_LENGTH = 21
 RSI_ENTRY = 55.0                      # RSI >= this required for BUY
 RSI_EXIT = 45.0                       # RSI <= this alone triggers SELL
 
