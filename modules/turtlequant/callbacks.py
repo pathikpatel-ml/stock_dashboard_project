@@ -1,15 +1,22 @@
 """
 Dash callbacks for the Turtle Quant tab.
 
-One render callback: Indices/Sector/Stock filters -> a colour-coded results table, plus a
-staleness banner. Fully read-only -- no writes anywhere in this module.
+Two callbacks: the main render (Indices/Sector/Stock/Signal filters -> a colour-coded results
+table, plus a staleness banner), and a "My Holdings" add/remove callback that writes only to
+the logged-in user's own turtlequant_watchlist rows (via modules.auth.user_store) -- never
+touches market-data tables.
 """
+import json
 from datetime import datetime
 
+import dash
+import dash_bootstrap_components as dbc
+import flask_login
 import pandas as pd
-from dash import Input, Output, dash_table, html
+from dash import ALL, Input, Output, State, dash_table, html
 
 import data_manager
+from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
 from . import compute as tq_compute
 
@@ -124,8 +131,46 @@ def _staleness_banner(loaded_date):
     return None
 
 
+def _current_user_id():
+    if flask_login.current_user.is_authenticated:
+        return flask_login.current_user.id
+    return None
+
+
 def register_turtlequant_callbacks(app):
     """Register all Turtle Quant callbacks on the Dash ``app``."""
+
+    @app.callback(
+        Output("tq-holdings-tags", "children"),
+        Output("tq-holdings-add-dropdown", "value"),
+        Input("tq-holdings-add-btn", "n_clicks"),
+        Input({"type": "del-tq-holding", "symbol": ALL}, "n_clicks"),
+        State("tq-holdings-add-dropdown", "value"),
+        prevent_initial_call=False,
+    )
+    def manage_turtlequant_watchlist(_add_clicks, del_clicks, new_symbol):
+        user_id = _current_user_id()
+        if not user_id:
+            raise dash.exceptions.PreventUpdate
+
+        ctx = dash.callback_context
+        triggered = ctx.triggered[0]["prop_id"] if ctx.triggered else ""
+        if "tq-holdings-add-btn" in triggered and new_symbol:
+            user_store.add_to_turtlequant_watchlist(user_id, new_symbol)
+        elif "del-tq-holding" in triggered and any(del_clicks):
+            id_dict = json.loads(triggered.split(".")[0])
+            user_store.remove_from_turtlequant_watchlist(user_id, id_dict["symbol"])
+
+        symbols = user_store.get_turtlequant_watchlist(user_id)
+        tags = [
+            dbc.Badge(
+                [sym, html.Span(" ×", id={"type": "del-tq-holding", "symbol": sym},
+                                 style={"cursor": "pointer", "marginLeft": "4px"}, n_clicks=0)],
+                color="secondary", className="me-1 mb-1 p-2", style={"fontSize": "0.8rem"},
+            )
+            for sym in symbols
+        ]
+        return tags, None
 
     @app.callback(
         [Output("tq-signals-container", "children"),
@@ -134,10 +179,11 @@ def register_turtlequant_callbacks(app):
          Input("tq-sector-filter", "value"),
          Input("tq-stock-filter", "value"),
          Input("tq-signal-filter", "value"),
-         Input("tq-auto-refresh-interval", "n_intervals")],
+         Input("tq-auto-refresh-interval", "n_intervals"),
+         Input("tq-holdings-tags", "children")],  # re-render immediately on add/remove
         prevent_initial_call=False,
     )
-    def render_turtlequant(indices_value, sector_value, stock_value, signal_value, _n_intervals):
+    def render_turtlequant(indices_value, sector_value, stock_value, signal_value, _n_intervals, _holdings_tags):
         # Re-sync on every render, not just at process boot -- same reasoning as
         # modules/turtle/callbacks.py::render_turtle.
         data_manager.load_turtlequant_data_on_startup()
@@ -168,7 +214,11 @@ def register_turtlequant_callbacks(app):
             df["Last_Buy_Date"] = None
             df["Last_Sell_Date"] = None
 
-        if indices_value and indices_value != "All" and categories_map:
+        if indices_value == "My Holdings":
+            user_id = _current_user_id()
+            holdings_symbols = set(user_store.get_turtlequant_watchlist(user_id)) if user_id else set()
+            df = df[df["Symbol"].isin(holdings_symbols)]
+        elif indices_value and indices_value != "All" and categories_map:
             mask = df["Symbol"].map(lambda sym: filter_by_index(categories_map.get(sym), indices_value))
             df = df[mask]
 

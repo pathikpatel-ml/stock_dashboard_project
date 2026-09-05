@@ -421,6 +421,37 @@ def remove_from_watchlist(user_id: int, symbol: str):
 
 
 # ---------------------------------------------------------------------------
+# Turtle Quant "My Holdings" watchlist -- separate table/namespace from Turtle Strategy's
+# watchlist above (a user's holdings tracked under one strategy's signals are conceptually
+# distinct from the other's, same reasoning as turtle_signals_* vs turtlequant_signals_* being
+# separate tables). Direct structural copy of get_watchlist/add_to_watchlist/remove_from_watchlist.
+# ---------------------------------------------------------------------------
+
+def get_turtlequant_watchlist(user_id: int) -> list:
+    rows = _get("turtlequant_watchlist", {"user_id": f"eq.{user_id}", "select": "symbol"})
+    return [r["symbol"] for r in rows]
+
+
+def add_to_turtlequant_watchlist(user_id: int, symbol: str):
+    symbol = symbol.strip().upper()
+    if not symbol:
+        return
+    try:
+        _post("turtlequant_watchlist",
+              {"user_id": user_id, "symbol": symbol},
+              prefer="return=minimal")
+    except Exception:
+        pass  # ignore duplicate (UNIQUE constraint)
+
+
+def remove_from_turtlequant_watchlist(user_id: int, symbol: str):
+    _delete("turtlequant_watchlist", {
+        "user_id": f"eq.{user_id}",
+        "symbol": f"eq.{symbol.upper()}",
+    })
+
+
+# ---------------------------------------------------------------------------
 # GTT log
 # ---------------------------------------------------------------------------
 

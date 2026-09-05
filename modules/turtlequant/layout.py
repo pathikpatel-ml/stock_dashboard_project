@@ -2,17 +2,18 @@
 Dash layout for the Turtle Quant tab.
 
 A single ``create_turtlequant_layout()`` returns the strategy section: Indices/Sector/Stock-Name
-filters and the results table. Component IDs are prefixed ``tq-`` to stay clear of the existing
-Turtle Strategy (``tt-``), V20 (``v20-``), and Simulator (``sim-``) namespaces. No watchlist or
-Sector Pulse panel here (v1 scope) -- just the filtered signals table, matching what was asked
-for. Dropdown options are populated once, at layout-build time, from whatever ``data_manager``
-loaded at app startup, same refresh model as every other tab.
+filters, a "My Holdings" watchlist strip, and the results table. Component IDs are prefixed
+``tq-`` to stay clear of the existing Turtle Strategy (``tt-``), V20 (``v20-``), and Simulator
+(``sim-``) namespaces. No Sector Pulse panel here (explicitly declined for this tab). Dropdown
+options are populated once, at layout-build time, from whatever ``data_manager`` loaded at app
+startup, same refresh model as every other tab.
 """
+import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 import data_manager
 
-INDEX_OPTIONS = ["All", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
+INDEX_OPTIONS = ["All", "My Holdings", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
 
 
 def _dropdown_options(series, extra_first="All"):
@@ -47,7 +48,7 @@ def _index_options():
             tag = tag.strip()
             if tag:
                 tags.add(tag)
-    return [{"label": v, "value": v} for v in ["All"] + sorted(tags)]
+    return [{"label": v, "value": v} for v in ["All", "My Holdings"] + sorted(tags)]
 
 
 def create_turtlequant_layout():
@@ -55,6 +56,9 @@ def create_turtlequant_layout():
     sector_options = _dropdown_options(df["Sector"]) if not df.empty and "Sector" in df.columns else [{"label": "All", "value": "All"}]
     stock_options = _stock_dropdown_options(df)
     index_options = _index_options()
+    # No "All" entry here -- this dropdown is for picking ONE real symbol to add to your
+    # holdings, not for filtering, so an "All" placeholder wouldn't mean anything.
+    holdings_add_options = _stock_dropdown_options(df, extra_first=None)
 
     return html.Div(className="section-container", children=[
         html.H3("⚡ Turtle Quant — BUY / HOLD / SELL"),
@@ -114,6 +118,20 @@ def create_turtlequant_layout():
                     style={"width": "160px"},
                 ),
             ]),
+        ]),
+
+        html.Div(className="control-bar", style={"alignItems": "center"}, children=[
+            html.Label("⭐ My Holdings:", style={"fontWeight": "500", "fontSize": "13px"}),
+            dcc.Dropdown(
+                id="tq-holdings-add-dropdown",
+                options=holdings_add_options,
+                placeholder="Search & select a stock you've bought…",
+                clearable=True,
+                style={"width": "260px"},
+            ),
+            dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
+                       id="tq-holdings-add-btn", color="secondary", outline=True, n_clicks=0),
+            html.Div(id="tq-holdings-tags", style={"display": "flex", "flexWrap": "wrap", "gap": "4px"}),
         ]),
 
         dcc.Loading(type="circle", children=[

@@ -59,6 +59,16 @@ CREATE TABLE IF NOT EXISTS turtle_watchlist (
     UNIQUE (user_id, symbol)
 );
 
+-- Turtle Quant "My Holdings" -- separate from turtle_watchlist above (distinct strategy,
+-- distinct namespace, same reasoning as turtle_signals_* vs turtlequant_signals_*).
+CREATE TABLE IF NOT EXISTS turtlequant_watchlist (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    symbol     TEXT        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, symbol)
+);
+
 -- Simulator tab: agentic paper-trading (LangGraph + OpenRouter LLM) over the app's real V20
 -- and Turtle signals. Per-user, accessed via the same SUPABASE_URL/SUPABASE_SERVICE_KEY REST
 -- path as every other table on this page -- written by a daily GitHub Actions batch job
