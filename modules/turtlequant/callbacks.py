@@ -32,7 +32,10 @@ _COLUMN_TOOLTIPS = {
     "ADX": "Trend strength (13-period DMI smoothing). >= 20 required for BUY.",
     "RSI": "21-period RSI. >= 55 required for BUY; <= 45 alone triggers SELL.",
     "SuperTrend_Direction": "SuperTrend(10, 3) on weekly bars. BEARISH alone triggers SELL.",
-    "Volume_Building": "True if the 13-week volume moving average is itself rising.",
+    "Volume_Building": (
+        "True if the 13-week volume moving average is higher than it was 3 weeks ago -- "
+        "smoothed over a few weeks so one light week doesn't flip this False."
+    ),
     "Price_Above_MA13": "True if the latest weekly close is above its own 13-week moving average.",
     "Signal": (
         "**BUY** — SuperTrend bullish, RS Long & Short Term both positive, ADX >= 20, "

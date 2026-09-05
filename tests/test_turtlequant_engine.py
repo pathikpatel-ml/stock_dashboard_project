@@ -103,6 +103,16 @@ def test_volume_building_none_when_too_short():
     assert tq.volume_building(volume, length=13) is None
 
 
+def test_volume_building_smooths_a_single_week_dip():
+    # MA sequence [5, 6, 7, 6.5] (length=1 -> the MA is just the raw series, for arithmetic
+    # simplicity): the immediately-prior week alone (lookback=1) says this looks like it's
+    # falling (6.5 < 7) -- but 3 weeks back (lookback=3, the new default) it's still clearly up
+    # (6.5 > 5), which is the real, sustained trend a single soft week shouldn't erase.
+    volume = pd.Series([5.0, 6.0, 7.0, 6.5])
+    assert tq.volume_building(volume, length=1, lookback=1) is False
+    assert tq.volume_building(volume, length=1, lookback=3) is True
+
+
 def test_price_trend_ok_true_above_ma_false_below():
     rising = pd.Series(_linear(100, 200, 30))
     falling = pd.Series(_linear(200, 100, 30))

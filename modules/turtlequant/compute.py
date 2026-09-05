@@ -140,13 +140,20 @@ def rolling_ma(series: pd.Series, length: int = C.MA_LENGTH) -> pd.Series:
     return series.rolling(length).mean()
 
 
-def volume_building(volume: pd.Series, length: int = C.MA_LENGTH) -> Optional[bool]:
-    """True if the volume moving average itself is rising (this week's MA > last week's MA) --
-    "interest building up," per the source material, not just current volume above its MA."""
+def volume_building(
+    volume: pd.Series,
+    length: int = C.MA_LENGTH,
+    lookback: int = C.VOLUME_BUILDING_LOOKBACK_WEEKS,
+) -> Optional[bool]:
+    """True if the volume moving average itself is rising -- "interest building up," per the
+    source material, not just current volume above its MA. Compares against ``lookback`` weeks
+    back (default 3), not just the immediately prior week -- a single light week inside an
+    otherwise-rising volume average shouldn't flip this False; see constants.py's
+    VOLUME_BUILDING_LOOKBACK_WEEKS docstring for the live-data case that prompted this."""
     vma = rolling_ma(volume, length).dropna()
-    if len(vma) < 2:
+    if len(vma) <= lookback:
         return None
-    return bool(vma.iloc[-1] > vma.iloc[-2])
+    return bool(vma.iloc[-1] > vma.iloc[-1 - lookback])
 
 
 def price_trend_ok(close: pd.Series, length: int = C.MA_LENGTH) -> Optional[bool]:
