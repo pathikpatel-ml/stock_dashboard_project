@@ -13,7 +13,7 @@ import data_manager
 from modules.turtle.compute import filter_by_index
 
 _DISPLAY_COLUMNS = [
-    "Symbol", "Sector", "Industry", "Current_Price", "Signal",
+    "Symbol", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
 ]
@@ -23,6 +23,10 @@ _COLUMN_TOOLTIPS = {
     "Sector": "Sector classification (Yahoo Finance).",
     "Industry": "More specific industry classification within the sector.",
     "Current_Price": "Latest weekly close price.",
+    "Signal_Date": (
+        "The week (Monday-dated) this signal is actually based on -- not the day the batch job "
+        "last ran. Stays the same all week until that week's candle closes and a new one starts."
+    ),
     "RS_Long_Term": (
         "52-week relative strength vs NSE:NIFTY: (1 + stock's 52wk return/100) / "
         "(1 + Nifty's 52wk return/100) - 1. Above 0 = outperforming Nifty over the year; "

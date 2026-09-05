@@ -27,7 +27,7 @@ from . import compute
 from . import constants as C
 
 SIGNAL_COLUMNS = [
-    "Symbol", "Company", "Sector", "Industry", "Current_Price",
+    "Symbol", "Company", "Sector", "Industry", "Current_Price", "Signal_Date",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13", "Signal",
 ]
@@ -101,6 +101,12 @@ def screen_symbol(
         "Sector": sector,
         "Industry": industry,
         "Current_Price": float(close.iloc[-1]),
+        # The date of the weekly candle this classification is actually based on (its Monday) --
+        # NOT the date the batch job happened to run. Confirmed with the user 2026-09-05: a
+        # stock's signal_date should represent the week the signal applies to, so re-running the
+        # daily job mid-week against the same still-forming candle overwrites that same week's
+        # row instead of creating a new dated row every single day.
+        "Signal_Date": weekly.index[-1].strftime("%Y-%m-%d"),
         "RS_Long_Term": round(rs_long, 4) if rs_long is not None else None,
         "RS_Short_Term": round(rs_short, 4) if rs_short is not None else None,
         "ADX": round(adx_value, 2) if adx_value is not None else None,

@@ -99,6 +99,18 @@ def test_run_pipeline_buy_sell_hold_by_construction():
     assert signals.loc["HOLDSTOCK", "Signal"] == "HOLD"
 
 
+def test_signal_date_is_the_weekly_candles_own_date_not_today():
+    # Confirmed with the user 2026-09-05: signal_date must be the date of the weekly candle the
+    # classification is actually based on, not "whatever day the batch job happened to run" --
+    # otherwise re-running mid-week against the same still-forming candle would fabricate a new
+    # dated row every day instead of updating that one week's row.
+    out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
+    signals = out["signals"].set_index("Symbol")
+
+    expected = WEEKLY["BUYSTOCK"].index[-1].strftime("%Y-%m-%d")
+    assert signals.loc["BUYSTOCK", "Signal_Date"] == expected
+
+
 def test_run_pipeline_rejects_missing_and_short_history():
     out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
     rejections = out["rejections"].set_index("Symbol")["reason"].to_dict()

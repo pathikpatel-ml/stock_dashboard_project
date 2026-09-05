@@ -82,7 +82,7 @@ _LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_a
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 _TURTLEQUANT_SIGNALS_FROM_DB = {
     "symbol": "Symbol", "company": "Company", "sector": "Sector", "industry": "Industry",
-    "current_price": "Current_Price", "rs_long_term": "RS_Long_Term",
+    "current_price": "Current_Price", "signal_date": "Signal_Date", "rs_long_term": "RS_Long_Term",
     "rs_short_term": "RS_Short_Term", "adx": "ADX", "rsi": "RSI",
     "supertrend_direction": "SuperTrend_Direction", "volume_building": "Volume_Building",
     "price_above_ma13": "Price_Above_MA13", "signal": "Signal",

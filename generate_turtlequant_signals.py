@@ -40,7 +40,7 @@ SIGNALS_TEMPLATE = "turtlequant_signals_{date_str}.csv"
 # generate_turtle_signals.py's own style.
 _SIGNALS_DB_COLUMNS = {
     "Symbol": "symbol", "Company": "company", "Sector": "sector", "Industry": "industry",
-    "Current_Price": "current_price", "RS_Long_Term": "rs_long_term",
+    "Current_Price": "current_price", "Signal_Date": "signal_date", "RS_Long_Term": "rs_long_term",
     "RS_Short_Term": "rs_short_term", "ADX": "adx", "RSI": "rsi",
     "SuperTrend_Direction": "supertrend_direction", "Volume_Building": "volume_building",
     "Price_Above_MA13": "price_above_ma13", "Signal": "signal",
@@ -99,8 +99,8 @@ def main():
 
     out = sc.run_pipeline(universe, limit=args.limit, verbose=True, pause_seconds=args.pause)
 
-    date_str = pd.Timestamp.now().strftime("%Y%m%d")
-    signal_date = pd.Timestamp.now().strftime("%Y-%m-%d")
+    date_str = pd.Timestamp.now().strftime("%Y%m%d")  # for the CSV filename only -- when this
+                                                        # batch ran, not the signal's own week
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
 
     # Always write the file (with headers) so the dashboard has a stable, current target.
@@ -118,7 +118,6 @@ def main():
         try:
             if not signals.empty:
                 db_signals = signals.rename(columns=_SIGNALS_DB_COLUMNS).copy()
-                db_signals["signal_date"] = signal_date
                 n = mdw.upsert_dataframe(conn, "turtlequant_signals_latest", db_signals, conflict_columns=["symbol"])
                 print(f"DB: turtlequant_signals_latest upserted {n} rows")
                 n = mdw.upsert_dataframe(
