@@ -34,8 +34,8 @@ _COLUMN_TOOLTIPS = {
     "Industry": "More specific industry classification within the sector.",
     "Current_Price": "Latest weekly close price.",
     "Signal_Date": (
-        "The week (Monday-dated) this signal is actually based on -- not the day the batch job "
-        "last ran. Stays the same all week until that week's candle closes and a new one starts."
+        "The date of the validated BUY or SELL event shown in Signal (blank if there is none "
+        "yet) -- the week that event actually happened, not the day the batch job last ran."
     ),
     "Last_Buy_Date": (
         "The most recent week this stock had a BUY signal, from recorded history. Blank if it "
@@ -57,11 +57,14 @@ _COLUMN_TOOLTIPS = {
     "Volume_Building": "True if the latest week's volume is above its own 13-week average volume.",
     "Price_Above_MA13": "True if the latest weekly close is above its own 13-week moving average.",
     "Signal": (
-        "**BUY** — SuperTrend bullish, RS Long & Short Term both positive, ADX >= 20, "
-        "volume building, price above its 13w MA, RSI >= 55 — every condition must hold.\n\n"
-        "**SELL** — any single weakening signal: SuperTrend bearish, OR RS Long Term <= -0.25, "
-        "OR RSI <= 45.\n\n"
-        "**HOLD** — everything else (SuperTrend bullish, full BUY confirmation not yet met)."
+        "**Blank** — no validated BUY has ever been recorded for this stock yet (tracking "
+        "started 2026-09-05) -- even if it's currently technically weak, there's nothing to "
+        "'exit' without a prior recorded entry.\n\n"
+        "**BUY** — every entry condition aligned (SuperTrend bullish, RS Long & Short Term both "
+        "positive, ADX >= 20, volume building, price above its 13w MA, RSI >= 55), and it's the "
+        "most recent validated event for this stock.\n\n"
+        "**SELL** — a weakening signal (SuperTrend bearish, OR RS Long Term <= -0.25, OR RSI "
+        "<= 45) fired after a prior validated BUY -- a real exit, not just a currently-weak stock."
     ),
 }
 
@@ -84,6 +87,9 @@ def _table(df):
     for pct_col in ("RS_Long_Term", "RS_Short_Term"):
         if pct_col in display_df.columns:
             display_df[pct_col] = pd.to_numeric(display_df[pct_col], errors="coerce").round(3)
+    for blank_col in ("Signal", "Signal_Date"):
+        if blank_col in display_df.columns:
+            display_df[blank_col] = display_df[blank_col].where(display_df[blank_col].notna(), None)
 
     return dash_table.DataTable(
         id="tq-signals-table",
@@ -108,7 +114,6 @@ def _table(df):
         style_data_conditional=[
             {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"},
             {"if": {"filter_query": '{Signal} = "BUY"'}, "backgroundColor": "#d4edda", "color": "#155724"},
-            {"if": {"filter_query": '{Signal} = "HOLD"'}, "backgroundColor": "#fff3cd", "color": "#856404"},
             {"if": {"filter_query": '{Signal} = "SELL"'}, "backgroundColor": "#f8d7da", "color": "#721c24"},
         ],
     )
@@ -206,6 +211,20 @@ def register_turtlequant_callbacks(app):
             if not categories_df.empty else {}
         )
         df["Indices"] = df["Symbol"].map(categories_map)
+
+        # Replace the raw weekly classify() Signal/Signal_Date with the VALIDATED state from the
+        # transition log -- confirmed with the user 2026-09-05: the displayed Signal must be
+        # blank until a symbol has ever had a genuine recorded transition, and must only ever
+        # show BUY or SELL, never HOLD. The raw per-week classification still runs and still
+        # drives detect_transition() (see generate_turtlequant_signals.py) -- only what's
+        # DISPLAYED here changes, not the underlying detection pipeline.
+        validated = tq_compute.current_validated_signal(data_manager.turtlequant_transitions_df)
+        df = df.drop(columns=["Signal", "Signal_Date"], errors="ignore")
+        if not validated.empty:
+            df = df.merge(validated, on="Symbol", how="left")
+        else:
+            df["Signal"] = None
+            df["Signal_Date"] = None
 
         last_dates = tq_compute.last_signal_dates(data_manager.turtlequant_history_df)
         if not last_dates.empty:

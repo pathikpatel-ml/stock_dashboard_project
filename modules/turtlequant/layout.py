@@ -61,11 +61,13 @@ def create_turtlequant_layout():
     holdings_add_options = _stock_dropdown_options(df, extra_first=None)
 
     return html.Div(className="section-container", children=[
-        html.H3("⚡ Turtle Quant — BUY / HOLD / SELL"),
+        html.H3("⚡ Turtle Quant — BUY / SELL"),
         html.P(
             "Weekly relative strength (52-week & 13-week) vs NSE:NIFTY, confirmed by SuperTrend, "
             "ADX/DMI trend strength, RSI, and price/volume moving-average build-up. BUY needs "
-            "every condition to align; SELL fires on any single weakening signal.",
+            "every condition to align; SELL fires on any single weakening signal. The Signal "
+            "column only shows a VALIDATED event -- blank until a stock has had a genuine BUY, "
+            "then it alternates BUY/SELL from there; never shows HOLD.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),
@@ -111,7 +113,6 @@ def create_turtlequant_layout():
                         {"label": "All", "value": "All"},
                         {"label": "BUY only", "value": "BUY"},
                         {"label": "SELL only", "value": "SELL"},
-                        {"label": "HOLD only", "value": "HOLD"},
                     ],
                     value="All",
                     clearable=False,

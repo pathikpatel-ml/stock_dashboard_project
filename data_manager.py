@@ -60,6 +60,7 @@ LOADED_TURTLE_SOURCE = None
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
 turtlequant_history_df = pd.DataFrame()
+turtlequant_transitions_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
 LOADED_TURTLEQUANT_SOURCE = None
 
@@ -87,6 +88,10 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     "rs_short_term": "RS_Short_Term", "adx": "ADX", "rsi": "RSI",
     "supertrend_direction": "SuperTrend_Direction", "volume_building": "Volume_Building",
     "price_above_ma13": "Price_Above_MA13", "signal": "Signal",
+}
+_TURTLEQUANT_TRANSITIONS_FROM_DB = {
+    "symbol": "Symbol", "transition_date": "Transition_Date",
+    "from_signal": "From_Signal", "to_signal": "To_Signal",
 }
 _V20_FROM_DB = {
     "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
@@ -479,7 +484,7 @@ def load_turtlequant_data_on_startup():
     load_and_process_data_on_startup()) for its Indices filter -- same Nifty 50/100/200/sectoral
     membership file, no separate categories fetch needed.
     """
-    global turtlequant_signals_df, turtlequant_history_df
+    global turtlequant_signals_df, turtlequant_history_df, turtlequant_transitions_df
     global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -500,6 +505,12 @@ def load_turtlequant_data_on_startup():
     # fallback -- this table is additive/optional; the main signals table above is what matters
     # for the dashboard to function at all).
     turtlequant_history_df = _from_postgres("turtlequant_signals_history", _TURTLEQUANT_SIGNALS_FROM_DB)
+
+    # Validated BUY/SELL transition events -- powers the dashboard's displayed Signal/Signal_Date
+    # (see modules.turtlequant.compute.current_validated_signal): a stock only shows BUY or SELL
+    # once it has a genuine recorded transition; otherwise blank. Never HOLD -- detect_transition
+    # never logs a move into HOLD. Postgres-only, same reasoning as turtlequant_history_df above.
+    turtlequant_transitions_df = _from_postgres("turtlequant_signal_transitions", _TURTLEQUANT_TRANSITIONS_FROM_DB)
 
     print(
         f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals, "

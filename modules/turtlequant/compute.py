@@ -312,3 +312,31 @@ def detect_transition(
     if new_signal not in ("BUY", "SELL"):
         return None
     return {"from_signal": previous_signal, "to_signal": new_signal}
+
+
+def current_validated_signal(transitions_df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """Per-symbol VALIDATED current signal, derived purely from the transition event log
+    (turtlequant_signal_transitions), not the raw weekly classify() output. Confirmed with the
+    user 2026-09-05: the dashboard's displayed Signal must never show a SELL (or anything else)
+    for a symbol that hasn't first had a genuine recorded BUY -- and must never show HOLD at
+    all, only BUY or SELL.
+
+    Since detect_transition() only ever logs a move INTO BUY or SELL (never HOLD), and only once
+    a real prior signal existed to transition from, "the most recent logged event" is exactly
+    the validated state: a symbol with no rows here has never had a qualifying event yet, so it
+    gets no row back at all (callers left-merging this should get NaN/blank for it, not a
+    fabricated status) -- once it does, this reflects whichever of BUY/SELL it flipped into
+    most recently, held until the next qualifying flip.
+
+    Returns columns ``Symbol``, ``Signal``, ``Signal_Date`` -- one row per symbol that has ever
+    had at least one qualifying transition.
+    """
+    empty = pd.DataFrame(columns=["Symbol", "Signal", "Signal_Date"])
+    if transitions_df is None or transitions_df.empty:
+        return empty
+    if not {"Symbol", "To_Signal", "Transition_Date"}.issubset(transitions_df.columns):
+        return empty
+
+    latest_idx = transitions_df.groupby("Symbol")["Transition_Date"].idxmax()
+    latest = transitions_df.loc[latest_idx, ["Symbol", "To_Signal", "Transition_Date"]]
+    return latest.rename(columns={"To_Signal": "Signal", "Transition_Date": "Signal_Date"}).reset_index(drop=True)

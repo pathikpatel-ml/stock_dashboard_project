@@ -282,3 +282,34 @@ def test_detect_transition_sell_to_buy_and_buy_to_sell_both_fire():
     assert tq.detect_transition("SELL", "2026-08-24", "BUY", "2026-08-31") == {
         "from_signal": "SELL", "to_signal": "BUY",
     }
+
+
+# ---------------------------------------------------------------------------
+# current_validated_signal
+# ---------------------------------------------------------------------------
+def test_current_validated_signal_picks_the_latest_event_per_symbol():
+    transitions = pd.DataFrame([
+        {"Symbol": "AAA", "From_Signal": "HOLD", "To_Signal": "BUY", "Transition_Date": "2026-08-31"},
+        {"Symbol": "AAA", "From_Signal": "BUY", "To_Signal": "SELL", "Transition_Date": "2026-09-07"},
+        {"Symbol": "BBB", "From_Signal": "HOLD", "To_Signal": "BUY", "Transition_Date": "2026-08-31"},
+    ])
+    result = tq.current_validated_signal(transitions).set_index("Symbol")
+
+    assert result.loc["AAA", "Signal"] == "SELL"
+    assert result.loc["AAA", "Signal_Date"] == "2026-09-07"
+    assert result.loc["BBB", "Signal"] == "BUY"
+    assert result.loc["BBB", "Signal_Date"] == "2026-08-31"
+
+
+def test_current_validated_signal_no_row_for_symbol_with_no_events():
+    transitions = pd.DataFrame([
+        {"Symbol": "AAA", "From_Signal": "HOLD", "To_Signal": "BUY", "Transition_Date": "2026-08-31"},
+    ])
+    result = tq.current_validated_signal(transitions)
+    assert "CCC" not in result["Symbol"].values
+
+
+def test_current_validated_signal_empty_or_missing_columns():
+    assert tq.current_validated_signal(None).empty
+    assert tq.current_validated_signal(pd.DataFrame()).empty
+    assert tq.current_validated_signal(pd.DataFrame({"Symbol": ["AAA"]})).empty
