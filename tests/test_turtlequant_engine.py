@@ -284,9 +284,17 @@ def test_detect_transition_real_new_week_signal_change():
     assert result == {"from_signal": "SELL", "to_signal": "BUY"}
 
 
-def test_detect_transition_none_for_first_ever_signal():
-    # nothing to transition FROM -- must not fire even though new_signal is BUY.
-    assert tq.detect_transition(None, None, "BUY", "2026-08-31") is None
+def test_detect_transition_first_ever_buy_counts_as_a_real_event():
+    # Confirmed with the user 2026-09-05: an "entry" needs no prior state -- a stock's very
+    # first-ever recorded signal being BUY is itself a real, displayable event.
+    assert tq.detect_transition(None, None, "BUY", "2026-08-31") == {
+        "from_signal": None, "to_signal": "BUY",
+    }
+
+
+def test_detect_transition_none_for_first_ever_sell():
+    # A first-ever SELL still never fires -- nothing to "exit" without a prior validated BUY.
+    assert tq.detect_transition(None, None, "SELL", "2026-08-31") is None
 
 
 def test_detect_transition_none_for_same_week_reclassification():

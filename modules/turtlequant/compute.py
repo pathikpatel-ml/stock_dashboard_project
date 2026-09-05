@@ -294,28 +294,34 @@ def detect_transition(
     new_signal: str,
     new_signal_date: str,
 ) -> Optional[dict]:
-    """True entry/exit event detection: a transition is only real when a genuinely NEW week's
-    signal (``new_signal_date != previous_signal_date``) differs from the symbol's last
-    recorded signal, AND the new signal is BUY or SELL (per the user's own framing 2026-09-05:
-    HOLD isn't an actionable "event" worth logging, only fresh entries/exits are).
+    """Entry/exit event detection.
 
-    Deliberately does NOT fire just because the SAME still-forming week's classification shifts
-    between two runs of the same day's batch job (that's the candle updating intraday, not a
-    real week-over-week move) -- the ``new_signal_date != previous_signal_date`` guard is what
-    prevents that noise from being logged as a spurious transition.
+    A symbol's very first-ever recorded signal (``previous_signal is None``) counts as a real,
+    displayable event ONLY if it's a BUY (confirmed with the user 2026-09-05: an "entry" needs
+    no prior state to make sense, but a first-ever SELL would mean "exit a position that was
+    never validly entered," which stays disallowed -- nothing to transition FROM there).
+
+    Once a symbol has a prior recorded signal, a transition is only real when a genuinely NEW
+    week's signal (``new_signal_date != previous_signal_date``) differs from that prior signal,
+    AND the new signal is BUY or SELL (HOLD isn't an actionable "event" worth logging, only
+    fresh entries/exits are). Deliberately does NOT fire just because the SAME still-forming
+    week's classification shifts between two runs of the same day's batch job (that's the
+    candle updating intraday, not a real week-over-week move) -- the
+    ``new_signal_date != previous_signal_date`` guard is what prevents that noise from being
+    logged as a spurious transition.
 
     Returns ``{"from_signal": previous_signal, "to_signal": new_signal}`` if a transition
-    qualifies, else ``None``. ``previous_signal`` may be ``None`` (the symbol's very first-ever
-    recorded signal) -- that alone is NOT a transition (nothing to transition FROM), so this
-    also returns ``None`` in that case, even if ``new_signal`` is BUY or SELL.
+    qualifies (``from_signal`` is ``None`` for a first-ever BUY), else ``None``.
     """
-    if previous_signal is None or previous_signal_date is None:
+    if new_signal not in ("BUY", "SELL"):
         return None
+
+    if previous_signal is None or previous_signal_date is None:
+        return {"from_signal": None, "to_signal": "BUY"} if new_signal == "BUY" else None
+
     if new_signal_date == previous_signal_date:
         return None
     if new_signal == previous_signal:
-        return None
-    if new_signal not in ("BUY", "SELL"):
         return None
     return {"from_signal": previous_signal, "to_signal": new_signal}
 
