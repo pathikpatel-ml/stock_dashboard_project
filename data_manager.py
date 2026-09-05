@@ -24,6 +24,9 @@ NSE_CATEGORIES_FILE = "nse_categories.csv"
 TURTLE_LIVE_PRICES_FILE = "turtle_live_prices.csv"
 TURTLE_SECTOR_PULSE_FILE = "turtle_sector_pulse.csv"
 
+# --- Turtle Quant file configuration ---
+TURTLEQUANT_SIGNALS_FILENAME_TEMPLATE = "turtlequant_signals_{date_str}.csv"
+
 KNOWN_PSU_SYMBOLS = {
     "BHEL", "BPCL", "COALINDIA", "CONCOR", "GAIL", "HAL", "HPCL", "HUDCO", "IOC",
     "IRCON", "IRCTC", "IRFC", "IREDA", "LICI", "NBCC", "NLCINDIA", "NMDC", "NTPC",
@@ -54,6 +57,11 @@ turtle_sector_pulse_df = pd.DataFrame()
 LOADED_TURTLE_FILE_DATE = None
 LOADED_TURTLE_SOURCE = None
 
+# --- Turtle Quant cache state ---
+turtlequant_signals_df = pd.DataFrame()
+LOADED_TURTLEQUANT_FILE_DATE = None
+LOADED_TURTLEQUANT_SOURCE = None
+
 # Postgres column name -> the app's own CamelCase/Title-Case column names (the exact reverse
 # of the rename each generate_*.py script applies before writing -- see e.g.
 # generate_turtle_signals.py's _SIGNALS_DB_COLUMNS). Reading through this mapping means every
@@ -72,6 +80,13 @@ _TURTLE_SIGNALS_FROM_DB = {
 _SECTOR_PULSE_FROM_DB = {"sector": "Sector", "ath_price_flag": "ATH_Price_Flag", "rs_vs_nifty50": "RS_vs_Nifty50"}
 _LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_as_of": "Price_As_Of"}
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
+_TURTLEQUANT_SIGNALS_FROM_DB = {
+    "symbol": "Symbol", "company": "Company", "sector": "Sector", "industry": "Industry",
+    "current_price": "Current_Price", "rs_long_term": "RS_Long_Term",
+    "rs_short_term": "RS_Short_Term", "adx": "ADX", "rsi": "RSI",
+    "supertrend_direction": "SuperTrend_Direction", "volume_building": "Volume_Building",
+    "price_above_ma13": "Price_Above_MA13", "signal": "Signal",
+}
 _V20_FROM_DB = {
     "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
     "sell_date": "Sell_Date", "sell_price_high": "Sell_Price_High",
@@ -405,6 +420,7 @@ def load_v20_data_on_startup():
 def load_and_process_data_on_startup():
     load_v20_data_on_startup()
     load_turtle_data_on_startup()
+    load_turtlequant_data_on_startup()
 
 
 def load_turtle_data_on_startup():
@@ -452,6 +468,34 @@ def load_turtle_data_on_startup():
         f"{len(nse_categories_df)} category rows, "
         f"{len(turtle_live_prices_df)} live prices, "
         f"{len(turtle_sector_pulse_df)} sector pulse rows (source={LOADED_TURTLE_SOURCE})."
+    )
+
+
+def load_turtlequant_data_on_startup():
+    """Load Turtle Quant signals -- structurally identical to load_turtle_data_on_startup()
+    (Postgres first, CSV local -> GitHub-raw fallback). Reuses the already-loaded
+    ``nse_categories_df`` (loaded by load_turtle_data_on_startup(), called just before this in
+    load_and_process_data_on_startup()) for its Indices filter -- same Nifty 50/100/200/sectoral
+    membership file, no separate categories fetch needed.
+    """
+    global turtlequant_signals_df, LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE
+
+    today_str = datetime.now().strftime("%Y%m%d")
+
+    turtlequant_signals_df = _from_postgres("turtlequant_signals_latest", _TURTLEQUANT_SIGNALS_FROM_DB)
+    if not turtlequant_signals_df.empty:
+        LOADED_TURTLEQUANT_SOURCE = "postgres"
+        LOADED_TURTLEQUANT_FILE_DATE = today_str
+    else:
+        turtlequant_signals_df, loaded_name, LOADED_TURTLEQUANT_SOURCE = _read_csv_with_candidates(
+            today_filename=TURTLEQUANT_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
+            filename_regex=r"turtlequant_signals_\d{8}\.csv",
+        )
+        LOADED_TURTLEQUANT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+
+    print(
+        f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals "
+        f"(source={LOADED_TURTLEQUANT_SOURCE})."
     )
 
 

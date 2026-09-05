@@ -142,6 +142,9 @@ CREATE TABLE IF NOT EXISTS turtle_signals_latest (
     ath_sales            DOUBLE PRECISION,
     ath_sales_flag       BOOLEAN,
     signal               TEXT,
+    signal_change        TEXT,  -- e.g. "EXIT -> HOLD", "HOLD -> ADD", "NEW", or NULL if unchanged
+                                 -- (added 2026-09-01; see generate_turtle_signals.py's
+                                 -- _fetch_previous_signals/_signal_change)
     signal_date          DATE NOT NULL,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -166,12 +169,59 @@ CREATE TABLE IF NOT EXISTS turtle_signals_history (
     ath_sales            DOUBLE PRECISION,
     ath_sales_flag       BOOLEAN,
     signal               TEXT,
+    signal_change        TEXT,  -- see turtle_signals_latest's column comment above
     signal_date          DATE NOT NULL,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (symbol, signal_date)   -- idempotent re-runs on the same day upsert, not duplicate
 );
 CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_symbol ON turtle_signals_history(symbol);
 CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_date ON turtle_signals_history(signal_date);
+
+-- ---------------------------------------------------------------
+-- 7b. Turtle Quant signals -- same hybrid latest+history shape as Turtle Strategy's own
+--     tables above, but an unrelated methodology (weekly RS vs NSE:NIFTY + SuperTrend/ADX/RSI,
+--     "Turtle Quant" firm, not Turtle Wealth). Added 2026-09-02.
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
+    symbol               TEXT PRIMARY KEY,
+    company              TEXT,
+    sector               TEXT,
+    industry             TEXT,
+    current_price        DOUBLE PRECISION,
+    rs_long_term         DOUBLE PRECISION,
+    rs_short_term        DOUBLE PRECISION,
+    adx                  DOUBLE PRECISION,
+    rsi                  DOUBLE PRECISION,
+    supertrend_direction TEXT,   -- 'BULLISH' / 'BEARISH'
+    volume_building      BOOLEAN,
+    price_above_ma13     BOOLEAN,
+    signal               TEXT,   -- BUY / HOLD / SELL
+    signal_date          DATE NOT NULL,
+    updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_latest_signal ON turtlequant_signals_latest(signal);
+
+CREATE TABLE IF NOT EXISTS turtlequant_signals_history (
+    id                   BIGSERIAL PRIMARY KEY,
+    symbol               TEXT NOT NULL,
+    company              TEXT,
+    sector               TEXT,
+    industry             TEXT,
+    current_price        DOUBLE PRECISION,
+    rs_long_term         DOUBLE PRECISION,
+    rs_short_term        DOUBLE PRECISION,
+    adx                  DOUBLE PRECISION,
+    rsi                  DOUBLE PRECISION,
+    supertrend_direction TEXT,
+    volume_building      BOOLEAN,
+    price_above_ma13     BOOLEAN,
+    signal               TEXT,
+    signal_date          DATE NOT NULL,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (symbol, signal_date)
+);
+CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_symbol ON turtlequant_signals_history(symbol);
+CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_date ON turtlequant_signals_history(signal_date);
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.
@@ -242,6 +292,8 @@ GRANT SELECT, INSERT, UPDATE ON
     turtle_sector_pulse,
     turtle_signals_latest,
     turtle_signals_history,
+    turtlequant_signals_latest,
+    turtlequant_signals_history,
     v20_signals_latest
 TO market_data_writer;
 
@@ -251,5 +303,6 @@ TO market_data_writer;
 GRANT DELETE ON v20_signals_latest TO market_data_writer;
 
 GRANT USAGE, SELECT ON
-    turtle_signals_history_id_seq
+    turtle_signals_history_id_seq,
+    turtlequant_signals_history_id_seq
 TO market_data_writer;

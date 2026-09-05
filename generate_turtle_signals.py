@@ -54,6 +54,7 @@ _SIGNALS_DB_COLUMNS = {
     "RS_vs_Sector": "rs_vs_sector", "RS_vs_Benchmark": "rs_vs_benchmark",
     "Outperformance_Flag": "outperformance_flag", "TTM_Net_Sales": "ttm_net_sales",
     "ATH_Sales": "ath_sales", "ATH_Sales_Flag": "ath_sales_flag", "Signal": "signal",
+    "Signal_Change": "signal_change",
 }
 
 # Postgres column name -> CSV column name -- the reverse of generate_weekly_stock_list.py's

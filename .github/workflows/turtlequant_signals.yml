@@ -1,0 +1,25 @@
+name: Generate Turtle Quant Signals
+
+on:
+  schedule:
+    - cron: '15 11 * * 1-5'   # 11:15 UTC weekdays, 30 min after turtle_signals.yml's 10:45 run
+  workflow_dispatch:
+
+jobs:
+  generate-turtlequant-signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance requests psycopg2-binary python-dotenv
+    - name: Generate Turtle Quant signals
+      env:
+        MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
+      run: python generate_turtlequant_signals.py

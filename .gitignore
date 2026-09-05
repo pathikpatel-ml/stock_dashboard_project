@@ -19,6 +19,7 @@ turtle_live_prices.csv
 turtle_screener_fundamentals.csv
 turtle_sector_pulse.csv
 turtle_signals_*.csv
+turtlequant_signals_*.csv
 stock_candle_signals_from_listing_*.csv
 
 # Cache files
