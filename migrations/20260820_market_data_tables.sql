@@ -224,6 +224,32 @@ CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_symbol ON turtlequant
 CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_date ON turtlequant_signals_history(signal_date);
 
 -- ---------------------------------------------------------------
+-- 7c. Turtle Quant signal transitions -- a curated event log, NOT one row per week. Only
+--     written when a symbol's signal actually CHANGES between two distinct recorded weeks
+--     (never for the same week being re-evaluated intraday as fresher data comes in -- see
+--     generate_turtlequant_signals.py's transition-detection logic), and only when the new
+--     signal is BUY or SELL (a move into/out of HOLD isn't logged as an event here -- per the
+--     user's own framing, HOLD isn't an actionable "entry"/"exit" point, 2026-09-05). This is
+--     what actually answers "when did this stock last enter a fresh BUY, and when did it exit
+--     via SELL" as a real sequence, since turtlequant_signals_history's Last_Buy_Date/
+--     Last_Sell_Date (see modules/turtlequant/compute.py::last_signal_dates) only finds the
+--     most recent OCCURRENCE of each, not a curated alternating event list. Added 2026-09-05.
+--     Necessarily starts empty and only from today forward -- no historical backfill is
+--     possible (the underlying signal history itself only exists from today).
+-- ---------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS turtlequant_signal_transitions (
+    id               BIGSERIAL PRIMARY KEY,
+    symbol           TEXT NOT NULL,
+    transition_date  DATE NOT NULL,   -- the (new) week's signal_date this transition took effect
+    from_signal      TEXT,            -- previous recorded signal; NULL if this is the symbol's
+                                       -- very first recorded signal ever (nothing to transition from)
+    to_signal        TEXT NOT NULL,   -- 'BUY' or 'SELL' -- see comment above on scope
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (symbol, transition_date)
+);
+CREATE INDEX IF NOT EXISTS idx_turtlequant_transitions_symbol ON turtlequant_signal_transitions(symbol);
+
+-- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.
 --
 --    V20's own data shape is different from Turtle's: a row is a historical
@@ -294,6 +320,7 @@ GRANT SELECT, INSERT, UPDATE ON
     turtle_signals_history,
     turtlequant_signals_latest,
     turtlequant_signals_history,
+    turtlequant_signal_transitions,
     v20_signals_latest
 TO market_data_writer;
 
@@ -304,5 +331,6 @@ GRANT DELETE ON v20_signals_latest TO market_data_writer;
 
 GRANT USAGE, SELECT ON
     turtle_signals_history_id_seq,
-    turtlequant_signals_history_id_seq
+    turtlequant_signals_history_id_seq,
+    turtlequant_signal_transitions_id_seq
 TO market_data_writer;

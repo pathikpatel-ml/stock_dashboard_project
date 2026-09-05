@@ -231,3 +231,39 @@ def test_last_signal_dates_empty_or_missing_columns():
     assert tq.last_signal_dates(None).empty
     assert tq.last_signal_dates(pd.DataFrame()).empty
     assert tq.last_signal_dates(pd.DataFrame({"Symbol": ["AAA"]})).empty
+
+
+# ---------------------------------------------------------------------------
+# detect_transition
+# ---------------------------------------------------------------------------
+def test_detect_transition_real_new_week_signal_change():
+    result = tq.detect_transition("SELL", "2026-08-24", "BUY", "2026-08-31")
+    assert result == {"from_signal": "SELL", "to_signal": "BUY"}
+
+
+def test_detect_transition_none_for_first_ever_signal():
+    # nothing to transition FROM -- must not fire even though new_signal is BUY.
+    assert tq.detect_transition(None, None, "BUY", "2026-08-31") is None
+
+
+def test_detect_transition_none_for_same_week_reclassification():
+    # same signal_date re-run mid-week (candle updated intraday) -- not a real week-over-week move.
+    assert tq.detect_transition("BUY", "2026-08-31", "HOLD", "2026-08-31") is None
+
+
+def test_detect_transition_none_when_signal_unchanged():
+    assert tq.detect_transition("HOLD", "2026-08-24", "HOLD", "2026-08-31") is None
+
+
+def test_detect_transition_none_when_new_signal_is_hold():
+    # a move INTO hold isn't a logged event, even from a genuinely new week and a real change.
+    assert tq.detect_transition("BUY", "2026-08-24", "HOLD", "2026-08-31") is None
+
+
+def test_detect_transition_sell_to_buy_and_buy_to_sell_both_fire():
+    assert tq.detect_transition("HOLD", "2026-08-24", "SELL", "2026-08-31") == {
+        "from_signal": "HOLD", "to_signal": "SELL",
+    }
+    assert tq.detect_transition("SELL", "2026-08-24", "BUY", "2026-08-31") == {
+        "from_signal": "SELL", "to_signal": "BUY",
+    }

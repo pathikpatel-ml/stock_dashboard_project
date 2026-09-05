@@ -29,6 +29,7 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
+from modules.turtlequant import compute as tqc
 from modules.turtlequant import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -117,6 +118,16 @@ def main():
         conn = mdw.get_connection()
         try:
             if not signals.empty:
+                # Read the PRE-this-run state before it gets overwritten below -- this is the
+                # "previous signal" transition detection compares against. Only symbol/signal/
+                # signal_date matter here; a missing/empty prior table just means every symbol
+                # looks like a first-ever signal (no transitions logged yet), which is correct.
+                previous = mdw.fetch_dataframe(conn, "turtlequant_signals_latest")
+                previous_lookup = (
+                    {row.symbol: (row.signal, str(row.signal_date)) for row in previous.itertuples()}
+                    if not previous.empty else {}
+                )
+
                 db_signals = signals.rename(columns=_SIGNALS_DB_COLUMNS).copy()
                 n = mdw.upsert_dataframe(conn, "turtlequant_signals_latest", db_signals, conflict_columns=["symbol"])
                 print(f"DB: turtlequant_signals_latest upserted {n} rows")
@@ -125,6 +136,30 @@ def main():
                     conflict_columns=["symbol", "signal_date"], touch_updated_at=False,
                 )
                 print(f"DB: turtlequant_signals_history upserted {n} rows")
+
+                transitions = []
+                for row in db_signals.itertuples():
+                    prev_signal, prev_date = previous_lookup.get(row.symbol, (None, None))
+                    transition = tqc.detect_transition(prev_signal, prev_date, row.signal, row.signal_date)
+                    if transition:
+                        transitions.append({
+                            "symbol": row.symbol,
+                            "transition_date": row.signal_date,
+                            "from_signal": transition["from_signal"],
+                            "to_signal": transition["to_signal"],
+                        })
+                if transitions:
+                    n = mdw.upsert_dataframe(
+                        conn, "turtlequant_signal_transitions", pd.DataFrame(transitions),
+                        conflict_columns=["symbol", "transition_date"], touch_updated_at=False,
+                    )
+                    preview_parts = [
+                        f"{t['symbol']}:{t['from_signal']}->{t['to_signal']}" for t in transitions[:10]
+                    ]
+                    preview = ", ".join(preview_parts) + (", ..." if len(transitions) > 10 else "")
+                    print(f"DB: turtlequant_signal_transitions upserted {n} rows ({preview})")
+                else:
+                    print("DB: turtlequant_signal_transitions -- no new transitions this run")
         finally:
             conn.close()
     except Exception as exc:

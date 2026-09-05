@@ -253,3 +253,35 @@ def last_signal_dates(history_df: Optional[pd.DataFrame]) -> pd.DataFrame:
     pivot = pivot.reindex(columns=["BUY", "SELL"])
     pivot = pivot.rename(columns={"BUY": "Last_Buy_Date", "SELL": "Last_Sell_Date"})
     return pivot.reset_index()
+
+
+def detect_transition(
+    previous_signal: Optional[str],
+    previous_signal_date: Optional[str],
+    new_signal: str,
+    new_signal_date: str,
+) -> Optional[dict]:
+    """True entry/exit event detection: a transition is only real when a genuinely NEW week's
+    signal (``new_signal_date != previous_signal_date``) differs from the symbol's last
+    recorded signal, AND the new signal is BUY or SELL (per the user's own framing 2026-09-05:
+    HOLD isn't an actionable "event" worth logging, only fresh entries/exits are).
+
+    Deliberately does NOT fire just because the SAME still-forming week's classification shifts
+    between two runs of the same day's batch job (that's the candle updating intraday, not a
+    real week-over-week move) -- the ``new_signal_date != previous_signal_date`` guard is what
+    prevents that noise from being logged as a spurious transition.
+
+    Returns ``{"from_signal": previous_signal, "to_signal": new_signal}`` if a transition
+    qualifies, else ``None``. ``previous_signal`` may be ``None`` (the symbol's very first-ever
+    recorded signal) -- that alone is NOT a transition (nothing to transition FROM), so this
+    also returns ``None`` in that case, even if ``new_signal`` is BUY or SELL.
+    """
+    if previous_signal is None or previous_signal_date is None:
+        return None
+    if new_signal_date == previous_signal_date:
+        return None
+    if new_signal == previous_signal:
+        return None
+    if new_signal not in ("BUY", "SELL"):
+        return None
+    return {"from_signal": previous_signal, "to_signal": new_signal}
