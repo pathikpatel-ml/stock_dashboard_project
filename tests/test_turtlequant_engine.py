@@ -88,29 +88,21 @@ def test_rolling_ma_matches_pandas_directly():
     assert tq.rolling_ma(series, length=13).iloc[-1] == pytest.approx(series.iloc[-13:].mean())
 
 
-def test_volume_building_true_when_ma_rising():
-    volume = pd.Series(_linear(100_000, 500_000, 30))
-    assert tq.volume_building(volume, length=13) is True
+def test_volume_building_true_when_latest_above_its_average():
+    # length=3: MA at the last point = mean(10, 10, 20) = 13.33; latest volume (20) > that.
+    volume = pd.Series([10.0, 10.0, 10.0, 20.0])
+    assert tq.volume_building(volume, length=3) is True
 
 
-def test_volume_building_false_when_ma_falling():
-    volume = pd.Series(_linear(500_000, 100_000, 30))
-    assert tq.volume_building(volume, length=13) is False
+def test_volume_building_false_when_latest_below_its_average():
+    # length=3: MA at the last point = mean(20, 20, 5) = 15; latest volume (5) < that.
+    volume = pd.Series([20.0, 20.0, 20.0, 5.0])
+    assert tq.volume_building(volume, length=3) is False
 
 
 def test_volume_building_none_when_too_short():
     volume = pd.Series([100_000] * 5)
     assert tq.volume_building(volume, length=13) is None
-
-
-def test_volume_building_smooths_a_single_week_dip():
-    # MA sequence [5, 6, 7, 6.5] (length=1 -> the MA is just the raw series, for arithmetic
-    # simplicity): the immediately-prior week alone (lookback=1) says this looks like it's
-    # falling (6.5 < 7) -- but 3 weeks back (lookback=3, the new default) it's still clearly up
-    # (6.5 > 5), which is the real, sustained trend a single soft week shouldn't erase.
-    volume = pd.Series([5.0, 6.0, 7.0, 6.5])
-    assert tq.volume_building(volume, length=1, lookback=1) is False
-    assert tq.volume_building(volume, length=1, lookback=3) is True
 
 
 def test_price_trend_ok_true_above_ma_false_below():

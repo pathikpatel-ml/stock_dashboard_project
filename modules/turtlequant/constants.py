@@ -34,14 +34,11 @@ ADX_MIN_THRESHOLD = 20.0              # the indicator's plain "ADX: 20" input --
                                        # reading required for BUY (see module docstring)
 
 MA_LENGTH = 13                        # shared length for the price-trend MA and the
-                                       # volume-build-up MA ("MA Length - Price & Volume" input)
-VOLUME_BUILDING_LOOKBACK_WEEKS = 3     # "is the volume MA rising" compares against this many
-                                       # weeks back, not just 1 -- a single noisy week (one light
-                                       # week inside an otherwise-rising 13-week volume average)
-                                       # was blocking BUY for several otherwise-fully-qualifying
-                                       # stocks in live testing (2026-09-05); comparing across a
-                                       # few weeks smooths that out while still requiring genuine,
-                                       # sustained build-up rather than a one-week blip either way
+                                       # volume-vs-its-own-average check ("MA Length - Price &
+                                       # Volume" input) -- confirmed with the user 2026-09-05:
+                                       # "stock weekly volume > stock's own 13wk avg volume",
+                                       # the same shape as the price-vs-MA13 check, not a
+                                       # "is the average itself trending up" check
 
 WEEKLY_HISTORY_PERIOD = "5y"          # matches modules/breakout/constants.py's own default;
                                        # >= 52-week RS lookback + ample Wilder-smoothing warm-up
