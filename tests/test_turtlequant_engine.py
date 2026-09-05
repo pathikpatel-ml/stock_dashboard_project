@@ -206,3 +206,28 @@ def test_classify_none_inputs_never_buy():
         rs_long=0.30, rs_short=0.05, adx_value=25.0, volume_ok=True,
         price_trend_ok_=True, rsi_value=None, supertrend_bullish=True,
     ) == "HOLD"
+
+
+# ---------------------------------------------------------------------------
+# last_signal_dates
+# ---------------------------------------------------------------------------
+def test_last_signal_dates_picks_the_most_recent_of_each_type():
+    history = pd.DataFrame([
+        {"Symbol": "AAA", "Signal": "SELL", "Signal_Date": "2026-08-17"},
+        {"Symbol": "AAA", "Signal": "BUY", "Signal_Date": "2026-08-24"},
+        {"Symbol": "AAA", "Signal": "HOLD", "Signal_Date": "2026-08-31"},
+        {"Symbol": "AAA", "Signal": "BUY", "Signal_Date": "2026-08-10"},  # older BUY -- ignored
+        {"Symbol": "BBB", "Signal": "SELL", "Signal_Date": "2026-08-31"},
+    ])
+    result = tq.last_signal_dates(history).set_index("Symbol")
+
+    assert result.loc["AAA", "Last_Buy_Date"] == "2026-08-24"
+    assert result.loc["AAA", "Last_Sell_Date"] == "2026-08-17"
+    assert result.loc["BBB", "Last_Sell_Date"] == "2026-08-31"
+    assert pd.isna(result.loc["BBB", "Last_Buy_Date"])
+
+
+def test_last_signal_dates_empty_or_missing_columns():
+    assert tq.last_signal_dates(None).empty
+    assert tq.last_signal_dates(pd.DataFrame()).empty
+    assert tq.last_signal_dates(pd.DataFrame({"Symbol": ["AAA"]})).empty

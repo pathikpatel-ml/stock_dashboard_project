@@ -11,21 +11,32 @@ from dash import Input, Output, dash_table, html
 
 import data_manager
 from modules.turtle.compute import filter_by_index
+from . import compute as tq_compute
 
 _DISPLAY_COLUMNS = [
-    "Symbol", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
+    "Symbol", "Indices", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
+    "Last_Buy_Date", "Last_Sell_Date",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
 ]
 
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
+    "Indices": "NSE index/sectoral membership (Nifty 50/100/200, sectoral indices, etc.).",
     "Sector": "Sector classification (Yahoo Finance).",
     "Industry": "More specific industry classification within the sector.",
     "Current_Price": "Latest weekly close price.",
     "Signal_Date": (
         "The week (Monday-dated) this signal is actually based on -- not the day the batch job "
         "last ran. Stays the same all week until that week's candle closes and a new one starts."
+    ),
+    "Last_Buy_Date": (
+        "The most recent week this stock had a BUY signal, from recorded history. Blank if it "
+        "hasn't had one since history started being tracked (2026-09-05)."
+    ),
+    "Last_Sell_Date": (
+        "The most recent week this stock had a SELL signal, from recorded history. Blank if it "
+        "hasn't had one since history started being tracked (2026-09-05)."
     ),
     "RS_Long_Term": (
         "52-week relative strength vs NSE:NIFTY: (1 + stock's 52wk return/100) / "
@@ -122,10 +133,11 @@ def register_turtlequant_callbacks(app):
         [Input("tq-indices-filter", "value"),
          Input("tq-sector-filter", "value"),
          Input("tq-stock-filter", "value"),
+         Input("tq-signal-filter", "value"),
          Input("tq-auto-refresh-interval", "n_intervals")],
         prevent_initial_call=False,
     )
-    def render_turtlequant(indices_value, sector_value, stock_value, _n_intervals):
+    def render_turtlequant(indices_value, sector_value, stock_value, signal_value, _n_intervals):
         # Re-sync on every render, not just at process boot -- same reasoning as
         # modules/turtle/callbacks.py::render_turtle.
         data_manager.load_turtlequant_data_on_startup()
@@ -143,8 +155,20 @@ def register_turtlequant_callbacks(app):
             )
 
         categories_df = data_manager.nse_categories_df
-        if indices_value and indices_value != "All" and not categories_df.empty:
-            categories_map = dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
+        categories_map = (
+            dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
+            if not categories_df.empty else {}
+        )
+        df["Indices"] = df["Symbol"].map(categories_map)
+
+        last_dates = tq_compute.last_signal_dates(data_manager.turtlequant_history_df)
+        if not last_dates.empty:
+            df = df.merge(last_dates, on="Symbol", how="left")
+        else:
+            df["Last_Buy_Date"] = None
+            df["Last_Sell_Date"] = None
+
+        if indices_value and indices_value != "All" and categories_map:
             mask = df["Symbol"].map(lambda sym: filter_by_index(categories_map.get(sym), indices_value))
             df = df[mask]
 
@@ -153,6 +177,9 @@ def register_turtlequant_callbacks(app):
 
         if stock_value and stock_value != "All":
             df = df[df["Symbol"] == stock_value]
+
+        if signal_value and signal_value != "All":
+            df = df[df["Signal"] == signal_value]
 
         if df.empty:
             return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date)

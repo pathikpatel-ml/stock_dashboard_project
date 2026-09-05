@@ -99,6 +99,21 @@ def create_turtlequant_layout():
                     style={"width": "160px"},
                 ),
             ]),
+            html.Div(className="filter-group", children=[
+                html.Label("This week:", style={"fontWeight": "500", "fontSize": "13px"}),
+                dcc.Dropdown(
+                    id="tq-signal-filter",
+                    options=[
+                        {"label": "All", "value": "All"},
+                        {"label": "BUY only", "value": "BUY"},
+                        {"label": "SELL only", "value": "SELL"},
+                        {"label": "HOLD only", "value": "HOLD"},
+                    ],
+                    value="All",
+                    clearable=False,
+                    style={"width": "160px"},
+                ),
+            ]),
         ]),
 
         dcc.Loading(type="circle", children=[

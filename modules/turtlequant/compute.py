@@ -226,3 +226,30 @@ def classify(
         return "BUY"
 
     return "HOLD"
+
+
+def last_signal_dates(history_df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """Per-symbol most-recent BUY date and most-recent SELL date, derived from the full
+    ``turtlequant_signals_history`` table (one row per symbol per actual week -- see
+    screener.py::screen_symbol's Signal_Date). Expects columns ``Symbol``, ``Signal``,
+    ``Signal_Date`` (string or date-like, sortable lexicographically as ISO ``YYYY-MM-DD``).
+
+    Returns columns ``Symbol``, ``Last_Buy_Date``, ``Last_Sell_Date`` -- either may be missing
+    (NaN) for a symbol that has never had that signal type in the recorded history yet (history
+    only goes back as far as the table has existed, so this fills in and gets more complete
+    week over week, not something this function can backfill on its own).
+    """
+    empty = pd.DataFrame(columns=["Symbol", "Last_Buy_Date", "Last_Sell_Date"])
+    if history_df is None or history_df.empty:
+        return empty
+    if not {"Symbol", "Signal", "Signal_Date"}.issubset(history_df.columns):
+        return empty
+
+    df = history_df[history_df["Signal"].isin(["BUY", "SELL"])]
+    if df.empty:
+        return empty
+
+    pivot = df.groupby(["Symbol", "Signal"])["Signal_Date"].max().unstack("Signal")
+    pivot = pivot.reindex(columns=["BUY", "SELL"])
+    pivot = pivot.rename(columns={"BUY": "Last_Buy_Date", "SELL": "Last_Sell_Date"})
+    return pivot.reset_index()
