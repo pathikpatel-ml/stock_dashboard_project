@@ -2,7 +2,14 @@ name: Generate Turtle Quant Signals
 
 on:
   schedule:
-    - cron: '15 11 * * 1-5'   # 11:15 UTC weekdays, 30 min after turtle_signals.yml's 10:45 run
+    # 02:30 UTC Sunday (~8:00 AM IST) -- runs ONCE per week, over the weekend, using the
+    # just-closed, fully-final previous week (through Friday's close). Deliberately NOT a
+    # weekday schedule: this is a weekly-candle strategy, so evaluating a still-forming
+    # mid-week candle every weekday made the exact moment to act on a signal unclear (you'd
+    # see Monday's signal only after Monday's session had already happened, based on a week
+    # that wasn't even done yet). Running once on the weekend means the signal is fully
+    # settled and ready before Monday's market open -- confirmed with the user 2026-09-05.
+    - cron: '30 2 * * 0'
   workflow_dispatch:
 
 jobs:
