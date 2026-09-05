@@ -59,7 +59,6 @@ LOADED_TURTLE_SOURCE = None
 
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
-turtlequant_history_df = pd.DataFrame()
 turtlequant_transitions_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
 LOADED_TURTLEQUANT_SOURCE = None
@@ -484,7 +483,7 @@ def load_turtlequant_data_on_startup():
     load_and_process_data_on_startup()) for its Indices filter -- same Nifty 50/100/200/sectoral
     membership file, no separate categories fetch needed.
     """
-    global turtlequant_signals_df, turtlequant_history_df, turtlequant_transitions_df
+    global turtlequant_signals_df, turtlequant_transitions_df
     global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -500,21 +499,16 @@ def load_turtlequant_data_on_startup():
         )
         LOADED_TURTLEQUANT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
 
-    # Full signal history (one row per symbol per actual week) -- powers the "Last Buy/Sell
-    # Date" columns via modules.turtlequant.compute.last_signal_dates. Postgres-only (no CSV
-    # fallback -- this table is additive/optional; the main signals table above is what matters
-    # for the dashboard to function at all).
-    turtlequant_history_df = _from_postgres("turtlequant_signals_history", _TURTLEQUANT_SIGNALS_FROM_DB)
-
     # Validated BUY/SELL transition events -- powers the dashboard's displayed Signal/Signal_Date
     # (see modules.turtlequant.compute.current_validated_signal): a stock only shows BUY or SELL
     # once it has a genuine recorded transition; otherwise blank. Never HOLD -- detect_transition
-    # never logs a move into HOLD. Postgres-only, same reasoning as turtlequant_history_df above.
+    # never logs a move into HOLD. Postgres-only (no CSV fallback -- additive/optional; the main
+    # signals table above is what matters for the dashboard to function at all).
     turtlequant_transitions_df = _from_postgres("turtlequant_signal_transitions", _TURTLEQUANT_TRANSITIONS_FROM_DB)
 
     print(
         f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals, "
-        f"{len(turtlequant_history_df)} history rows (source={LOADED_TURTLEQUANT_SOURCE})."
+        f"{len(turtlequant_transitions_df)} transition rows (source={LOADED_TURTLEQUANT_SOURCE})."
     )
 
 

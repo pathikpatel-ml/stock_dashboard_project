@@ -22,7 +22,6 @@ from . import compute as tq_compute
 
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
-    "Last_Buy_Date", "Last_Sell_Date",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
 ]
@@ -36,14 +35,6 @@ _COLUMN_TOOLTIPS = {
     "Signal_Date": (
         "The date of the validated BUY or SELL event shown in Signal (blank if there is none "
         "yet) -- the week that event actually happened, not the day the batch job last ran."
-    ),
-    "Last_Buy_Date": (
-        "The most recent week this stock had a BUY signal, from recorded history. Blank if it "
-        "hasn't had one since history started being tracked (2026-09-05)."
-    ),
-    "Last_Sell_Date": (
-        "The most recent week this stock had a SELL signal, from recorded history. Blank if it "
-        "hasn't had one since history started being tracked (2026-09-05)."
     ),
     "RS_Long_Term": (
         "52-week relative strength vs NSE:NIFTY: (1 + stock's 52wk return/100) / "
@@ -225,13 +216,6 @@ def register_turtlequant_callbacks(app):
         else:
             df["Signal"] = None
             df["Signal_Date"] = None
-
-        last_dates = tq_compute.last_signal_dates(data_manager.turtlequant_history_df)
-        if not last_dates.empty:
-            df = df.merge(last_dates, on="Symbol", how="left")
-        else:
-            df["Last_Buy_Date"] = None
-            df["Last_Sell_Date"] = None
 
         if indices_value == "My Holdings":
             user_id = _current_user_id()
