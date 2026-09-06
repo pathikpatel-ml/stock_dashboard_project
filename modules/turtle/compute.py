@@ -80,14 +80,23 @@ def relative_strength(
     close_series: Optional[pd.Series],
     window_weeks: int = C.RS_WINDOW_WEEKS,
 ) -> Optional[float]:
-    """52-week (``window_weeks``) % return, using each week's HIGHEST daily close as that
-    week's representative value -- NOT the last trading day of the week.
+    """52-week (``window_weeks``) % return, using each week's ACTUAL closing price (its last
+    trading day, e.g. Friday) as that week's representative value.
 
-    ``close_series`` must have a DatetimeIndex sorted ascending. Daily closes are bucketed
-    into Mon-Sun weeks (labelled by each week's Monday); each week's value is
-    ``max(that week's daily closes)``. The result compares the latest available week's high
-    to the week exactly ``window_weeks`` weeks before it -- falling back to the closest
-    available week on/before that target if the exact week is missing (holidays, gaps).
+    Changed 2026-09-06 (confirmed with the user) from the earlier "each week's highest daily
+    close" approach -- that was a deliberate choice at the time to avoid day-of-week noise, but
+    made this function's RS numbers diverge from Turtle Quant's own RS (which feeds this same
+    function native weekly bars, where "the week's value" is unambiguously its own close) purely
+    because of this bucketing difference, not because of any real strategy difference. Using the
+    actual close removes that mismatch and matches how "a week's closing price" is normally
+    understood.
+
+    ``close_series`` must have a DatetimeIndex sorted ascending. Daily closes are bucketed into
+    Mon-Sun weeks (labelled by each week's Monday); each week's value is the close on that
+    week's LAST available trading day (relies on ``close_series`` being chronologically sorted,
+    same assumption this function has always made). The result compares the latest available
+    week's close to the week exactly ``window_weeks`` weeks before it -- falling back to the
+    closest available week on/before that target if the exact week is missing (holidays, gaps).
     Returns None if the series is empty, undated, or doesn't reach far enough back.
     """
     if close_series is None or len(close_series) == 0:
@@ -102,23 +111,23 @@ def relative_strength(
     week_start = pd.DatetimeIndex(series.index) - pd.to_timedelta(
         pd.DatetimeIndex(series.index).weekday, unit="D"
     )
-    weekly_high = pd.Series(series.values, index=week_start).groupby(level=0).max().sort_index()
-    if weekly_high.empty:
+    weekly_close = pd.Series(series.values, index=week_start).groupby(level=0).last().sort_index()
+    if weekly_close.empty:
         return None
 
-    latest_week = weekly_high.index[-1]
-    latest_high = float(weekly_high.iloc[-1])
+    latest_week = weekly_close.index[-1]
+    latest_close = float(weekly_close.iloc[-1])
     base_week_target = latest_week - pd.Timedelta(weeks=window_weeks)
 
-    eligible = weekly_high[weekly_high.index <= base_week_target]
+    eligible = weekly_close[weekly_close.index <= base_week_target]
     if eligible.empty:
         return None
 
-    base_high = float(eligible.iloc[-1])
-    if base_high == 0:
+    base_close = float(eligible.iloc[-1])
+    if base_close == 0:
         return None
 
-    return (latest_high / base_high - 1.0) * 100.0
+    return (latest_close / base_close - 1.0) * 100.0
 
 
 def outperformance_flag(

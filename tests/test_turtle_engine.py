@@ -127,23 +127,25 @@ def test_above_exit_flag_missing_exit_ma():
 
 
 # ---------------------------------------------------------------------------
-# relative_strength -- 52-week, weekly HIGH-close basis (not last-trading-day-of-week)
+# relative_strength -- 52-week, weekly ACTUAL-close basis (changed 2026-09-06 from the earlier
+# weekly-HIGH-close approach -- confirmed with the user, to match how Turtle Quant's own RS
+# treats "a week's value" when fed native weekly bars, and how "closing price" is normally read)
 # ---------------------------------------------------------------------------
-def test_relative_strength_uses_weekly_high_not_last_day():
-    # A week (Mon-Fri) where the close falls mid-week, then drops -- the weekly RS must use
-    # the week's HIGH (Wednesday), not Friday's lower close.
+def test_relative_strength_uses_weeks_actual_close_not_the_high():
+    # A week (Mon-Fri) where the close peaks mid-week, then drops -- the weekly RS must use
+    # the week's LAST trading day (Friday), not its mid-week high.
     dates = pd.date_range("2024-01-01", periods=5, freq="D")  # Mon 1/1 .. Fri 1/5
-    closes = pd.Series([100.0, 110.0, 130.0, 120.0, 90.0], index=dates)  # high=130 on Wed
+    closes = pd.Series([100.0, 110.0, 130.0, 120.0, 90.0], index=dates)  # Friday close = 90
     week_start = dates[0] - pd.Timedelta(days=dates[0].weekday())
     assert week_start == pd.Timestamp("2024-01-01")  # Monday
 
-    # Build a second week exactly 52 weeks later with a known high, then check the ratio.
+    # Build a second week exactly 52 weeks later with a known Friday close, then check the ratio.
     later_dates = dates + pd.Timedelta(weeks=52)
-    later_closes = pd.Series([200.0, 260.0, 240.0, 210.0, 190.0], index=later_dates)  # high=260
+    later_closes = pd.Series([200.0, 260.0, 240.0, 210.0, 190.0], index=later_dates)  # Friday close = 190
     combined = pd.concat([closes, later_closes])
 
     result = tt.relative_strength(combined, window_weeks=52)
-    expected = (260.0 / 130.0 - 1.0) * 100.0
+    expected = (190.0 / 90.0 - 1.0) * 100.0
     assert result == pytest.approx(expected)
 
 
@@ -155,11 +157,11 @@ def test_relative_strength_known_series():
     result = tt.relative_strength(closes, window_weeks=52)
 
     week_start = pd.DatetimeIndex(dates) - pd.to_timedelta(pd.DatetimeIndex(dates).weekday, unit="D")
-    weekly_high = pd.Series(closes.values, index=week_start).groupby(level=0).max().sort_index()
-    latest_week = weekly_high.index[-1]
+    weekly_close = pd.Series(closes.values, index=week_start).groupby(level=0).last().sort_index()
+    latest_week = weekly_close.index[-1]
     base_week_target = latest_week - pd.Timedelta(weeks=52)
-    base_high = weekly_high[weekly_high.index <= base_week_target].iloc[-1]
-    expected = (weekly_high.iloc[-1] / base_high - 1.0) * 100.0
+    base_close = weekly_close[weekly_close.index <= base_week_target].iloc[-1]
+    expected = (weekly_close.iloc[-1] / base_close - 1.0) * 100.0
     assert result == pytest.approx(expected)
 
 
