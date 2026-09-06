@@ -324,3 +324,58 @@ def test_merge_live_prices_missing_symbol_column_in_live_prices_is_safe():
     live = pd.DataFrame([{"NotSymbol": "RELIANCE", "Live_Price": 1435.4}])
     result = tt.merge_live_prices(_signals_df(), live)
     assert result.set_index("Symbol").loc["RELIANCE", "Current_Price"] == 1300.0
+
+
+# ---------------------------------------------------------------------------
+# add_rs_ranks
+# ---------------------------------------------------------------------------
+def test_add_rs_ranks_within_peer_group_highest_is_rank_1():
+    df = pd.DataFrame([
+        {"Symbol": "A", "RS_Peer_Group": "NIFTY BANK", "RS_vs_Sector": 10.0, "RS_vs_Benchmark": 5.0},
+        {"Symbol": "B", "RS_Peer_Group": "NIFTY BANK", "RS_vs_Sector": 25.0, "RS_vs_Benchmark": 30.0},
+        {"Symbol": "C", "RS_Peer_Group": "NIFTY BANK", "RS_vs_Sector": -5.0, "RS_vs_Benchmark": -1.0},
+        # A different peer group -- ranked separately, must not affect the NIFTY BANK ranks.
+        {"Symbol": "D", "RS_Peer_Group": "Sector: IT", "RS_vs_Sector": 100.0, "RS_vs_Benchmark": 100.0},
+    ])
+    result = tt.add_rs_ranks(df).set_index("Symbol")
+
+    assert result.loc["B", "RS_vs_Sector_Rank"] == 1
+    assert result.loc["A", "RS_vs_Sector_Rank"] == 2
+    assert result.loc["C", "RS_vs_Sector_Rank"] == 3
+    assert result.loc["B", "RS_vs_Benchmark_Rank"] == 1
+    assert result.loc["A", "RS_vs_Benchmark_Rank"] == 2
+    assert result.loc["C", "RS_vs_Benchmark_Rank"] == 3
+    # Single-member peer group -- still ranked (trivially 1st of 1), not blank.
+    assert result.loc["D", "RS_vs_Sector_Rank"] == 1
+
+
+def test_add_rs_ranks_ties_share_rank_and_skip_next():
+    df = pd.DataFrame([
+        {"Symbol": "A", "RS_Peer_Group": "X", "RS_vs_Sector": 10.0, "RS_vs_Benchmark": 1.0},
+        {"Symbol": "B", "RS_Peer_Group": "X", "RS_vs_Sector": 10.0, "RS_vs_Benchmark": 1.0},
+        {"Symbol": "C", "RS_Peer_Group": "X", "RS_vs_Sector": 5.0, "RS_vs_Benchmark": 0.5},
+    ])
+    result = tt.add_rs_ranks(df).set_index("Symbol")
+
+    assert result.loc["A", "RS_vs_Sector_Rank"] == 1
+    assert result.loc["B", "RS_vs_Sector_Rank"] == 1
+    assert result.loc["C", "RS_vs_Sector_Rank"] == 3  # skips rank 2, per competition ranking
+
+
+def test_add_rs_ranks_missing_value_or_peer_group_is_blank():
+    df = pd.DataFrame([
+        {"Symbol": "A", "RS_Peer_Group": "X", "RS_vs_Sector": 10.0, "RS_vs_Benchmark": 1.0},
+        {"Symbol": "B", "RS_Peer_Group": "X", "RS_vs_Sector": None, "RS_vs_Benchmark": 1.0},
+        {"Symbol": "C", "RS_Peer_Group": None, "RS_vs_Sector": 5.0, "RS_vs_Benchmark": 0.5},
+    ])
+    result = tt.add_rs_ranks(df).set_index("Symbol")
+
+    assert pd.isna(result.loc["B", "RS_vs_Sector_Rank"])
+    assert pd.isna(result.loc["C", "RS_vs_Sector_Rank"])
+
+
+def test_add_rs_ranks_empty_or_missing_column_is_safe():
+    assert tt.add_rs_ranks(pd.DataFrame()).empty
+    df_no_peer_group = pd.DataFrame([{"Symbol": "A", "RS_vs_Sector": 1.0}])
+    result = tt.add_rs_ranks(df_no_peer_group)
+    assert "RS_vs_Sector_Rank" not in result.columns

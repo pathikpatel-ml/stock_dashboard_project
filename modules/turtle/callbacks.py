@@ -26,7 +26,8 @@ _DISPLAY_COLUMNS = [
     # shown here. No calculation/formula/Signal logic touched.
     "Symbol", "Sector", "Industry", "Current_Price", "Signal", "ATH_Price_Flag",
     "ATH_Profit_Flag", "ATH_Sales_Flag",
-    "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark",
+    "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Sector_Rank",
+    "RS_vs_Benchmark", "RS_vs_Benchmark_Rank",
 ]
 
 # Shown on hover over each column header (docs/TURTLE_STRATEGY_PLAN.md) so the table is
@@ -86,10 +87,20 @@ _COLUMN_TOOLTIPS = {
         "member of the RS_Peer_Group basket, excluding itself).\n\n"
         "`stock_RS − peer_group_RS`   (positive = beating its peer group)"
     ),
+    "RS_vs_Sector_Rank": (
+        "Rank (1 = highest) among every other stock sharing this stock's RS_Peer_Group, by "
+        "RS vs Sector. Tied values share the same rank (next rank skips ahead accordingly). "
+        "Blank if RS vs Sector or RS_Peer_Group is unavailable for this stock."
+    ),
     "RS_vs_Benchmark": (
         "Stock's 52-week return (weekly actual-close basis) minus the benchmark's 52-week "
         "return — Nifty 500, standing in for BSE 500 (not on yfinance).\n\n"
         "`stock_RS − benchmark_RS`   (positive = beating the market)"
+    ),
+    "RS_vs_Benchmark_Rank": (
+        "Rank (1 = highest) among every other stock sharing this stock's RS_Peer_Group, by "
+        "RS vs Benchmark -- same peer-group scope as RS vs Sector Rank, even though the "
+        "benchmark itself is the same for every stock. Tied values share the same rank."
     ),
     "Signal": (
         "**ADD** — ATH Price + ATH Profit + Outperformance all true.\n\n"
@@ -342,6 +353,11 @@ def register_turtle_callbacks(app):
 
         if live_prices_df is not None and not live_prices_df.empty:
             df = compute.merge_live_prices(df, live_prices_df)
+
+        # Computed on the FULL universe, before any filter below narrows df -- a stock's rank
+        # must always reflect its true position within its real peer group, not just whatever
+        # subset happens to be currently on screen.
+        df = compute.add_rs_ranks(df)
 
         if indices_value == "My Watchlist":
             # Not a real NSE index -- filter to the logged-in user's own turtle_watchlist rows

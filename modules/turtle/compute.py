@@ -224,3 +224,36 @@ def merge_live_prices(signals_df: pd.DataFrame, live_prices_df: pd.DataFrame) ->
     live_values = df["Symbol"].astype(str).str.upper().map(price_map)
     df["Current_Price"] = live_values.where(live_values.notna(), df["Current_Price"])
     return df
+
+
+def add_rs_ranks(df: pd.DataFrame) -> pd.DataFrame:
+    """Adds ``RS_vs_Sector_Rank`` and ``RS_vs_Benchmark_Rank`` columns (confirmed with the user
+    2026-09-06): for each stock, its rank (1 = highest value) among all OTHER stocks sharing
+    the same ``RS_Peer_Group`` -- e.g. a stock ranked 1st of 45 within "NIFTY BANK" has the
+    highest RS_vs_Sector among every NIFTY BANK-tagged stock, not the whole universe. Both
+    ranks use the SAME peer-group scope (also confirmed with the user), even though
+    RS_vs_Benchmark's underlying benchmark value is identical for every stock -- only
+    RS_vs_Sector's peer-group basket is inherently sector-scoped by definition.
+
+    Ties share the same rank (competition ranking: two stocks tied for the top RS both get
+    rank 1, the next distinct value gets rank 3, not 2) via ``pandas``' ``method="min"``.
+    A stock with a missing RS value, or no peer group at all, gets a blank (NaN) rank -- it
+    was never meaningfully comparable to begin with.
+
+    Callers should compute this on the FULL, unfiltered universe (before any Indices/Sector/
+    Stock/My-Watchlist filter narrows ``df``) so a stock's rank always reflects its true
+    position within its real peer group, not just whatever subset happens to be on screen.
+    """
+    if df is None or df.empty or "RS_Peer_Group" not in df.columns:
+        return df
+
+    result = df.copy()
+    for value_col, rank_col in (
+        ("RS_vs_Sector", "RS_vs_Sector_Rank"),
+        ("RS_vs_Benchmark", "RS_vs_Benchmark_Rank"),
+    ):
+        if value_col not in result.columns:
+            continue
+        ranks = result.groupby("RS_Peer_Group")[value_col].rank(ascending=False, method="min")
+        result[rank_col] = ranks.astype("Int64")
+    return result
