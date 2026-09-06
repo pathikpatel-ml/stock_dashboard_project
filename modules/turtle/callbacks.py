@@ -98,9 +98,10 @@ _COLUMN_TOOLTIPS = {
         "`stock_RS − benchmark_RS`   (positive = beating the market)"
     ),
     "RS_vs_Benchmark_Rank": (
-        "Rank (1 = highest) among every other stock sharing this stock's RS_Peer_Group, by "
-        "RS vs Benchmark -- same peer-group scope as RS vs Sector Rank, even though the "
-        "benchmark itself is the same for every stock. Tied values share the same rank."
+        "Rank (1 = highest) among all real NIFTY 500 members by RS vs Benchmark -- the same "
+        "universe the benchmark itself represents (^CRSLDX, the Nifty 500/BSE 500 proxy), not "
+        "just this stock's narrow sector. Blank if the stock isn't a NIFTY 500 member. Tied "
+        "values share the same rank."
     ),
     "Signal": (
         "**ADD** — ATH Price + ATH Profit + Outperformance all true.\n\n"
@@ -356,8 +357,18 @@ def register_turtle_callbacks(app):
 
         # Computed on the FULL universe, before any filter below narrows df -- a stock's rank
         # must always reflect its true position within its real peer group, not just whatever
-        # subset happens to be currently on screen.
-        df = compute.add_rs_ranks(df)
+        # subset happens to be currently on screen. RS_vs_Benchmark_Rank is scoped to real
+        # NIFTY 500 membership (see compute.add_rs_ranks's docstring) -- derived here from the
+        # same nse_categories_df the Indices filter already uses (reusing filter_by_index's
+        # already-tested nesting logic, not a separate regex), no new fetch needed.
+        categories_df_for_ranks = data_manager.nse_categories_df
+        nifty500_symbols = None
+        if not categories_df_for_ranks.empty and "NSE_Categories" in categories_df_for_ranks.columns:
+            nifty500_mask = categories_df_for_ranks["NSE_Categories"].map(
+                lambda s: compute.filter_by_index(s, "NIFTY 500")
+            )
+            nifty500_symbols = set(categories_df_for_ranks.loc[nifty500_mask, "Symbol"].astype(str).str.upper())
+        df = compute.add_rs_ranks(df, nifty500_symbols=nifty500_symbols)
 
         if indices_value == "My Watchlist":
             # Not a real NSE index -- filter to the logged-in user's own turtle_watchlist rows

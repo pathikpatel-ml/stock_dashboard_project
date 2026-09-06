@@ -253,6 +253,11 @@ def test_filter_by_index_nesting():
     assert tt.filter_by_index("NIFTY 50", "NIFTY 200") is True
     assert tt.filter_by_index("NIFTY 100", "NIFTY 200") is True
     assert tt.filter_by_index("NIFTY 200", "NIFTY 100") is False  # not the reverse
+    # NIFTY 500 (added 2026-09-06) nests above 50/100/200 too.
+    assert tt.filter_by_index("NIFTY 50", "NIFTY 500") is True
+    assert tt.filter_by_index("NIFTY 200", "NIFTY 500") is True
+    assert tt.filter_by_index("NIFTY 500", "NIFTY 500") is True
+    assert tt.filter_by_index("NIFTY 500", "NIFTY 200") is False  # not the reverse
 
 
 def test_filter_by_index_missing_categories():
@@ -379,3 +384,35 @@ def test_add_rs_ranks_empty_or_missing_column_is_safe():
     df_no_peer_group = pd.DataFrame([{"Symbol": "A", "RS_vs_Sector": 1.0}])
     result = tt.add_rs_ranks(df_no_peer_group)
     assert "RS_vs_Sector_Rank" not in result.columns
+
+
+def test_add_rs_ranks_benchmark_scoped_to_nifty500_membership():
+    # A and B are NIFTY 500 members (different sectors); C is NOT a member -- even though C's
+    # own RS_vs_Benchmark is the highest of all three, it must not count toward A/B's rank,
+    # and C itself must get a blank rank (it isn't part of the universe the benchmark represents).
+    df = pd.DataFrame([
+        {"Symbol": "A", "RS_Peer_Group": "NIFTY BANK", "RS_vs_Sector": 1.0, "RS_vs_Benchmark": 10.0},
+        {"Symbol": "B", "RS_Peer_Group": "Sector: IT", "RS_vs_Sector": 1.0, "RS_vs_Benchmark": 20.0},
+        {"Symbol": "C", "RS_Peer_Group": "Sector: Realty", "RS_vs_Sector": 1.0, "RS_vs_Benchmark": 999.0},
+    ])
+    result = tt.add_rs_ranks(df, nifty500_symbols={"A", "B"}).set_index("Symbol")
+
+    assert result.loc["B", "RS_vs_Benchmark_Rank"] == 1
+    assert result.loc["A", "RS_vs_Benchmark_Rank"] == 2
+    assert pd.isna(result.loc["C", "RS_vs_Benchmark_Rank"])
+    # RS_vs_Sector_Rank is unaffected by nifty500_symbols -- each is 1st of its own peer group.
+    assert result.loc["A", "RS_vs_Sector_Rank"] == 1
+    assert result.loc["C", "RS_vs_Sector_Rank"] == 1
+
+
+def test_add_rs_ranks_no_nifty500_symbols_falls_back_to_peer_group():
+    # Omitting nifty500_symbols (None, e.g. membership data unavailable) must not break --
+    # falls back to the same peer-group scope as RS_vs_Sector_Rank, exactly like before this
+    # feature existed.
+    df = pd.DataFrame([
+        {"Symbol": "A", "RS_Peer_Group": "X", "RS_vs_Sector": 1.0, "RS_vs_Benchmark": 5.0},
+        {"Symbol": "B", "RS_Peer_Group": "X", "RS_vs_Sector": 1.0, "RS_vs_Benchmark": 10.0},
+    ])
+    result = tt.add_rs_ranks(df, nifty500_symbols=None).set_index("Symbol")
+    assert result.loc["B", "RS_vs_Benchmark_Rank"] == 1
+    assert result.loc["A", "RS_vs_Benchmark_Rank"] == 2

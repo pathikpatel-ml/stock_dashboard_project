@@ -22,6 +22,10 @@ INDEX_URLS = {
     "NIFTY 50": "https://archives.nseindia.com/content/indices/ind_nifty50list.csv",
     "NIFTY 100": "https://archives.nseindia.com/content/indices/ind_nifty100list.csv",
     "NIFTY 200": "https://archives.nseindia.com/content/indices/ind_nifty200list.csv",
+    # Added 2026-09-06 (verified live: 501 symbols, real "Symbol" column) -- needed so
+    # RS_vs_Benchmark_Rank can rank stocks against the SAME universe the benchmark itself
+    # represents (^CRSLDX, the Nifty 500 proxy), not just a narrow sector peer group.
+    "NIFTY 500": "https://archives.nseindia.com/content/indices/ind_nifty500list.csv",
     # Sectoral + market-cap-tier indices (added 2026-08-20) -- each URL individually verified
     # live before adding (NSE's archive doesn't follow one predictable slug-from-name rule;
     # about 16 other guessed names 404'd and were dropped rather than included unverified --

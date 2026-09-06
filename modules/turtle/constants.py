@@ -43,8 +43,11 @@ RS_WINDOW_WEEKS = 52  # weekly-actual-close return window for stock / sector / b
 # excluding MIDCAP/SMALLCAP 50, pharma names like LUPIN/AUROPHARMA/ALKEM (also Nifty Midcap 50
 # constituents) got grouped with random midcap companies from unrelated industries instead of
 # NIFTY PHARMA, the exact "diluted peer group" problem this feature exists to fix. Anything
-# else in NSE_Categories (a true sectoral index) counts as sectoral.
-BROAD_INDEX_TAGS = {"NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50"}
+# else in NSE_Categories (a true sectoral index) counts as sectoral. "NIFTY 500" added
+# 2026-09-06 alongside the RS rank feature, same market-cap-tier reasoning as the other four.
+BROAD_INDEX_TAGS = {
+    "NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY 500", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50",
+}
 
 # Sectoral-index-direct RS (added 2026-08-20): for a sectoral index with a real yfinance
 # ticker, RS_vs_Sector compares the stock against the INDEX'S OWN price series directly --

@@ -196,6 +196,8 @@ def filter_by_index(categories_str: Optional[str], index_name: str) -> bool:
         return bool(tags & {"NIFTY 50", "NIFTY 100"})
     if index_name == "NIFTY 200":
         return bool(tags & {"NIFTY 50", "NIFTY 100", "NIFTY 200"})
+    if index_name == "NIFTY 500":
+        return bool(tags & {"NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY 500"})
     return index_name in tags
 
 
@@ -226,19 +228,27 @@ def merge_live_prices(signals_df: pd.DataFrame, live_prices_df: pd.DataFrame) ->
     return df
 
 
-def add_rs_ranks(df: pd.DataFrame) -> pd.DataFrame:
-    """Adds ``RS_vs_Sector_Rank`` and ``RS_vs_Benchmark_Rank`` columns (confirmed with the user
-    2026-09-06): for each stock, its rank (1 = highest value) among all OTHER stocks sharing
-    the same ``RS_Peer_Group`` -- e.g. a stock ranked 1st of 45 within "NIFTY BANK" has the
-    highest RS_vs_Sector among every NIFTY BANK-tagged stock, not the whole universe. Both
-    ranks use the SAME peer-group scope (also confirmed with the user), even though
-    RS_vs_Benchmark's underlying benchmark value is identical for every stock -- only
-    RS_vs_Sector's peer-group basket is inherently sector-scoped by definition.
+def add_rs_ranks(df: pd.DataFrame, nifty500_symbols: Optional[set] = None) -> pd.DataFrame:
+    """Adds ``RS_vs_Sector_Rank`` and ``RS_vs_Benchmark_Rank`` columns.
+
+    ``RS_vs_Sector_Rank`` -- a stock's rank (1 = highest value) among all OTHER stocks sharing
+    its ``RS_Peer_Group`` (e.g. 1st of 45 within "NIFTY BANK") -- this basket is inherently
+    sector-scoped by definition, unchanged since this function was first built.
+
+    ``RS_vs_Benchmark_Rank`` -- changed 2026-09-06 (confirmed with the user) to rank against
+    the SAME universe the benchmark itself represents: real NIFTY 500 membership (``^CRSLDX``
+    is the Nifty 500/BSE 500 proxy this whole tab's RS_vs_Benchmark is built on), passed in via
+    ``nifty500_symbols`` (a set of symbols, from ``NSE_Categories`` -- see
+    ``modules.nse_category_fetcher``'s "NIFTY 500" entry). A stock not in that set gets a blank
+    rank here (it isn't part of the universe the benchmark represents), even though its own
+    RS_vs_Sector_Rank is unaffected. If ``nifty500_symbols`` is omitted (e.g. the membership
+    fetch hasn't populated yet), falls back to the same RS_Peer_Group scope as RS_vs_Sector_Rank,
+    so this never breaks when that data is temporarily unavailable.
 
     Ties share the same rank (competition ranking: two stocks tied for the top RS both get
     rank 1, the next distinct value gets rank 3, not 2) via ``pandas``' ``method="min"``.
-    A stock with a missing RS value, or no peer group at all, gets a blank (NaN) rank -- it
-    was never meaningfully comparable to begin with.
+    A stock with a missing RS value gets a blank (NaN) rank -- it was never meaningfully
+    comparable to begin with.
 
     Callers should compute this on the FULL, unfiltered universe (before any Indices/Sector/
     Stock/My-Watchlist filter narrows ``df``) so a stock's rank always reflects its true
@@ -248,12 +258,19 @@ def add_rs_ranks(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     result = df.copy()
-    for value_col, rank_col in (
-        ("RS_vs_Sector", "RS_vs_Sector_Rank"),
-        ("RS_vs_Benchmark", "RS_vs_Benchmark_Rank"),
-    ):
-        if value_col not in result.columns:
-            continue
-        ranks = result.groupby("RS_Peer_Group")[value_col].rank(ascending=False, method="min")
-        result[rank_col] = ranks.astype("Int64")
+
+    if "RS_vs_Sector" in result.columns:
+        ranks = result.groupby("RS_Peer_Group")["RS_vs_Sector"].rank(ascending=False, method="min")
+        result["RS_vs_Sector_Rank"] = ranks.astype("Int64")
+
+    if "RS_vs_Benchmark" in result.columns:
+        if nifty500_symbols:
+            in_universe = result["Symbol"].astype(str).str.upper().isin(nifty500_symbols)
+            rank_group = pd.Series(pd.NA, index=result.index, dtype="object")
+            rank_group[in_universe] = "NIFTY 500"
+            ranks = result.groupby(rank_group)["RS_vs_Benchmark"].rank(ascending=False, method="min")
+        else:
+            ranks = result.groupby("RS_Peer_Group")["RS_vs_Benchmark"].rank(ascending=False, method="min")
+        result["RS_vs_Benchmark_Rank"] = ranks.astype("Int64")
+
     return result

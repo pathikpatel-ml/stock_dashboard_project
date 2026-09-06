@@ -166,7 +166,7 @@ def test_refresh_nifty_membership_drops_stale_sectoral_tags_too(tmp_path, monkey
 
 def test_index_urls_covers_expected_sectoral_and_size_indices():
     expected = {
-        "NIFTY 50", "NIFTY 100", "NIFTY 200",
+        "NIFTY 50", "NIFTY 100", "NIFTY 200", "NIFTY 500",
         "NIFTY AUTO", "NIFTY BANK", "NIFTY ENERGY", "NIFTY FMCG", "NIFTY IT", "NIFTY METAL",
         "NIFTY PHARMA", "NIFTY REALTY", "NIFTY MIDCAP 50", "NIFTY SMALLCAP 50",
         "NIFTY CONSUMER DURABLES", "NIFTY MEDIA", "NIFTY OIL AND GAS", "NIFTY PSU BANK",
