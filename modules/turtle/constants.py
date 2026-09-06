@@ -24,11 +24,13 @@ MIN_MONTHLY_ROWS_FOR_ATH = 12
 
 # ---------------------------------------------------------------------------
 # Outperformance / relative strength (plan §1, §2). SUPERSEDES the original daily-close,
-# 365-calendar-day lookback -- now weekly-bucketed (each week's HIGHEST daily close, not its
-# last trading day's close), latest week vs. exactly 52 weeks earlier. Avoids day-of-week
-# noise inherent in picking "whichever daily close happens to land ~365 days back".
+# 365-calendar-day lookback -- now weekly-bucketed (each week's ACTUAL closing price, its last
+# trading day), latest week vs. exactly 52 weeks earlier. Avoids day-of-week noise inherent in
+# picking "whichever daily close happens to land ~365 days back". Changed 2026-09-06 from an
+# earlier weekly-HIGHEST-close approach (confirmed with the user, to match Turtle Quant's own
+# RS and how "closing price" is normally read -- see compute.py::relative_strength).
 # ---------------------------------------------------------------------------
-RS_WINDOW_WEEKS = 52  # weekly-high-close return window for stock / sector / benchmark
+RS_WINDOW_WEEKS = 52  # weekly-actual-close return window for stock / sector / benchmark
 
 # Sector-RS peer group (added 2026-08-15): prefer NSE's own curated sectoral index (NIFTY
 # BANK, NIFTY PHARMA, etc., from nse_categories.csv) over the broad yfinance "Sector" tag as

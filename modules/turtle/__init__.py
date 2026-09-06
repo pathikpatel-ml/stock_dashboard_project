@@ -6,7 +6,7 @@ exit price:
   * ATH Price       — latest close at/near its all-time-high close.
   * ATH Profit      — consolidated TTM Net Profit (screener.in) at/above the max annual Net
                        Profit on record.
-  * Outperformance  — 52-week return (weekly high-close basis) beats both the stock's
+  * Outperformance  — 52-week return (weekly actual-close basis) beats both the stock's
                        sector basket and the benchmark (Nifty 500 proxy for BSE 500).
   * Above Exit      — Current_Price > live 212-day SMA (falls back to the weekly CSV's
                        MA200 only when fewer than 212 days of live daily history exist).

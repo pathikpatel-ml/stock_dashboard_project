@@ -81,13 +81,13 @@ _COLUMN_TOOLTIPS = {
         "so the sectoral-index basket is preferred whenever one is available."
     ),
     "RS_vs_Sector": (
-        "Stock's 52-week return (each week's highest daily close vs. 52 weeks earlier) "
+        "Stock's 52-week return (each week's actual closing price vs. 52 weeks earlier) "
         "minus its RS-peer-group's *leave-one-out* average 52-week return (every other "
         "member of the RS_Peer_Group basket, excluding itself).\n\n"
         "`stock_RS − peer_group_RS`   (positive = beating its peer group)"
     ),
     "RS_vs_Benchmark": (
-        "Stock's 52-week return (weekly high-close basis) minus the benchmark's 52-week "
+        "Stock's 52-week return (weekly actual-close basis) minus the benchmark's 52-week "
         "return — Nifty 500, standing in for BSE 500 (not on yfinance).\n\n"
         "`stock_RS − benchmark_RS`   (positive = beating the market)"
     ),

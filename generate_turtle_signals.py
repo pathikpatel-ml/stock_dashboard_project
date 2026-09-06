@@ -4,7 +4,7 @@ Generate Turtle Strategy signals (docs/TURTLE_STRATEGY_PLAN.md).
 
 Runs the Turtle screening pipeline (modules/turtle/screener.py) over the NSE universe already
 built by the weekly screening job, fetching monthly/daily OHLCV from yfinance for ATH price and
-52-week (weekly-high-close) relative strength, and consolidated TTM/historical-max-annual Net Profit + Net Sales from
+52-week (weekly actual-close basis) relative strength, and consolidated TTM/historical-max-annual Net Profit + Net Sales from
 turtle_screener_fundamentals.csv (screener.in, via generate_turtle_fundamentals.py -- run that
 script first/separately, on its own weekly cadence, since screener.in fundamentals don't change
 daily), then writes one dated CSV that the dashboard loads at startup:

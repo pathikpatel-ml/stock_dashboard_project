@@ -79,7 +79,8 @@ def _fetch_index_daily_close(ticker: str, index_name: Optional[str] = None) -> O
 
 
 def _fetch_index_rs(ticker: str, index_name: Optional[str] = None) -> Optional[float]:
-    """Fetch one index's own 52-week (weekly high-close) relative strength -- shared by
+    """Fetch one index's own 52-week (weekly actual-close basis -- see
+    modules.turtle.compute.relative_strength) relative strength -- shared by
     ``fetch_benchmark_rs`` and ``fetch_sectoral_index_rs``. Returns None (never raises) on any
     fetch/parse failure; callers decide what that means.
     """
@@ -90,7 +91,7 @@ def _fetch_index_rs(ticker: str, index_name: Optional[str] = None) -> Optional[f
 
 
 def fetch_benchmark_rs(session=None) -> float:
-    """Fetch the benchmark's 52-week (weekly high-close) relative strength (LOCKED decision #2).
+    """Fetch the benchmark's 52-week (weekly actual-close basis) relative strength (LOCKED decision #2).
 
     Tries ``BENCHMARK_TICKER`` (Nifty 500 proxy for BSE 500), then each entry in
     ``BENCHMARK_FALLBACK_TICKERS``. Raises RuntimeError if none return usable data — per the
