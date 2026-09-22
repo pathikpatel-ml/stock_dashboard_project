@@ -47,7 +47,8 @@ _SECTOR_PULSE_DB_COLUMNS = {
     "Sector": "sector", "ATH_Price_Flag": "ath_price_flag", "RS_vs_Nifty50": "rs_vs_nifty50",
 }
 _SIGNALS_DB_COLUMNS = {
-    "Symbol": "symbol", "Company": "company", "Sector": "sector", "Industry": "industry",
+    "Symbol": "symbol", "Company": "company", "Broad_Sector": "broad_sector",
+    "Sector": "sector", "Industry": "industry",
     "Current_Price": "current_price", "ATH_Price_Flag": "ath_price_flag",
     "TTM_Net_Profit": "ttm_net_profit", "ATH_Profit_Flag": "ath_profit_flag",
     "Above_MA212_Flag": "above_ma212_flag", "RS_Peer_Group": "rs_peer_group",
@@ -76,6 +77,8 @@ _FUNDAMENTALS_FROM_DB = {
     "symbol": "Symbol", "ttm_net_profit": "TTM_Net_Profit",
     "max_annual_net_profit": "Max_Annual_Net_Profit", "ttm_net_sales": "TTM_Net_Sales",
     "max_annual_net_sales": "Max_Annual_Net_Sales",
+    "broad_sector": "Broad_Sector", "sector": "Sector",
+    "broad_industry": "Broad_Industry", "industry": "Industry",
 }
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 
@@ -119,6 +122,7 @@ def load_fundamentals() -> pd.DataFrame:
               "ATH-Profit/ATH-Sales will be unavailable. Run generate_turtle_fundamentals.py first.")
         return pd.DataFrame(columns=[
             "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
+            "Broad_Sector", "Sector", "Broad_Industry", "Industry",
         ])
     return pd.read_csv(FUNDAMENTALS_FILE)
 

@@ -70,7 +70,8 @@ LOADED_TURTLEQUANT_SOURCE = None
 # completely unchanged -- only the LOADING mechanism changed (CSV file -> Postgres table), not
 # the shape of the data once loaded.
 _TURTLE_SIGNALS_FROM_DB = {
-    "symbol": "Symbol", "company": "Company", "sector": "Sector", "industry": "Industry",
+    "symbol": "Symbol", "company": "Company", "broad_sector": "Broad_Sector",
+    "sector": "Sector", "industry": "Industry",
     "current_price": "Current_Price", "ath_price_flag": "ATH_Price_Flag",
     "ttm_net_profit": "TTM_Net_Profit", "ath_profit_flag": "ATH_Profit_Flag",
     "above_ma212_flag": "Above_MA212_Flag", "rs_peer_group": "RS_Peer_Group",

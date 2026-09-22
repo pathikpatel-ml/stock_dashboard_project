@@ -235,7 +235,29 @@ def test_build_fundamentals_lookup_shape():
     assert lookup["X"] == {
         "ttm_net_profit": 110, "max_annual_net_profit": 100,
         "ttm_net_sales": 210, "max_annual_net_sales": 200,
+        "broad_sector": None, "sector": None, "broad_industry": None, "industry": None,
     }
+
+
+def test_run_pipeline_prefers_screener_sector_over_universe_yahoo_tag():
+    # STOCKA's universe row carries the crude Yahoo tag "Alpha"; its screener.in fundamentals
+    # row carries the real classification -- run_pipeline must use the screener.in Sector (and
+    # surface Broad_Sector, which the universe CSV has no equivalent of at all).
+    fundamentals = FUNDAMENTALS_DF.copy()
+    fundamentals.loc[fundamentals["Symbol"] == "STOCKA", "Broad_Sector"] = "Energy"
+    fundamentals.loc[fundamentals["Symbol"] == "STOCKA", "Sector"] = "Oil, Gas & Consumable Fuels"
+    out = sc.run_pipeline(UNIVERSE_DF, fundamentals, BENCHMARK_RS, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["STOCKA"]
+    assert row["Sector"] == "Oil, Gas & Consumable Fuels"
+    assert row["Broad_Sector"] == "Energy"
+
+
+def test_run_pipeline_falls_back_to_universe_sector_when_screener_has_none():
+    # STOCKB has no screener.in Sector value -- must fall back to the universe CSV's Yahoo tag.
+    out = sc.run_pipeline(UNIVERSE_DF, FUNDAMENTALS_DF, BENCHMARK_RS, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["STOCKB"]
+    assert row["Sector"] == "Alpha"
+    assert pd.isna(row["Broad_Sector"]) or row["Broad_Sector"] is None
 
 
 # ---------------------------------------------------------------------------

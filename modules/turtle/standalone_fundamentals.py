@@ -219,6 +219,35 @@ def parse_profit_and_loss(html: str) -> Optional[dict]:
     }
 
 
+_SECTOR_TAG_TITLES = (
+    ("broad_sector", "Broad Sector"),
+    ("sector", "Sector"),
+    ("broad_industry", "Broad Industry"),
+    ("industry", "Industry"),
+)
+
+
+def parse_sector_classification(html: str) -> Optional[dict]:
+    """Extract screener.in's own 4-tier sector/industry classification (Broad Sector -> Sector
+    -> Broad Industry -> Industry -- e.g. Energy -> Oil, Gas & Consumable Fuels -> Petroleum
+    Products -> Refineries & Marketing for RELIANCE, verified live 2026-09) from a company
+    page's "Peer comparison" block: ``<a title="Broad Sector">Energy</a>`` etc, right next to
+    each other. This is a company-attribute lookup, unrelated to the Profit & Loss financials
+    table elsewhere on the same page -- present (or absent) independent of whether the company
+    has any usable consolidated/standalone P&L data. Returns None only if NONE of the four tags
+    are found (e.g. a symbol with no real screener.in listing); a page with some but not all
+    four tags present returns a dict with the missing ones as None, never raises.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    result = {}
+    for key, title in _SECTOR_TAG_TITLES:
+        tag = soup.find("a", title=title)
+        result[key] = tag.get_text(strip=True) if tag else None
+    if not any(result.values()):
+        return None
+    return result
+
+
 def resolve_screener_slug(symbol: str, session: Optional[requests.Session] = None) -> Optional[str]:
     """Look up ``symbol``'s screener.in slug via their company-search API, for the cases where
     the NSE ticker doesn't match the slug 1:1 (renames etc. -- e.g. ZOMATO -> ETERNAL). Returns
@@ -278,9 +307,19 @@ def fetch_profit_and_loss(
     nothing to consolidate), falls back to that same slug's plain (standalone) URL, since for
     such a company standalone IS the complete picture. Never raises -- network/parse/lookup
     failures all return None so a single bad symbol can't crash a full-universe batch run.
+
+    Also extracts screener.in's own sector/industry classification (``broad_sector``,
+    ``sector``, ``broad_industry``, ``industry`` -- see ``parse_sector_classification``) from
+    whichever page response ends up used, at zero extra network cost: it's the same "Peer
+    comparison" block rendered on every company page regardless of financial-data usability.
+    Keeps the first classification found across candidates/URLs as a fallback in case the page
+    that finally has usable P&L data doesn't itself carry the tags (or the reverse -- no usable
+    P&L found anywhere, but a sector classification was) so this function still returns
+    something useful for the sector-only case rather than None.
     """
     own_session = session is None
     session = session or _new_session()
+    best_sector = None
     try:
         for candidate in _candidate_slugs(symbol, session, use_search_fallback):
             for url in (
@@ -292,12 +331,22 @@ def fetch_profit_and_loss(
                         resp = session.get(url, timeout=20)
                         if resp.status_code == 200 and resp.content:
                             result = parse_profit_and_loss(resp.text)
+                            sector = parse_sector_classification(resp.text)
+                            if sector and best_sector is None:
+                                best_sector = sector
                             if _has_usable_data(result):
+                                result.update(sector or best_sector or {})
                                 return result
                             break  # page loaded fine, just no usable data -- try next URL/candidate
                     except Exception:
                         pass
                     time.sleep(pause * (attempt + 1))
+        if best_sector:
+            return {
+                "ttm_net_profit": None, "annual_net_profit": [],
+                "ttm_net_sales": None, "annual_net_sales": [],
+                **best_sector,
+            }
         return None
     finally:
         if own_session:

@@ -5,12 +5,20 @@ Strategy universe, scraped from screener.in (modules/turtle/standalone_fundament
 module name is historical; it fetches the ``/consolidated/`` page, not standalone).
 
 Writes turtle_screener_fundamentals.csv (repo root):
-    Symbol, TTM_Net_Profit, Max_Annual_Net_Profit, TTM_Net_Sales, Max_Annual_Net_Sales
+    Symbol, TTM_Net_Profit, Max_Annual_Net_Profit, TTM_Net_Sales, Max_Annual_Net_Sales,
+    Broad_Sector, Sector, Broad_Industry, Industry
 
 generate_turtle_signals.py reads this file (instead of the old, EPS-proxy-based
 stock_fundamentals_yearly.csv approach) so ATH_Profit_Flag/ATH_Sales_Flag can do a
 direct TTM-vs-max-annual comparison with no unit-conversion step (see modules/turtle/compute.py
 ::_ttm_ath_flag for why that's now possible: both figures come from the same screener.in table).
+
+The four Broad_Sector/Sector/Broad_Industry/Industry columns (2026-09) are screener.in's own
+classification (verified live: 12 Broad Sectors, 22 Sectors, 58 Broad Industries, 188
+Industries -- a real hierarchy, unlike Yahoo Finance's crude 12-value "Sector" tag the universe
+CSV carries), extracted from the SAME company-page response already fetched here for TTM
+profit/sales -- no extra network cost. modules/turtle/screener.py prefers Sector/Broad_Sector
+from this file over the universe CSV's Yahoo tag whenever screener.in has it.
 
 screener.in is a much smaller site than NSE/Yahoo and has no documented rate-limit policy, so
 this paces requests conservatively and checkpoints progress every CHECKPOINT_EVERY symbols to
@@ -43,7 +51,10 @@ REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
 OUTPUT_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
 CHECKPOINT_FILE = os.path.join(REPO_BASE_PATH, "output", "turtle_screener_fundamentals_checkpoint.csv")
-OUTPUT_COLUMNS = ["Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales"]
+OUTPUT_COLUMNS = [
+    "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
+    "Broad_Sector", "Sector", "Broad_Industry", "Industry",
+]
 CHECKPOINT_EVERY = 50
 
 # CSV column name -> Postgres column name (see generate_turtle_signals.py for why this stays
@@ -52,6 +63,8 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Symbol": "symbol", "TTM_Net_Profit": "ttm_net_profit",
     "Max_Annual_Net_Profit": "max_annual_net_profit", "TTM_Net_Sales": "ttm_net_sales",
     "Max_Annual_Net_Sales": "max_annual_net_sales",
+    "Broad_Sector": "broad_sector", "Sector": "sector",
+    "Broad_Industry": "broad_industry", "Industry": "industry",
 }
 
 
@@ -94,6 +107,7 @@ def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
         return {
             "Symbol": symbol, "TTM_Net_Profit": None, "Max_Annual_Net_Profit": None,
             "TTM_Net_Sales": None, "Max_Annual_Net_Sales": None,
+            "Broad_Sector": None, "Sector": None, "Broad_Industry": None, "Industry": None,
         }
     annual_profit = result.get("annual_net_profit") or []
     annual_sales = result.get("annual_net_sales") or []
@@ -103,6 +117,10 @@ def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
         "Max_Annual_Net_Profit": max(annual_profit) if annual_profit else None,
         "TTM_Net_Sales": result.get("ttm_net_sales"),
         "Max_Annual_Net_Sales": max(annual_sales) if annual_sales else None,
+        "Broad_Sector": result.get("broad_sector"),
+        "Sector": result.get("sector"),
+        "Broad_Industry": result.get("broad_industry"),
+        "Industry": result.get("industry"),
     }
 
 

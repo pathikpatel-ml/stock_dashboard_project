@@ -24,7 +24,7 @@ _DISPLAY_COLUMNS = [
     # display-only, table-width reduction. The flags they support (ATH_Profit_Flag,
     # ATH_Sales_Flag) still render; the raw ₹Cr figures stay in the underlying CSV, just not
     # shown here. No calculation/formula/Signal logic touched.
-    "Symbol", "Sector", "Industry", "Current_Price", "Signal", "ATH_Price_Flag",
+    "Symbol", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal", "ATH_Price_Flag",
     "ATH_Profit_Flag", "ATH_Sales_Flag",
     "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Sector_Rank",
     "RS_vs_Benchmark", "RS_vs_Benchmark_Rank",
@@ -34,8 +34,17 @@ _DISPLAY_COLUMNS = [
 # self-explanatory without needing to cross-reference the plan doc or ask what a column means.
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
-    "Sector": "Sector classification (Yahoo Finance), e.g. Financial Services, Technology.",
-    "Industry": "More specific industry classification within the sector.",
+    "Broad_Sector": (
+        "Top-level macro sector (screener.in's own classification, 12 total), e.g. Energy, "
+        "Financial Services, Healthcare. Falls back to blank if screener.in has no listing "
+        "for this stock."
+    ),
+    "Sector": (
+        "Sector classification -- screener.in's own 22-value hierarchy when available "
+        "(e.g. Oil Gas & Consumable Fuels, Banks), else Yahoo Finance's cruder 12-value tag "
+        "as a fallback for stocks screener.in has no listing for."
+    ),
+    "Industry": "More specific industry classification within the sector (Yahoo Finance).",
     "Current_Price": (
         "Live daily close price, refreshed intraday (~every 2-3h on market days). "
         "Falls back to the weekly-cron snapshot only if no live data is available."

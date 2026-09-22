@@ -108,6 +108,15 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     max_annual_net_profit   DOUBLE PRECISION,
     ttm_net_sales           DOUBLE PRECISION,
     max_annual_net_sales    DOUBLE PRECISION,
+    -- screener.in's own sector/industry classification (2026-09) -- a real 12/22/58/188-tier
+    -- hierarchy (Broad Sector -> Sector -> Broad Industry -> Industry), extracted from the same
+    -- company-page response already fetched here for TTM profit/sales. See
+    -- modules/turtle/screener.py::run_pipeline for how Sector/Broad_Sector are preferred over
+    -- the universe CSV's cruder Yahoo Finance "Sector" tag.
+    broad_sector            TEXT,
+    sector                  TEXT,
+    broad_industry          TEXT,
+    industry                TEXT,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -127,6 +136,7 @@ CREATE TABLE IF NOT EXISTS turtle_sector_pulse (
 CREATE TABLE IF NOT EXISTS turtle_signals_latest (
     symbol               TEXT PRIMARY KEY,
     company              TEXT,
+    broad_sector         TEXT,  -- screener.in's 12-value macro sector (2026-09); see turtle_fundamentals
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,
@@ -154,6 +164,7 @@ CREATE TABLE IF NOT EXISTS turtle_signals_history (
     id                   BIGSERIAL PRIMARY KEY,
     symbol               TEXT NOT NULL,
     company              TEXT,
+    broad_sector         TEXT,  -- see turtle_signals_latest's column comment above
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,

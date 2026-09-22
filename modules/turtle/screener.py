@@ -40,7 +40,7 @@ from . import constants as C
 from . import tickertape_feed
 
 SIGNAL_COLUMNS = [
-    "Symbol", "Company", "Sector", "Industry", "Current_Price",
+    "Symbol", "Company", "Broad_Sector", "Sector", "Industry", "Current_Price",
     "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA212_Flag",
     "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag",
     "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Signal",
@@ -210,8 +210,11 @@ def fetch_sector_pulse_table(
 
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
     """``turtle_screener_fundamentals.csv`` (Symbol, TTM_Net_Profit, TTM_Net_Sales,
-    Max_Annual_Net_Profit, Max_Annual_Net_Sales — see ``generate_turtle_fundamentals.py``) ->
-    per-symbol lookup dict, keyed by uppercased Symbol.
+    Max_Annual_Net_Profit, Max_Annual_Net_Sales, Broad_Sector, Sector, Broad_Industry, Industry
+    — see ``generate_turtle_fundamentals.py``) -> per-symbol lookup dict, keyed by uppercased
+    Symbol. The four sector/industry fields are screener.in's own classification (2026-09) --
+    see run_pipeline's per-symbol loop for how they're preferred over the universe CSV's cruder
+    Yahoo Finance "Sector" tag.
     """
     if fundamentals_df is None or fundamentals_df.empty:
         return {}
@@ -225,8 +228,23 @@ def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[s
             "ttm_net_sales": row.get("TTM_Net_Sales"),
             "max_annual_net_profit": row.get("Max_Annual_Net_Profit"),
             "max_annual_net_sales": row.get("Max_Annual_Net_Sales"),
+            "broad_sector": row.get("Broad_Sector"),
+            "sector": row.get("Sector"),
+            "broad_industry": row.get("Broad_Industry"),
+            "industry": row.get("Industry"),
         }
     return result
+
+
+def _is_valid_str(value) -> bool:
+    """True for a real, non-blank string value -- False for None/NaN/empty (``pd.isna`` alone
+    isn't enough since ``bool(float("nan"))`` is True in Python, see run_pipeline's own
+    sector_is_valid comment for the bug this exact pattern caused once already)."""
+    if value is None:
+        return False
+    if isinstance(value, float) and pd.isna(value):
+        return False
+    return str(value).strip() != ""
 
 
 def build_categories_lookup(categories_df: pd.DataFrame) -> Dict[str, str]:
@@ -351,8 +369,16 @@ def run_pipeline(
         else:
             live_exit_ma = csv_ma200  # source=csv-fallback (MA200): <212 daily rows
 
-        sector = urow.get("Sector")
         fundamentals = fundamentals_lookup.get(symbol, {})
+
+        # Sector/Broad_Sector: prefer screener.in's own classification (real 22-Sector /
+        # 12-Broad-Sector hierarchy, verified live 2026-09 -- see build_fundamentals_lookup's
+        # docstring) over the universe CSV's Yahoo Finance "Sector" tag (a crude 12-value
+        # bucket that isn't NSE's own sector system, despite looking similar at a glance).
+        # Falls back to the Yahoo tag for any symbol screener.in didn't have data for.
+        screener_sector = fundamentals.get("sector")
+        sector = screener_sector if _is_valid_str(screener_sector) else urow.get("Sector")
+        broad_sector = fundamentals.get("broad_sector")
 
         # RS peer group: prefer the stock's NSE sectoral index (NIFTY BANK, NIFTY PHARMA,
         # ...) over the broad Sector tag -- see constants.py's BROAD_INDEX_TAGS note. Falls
@@ -364,7 +390,7 @@ def run_pipeline(
         # either now gets peer_group_key=None, which pandas' groupby drops entirely -- same
         # "undefined, no peers" outcome group-size-1 sectors already get.
         sectoral_tag = compute.sectoral_index_tag(categories_lookup.get(symbol))
-        sector_is_valid = sector is not None and not (isinstance(sector, float) and pd.isna(sector))
+        sector_is_valid = _is_valid_str(sector)
         if sectoral_tag:
             peer_group_key = sectoral_tag
             peer_group_label = sectoral_tag
@@ -378,6 +404,7 @@ def run_pipeline(
         per_symbol.append({
             "Symbol": symbol,
             "Company": urow.get("Company Name", symbol),
+            "Broad_Sector": broad_sector,
             "Sector": sector,
             "Industry": urow.get("Industry"),
             # Live daily close (csv-fallback only if daily data is missing) -- both
@@ -452,6 +479,7 @@ def run_pipeline(
         signals.append({
             "Symbol": row["Symbol"],
             "Company": row["Company"],
+            "Broad_Sector": row["Broad_Sector"],
             "Sector": row["Sector"],
             "Industry": row["Industry"],
             "Current_Price": row["Current_Price"],

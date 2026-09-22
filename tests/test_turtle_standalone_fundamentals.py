@@ -423,6 +423,73 @@ def test_fetch_pl_falls_back_from_empty_consolidated_shell_to_standalone():
     assert not any("search" in url for url, _ in session.requests)
 
 
+# ---------------------------------------------------------------------------
+# parse_sector_classification / fetch_profit_and_loss sector merge (2026-09)
+# ---------------------------------------------------------------------------
+PEER_COMPARISON_HTML = """
+<html><body>
+<p class="sub">
+  <a href="/market/IN03/" title="Broad Sector">Energy</a>
+  <a href="/market/IN03/IN0301/" title="Sector">Oil, Gas &amp; Consumable Fuels</a>
+  <a href="/market/IN03/IN0301/IN030103/" title="Broad Industry">Petroleum Products</a>
+  <a href="/market/IN03/IN0301/IN030103/IN030103001/" title="Industry">Refineries &amp; Marketing</a>
+</p>
+</body></html>
+"""
+
+REGULAR_COMPANY_WITH_SECTOR_HTML = REGULAR_COMPANY_HTML.replace("</body>", PEER_COMPARISON_HTML + "</body>")
+
+
+def test_parse_sector_classification_all_four_tiers():
+    assert sf.parse_sector_classification(PEER_COMPARISON_HTML) == {
+        "broad_sector": "Energy",
+        "sector": "Oil, Gas & Consumable Fuels",
+        "broad_industry": "Petroleum Products",
+        "industry": "Refineries & Marketing",
+    }
+
+
+def test_parse_sector_classification_missing_returns_none():
+    assert sf.parse_sector_classification(REGULAR_COMPANY_HTML) is None
+    assert sf.parse_sector_classification("") is None
+    assert sf.parse_sector_classification("<html><body>not a real page</body></html>") is None
+
+
+def test_fetch_pl_merges_sector_classification_from_same_page():
+    session = _FakeMultiUrlSession({
+        "https://www.screener.in/company/RELIANCE/": _FakeResponse(200, REGULAR_COMPANY_WITH_SECTOR_HTML),
+    })
+    result = sf.fetch_profit_and_loss("RELIANCE", session=session, retries=2, pause=0)
+    assert result["ttm_net_profit"] == 106.0
+    assert result["broad_sector"] == "Energy"
+    assert result["sector"] == "Oil, Gas & Consumable Fuels"
+    assert result["broad_industry"] == "Petroleum Products"
+    assert result["industry"] == "Refineries & Marketing"
+
+
+def test_fetch_pl_returns_sector_only_when_no_usable_financials_anywhere():
+    # No usable P&L on any candidate/URL, but a sector classification was found along the way --
+    # should still return that, not None, so a company's sector isn't lost just because its
+    # financials page happened to be an empty shell.
+    session = _FakeMultiUrlSession({
+        "https://www.screener.in/company/FAKESYM/": _FakeResponse(
+            200, NO_PL_SECTION_HTML.replace("</body>", PEER_COMPARISON_HTML + "</body>")
+        ),
+        "https://www.screener.in/api/company/search/": _FakeJsonResponse(200, []),
+    })
+    result = sf.fetch_profit_and_loss("FAKESYM", session=session, retries=1, pause=0)
+    assert result["ttm_net_profit"] is None
+    assert result["broad_sector"] == "Energy"
+
+
+def test_fetch_pl_returns_none_when_no_financials_and_no_sector():
+    session = _FakeMultiUrlSession({
+        "https://www.screener.in/company/FAKESYM/": _FakeResponse(200, NO_PL_SECTION_HTML),
+        "https://www.screener.in/api/company/search/": _FakeJsonResponse(200, []),
+    })
+    assert sf.fetch_profit_and_loss("FAKESYM", session=session, retries=1, pause=0) is None
+
+
 def test_fetch_pl_prefers_real_consolidated_data_when_available():
     # The opposite case: a company that DOES have real consolidated data must use it, not
     # fall through to standalone -- the standalone mock is deliberately a different (wrong)
