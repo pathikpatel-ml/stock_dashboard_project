@@ -129,6 +129,19 @@ def create_turtle_layout():
                     style={"fontSize": "13px"},
                 ),
             ]),
+            html.Div(className="filter-group", children=[
+                dcc.Checklist(
+                    id="tt-extra-filters",
+                    options=[
+                        {"label": " ATH Profit", "value": "ath_profit"},
+                        {"label": " ATH Sales", "value": "ath_sales"},
+                        {"label": " RS vs Sector > 0", "value": "rs_sector_positive"},
+                        {"label": " RS vs Benchmark > 0", "value": "rs_benchmark_positive"},
+                    ],
+                    value=[],
+                    style={"fontSize": "13px", "display": "flex", "flexDirection": "column", "gap": "2px"},
+                ),
+            ]),
         ]),
 
         html.Div(className="control-bar", style={"alignItems": "center"}, children=[

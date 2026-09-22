@@ -317,12 +317,13 @@ def register_turtle_callbacks(app):
          Input("tt-stock-filter", "value"),
          Input("tt-ath-only-toggle", "value"),
          Input("tt-yesterday-toggle", "value"),
+         Input("tt-extra-filters", "value"),
          Input("tt-auto-refresh-interval", "n_intervals"),
          Input("tt-watchlist-tags", "children")],  # re-render immediately on add/remove, so
          # "Indices: My Watchlist" reflects the change without waiting for the next 5-min tick
         prevent_initial_call=False,
     )
-    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, _n_intervals, _watchlist_tags):
+    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, extra_filters, _n_intervals, _watchlist_tags):
         # Re-sync from disk/GitHub on every render, not just at process boot. Without this,
         # a long-lived running instance would only ever see whatever turtle_signals_<date>.csv
         # / turtle_live_prices.csv / nse_categories.csv existed when the process last started --
@@ -393,6 +394,16 @@ def register_turtle_callbacks(app):
 
         if ath_only and "ath_only" in ath_only:
             df = df[df["ATH_Price_Flag"] == True]  # noqa: E712 (explicit bool compare over a DataFrame column)
+
+        extra_filters = extra_filters or []
+        if "ath_profit" in extra_filters:
+            df = df[df["ATH_Profit_Flag"] == True]  # noqa: E712
+        if "ath_sales" in extra_filters:
+            df = df[df["ATH_Sales_Flag"] == True]  # noqa: E712
+        if "rs_sector_positive" in extra_filters:
+            df = df[df["RS_vs_Sector"] > 0]
+        if "rs_benchmark_positive" in extra_filters:
+            df = df[df["RS_vs_Benchmark"] > 0]
 
         if df.empty:
             return _empty_state("No stocks match the current filters."), _banners(loaded_date, live_prices_df)
