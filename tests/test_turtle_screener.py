@@ -677,6 +677,132 @@ def test_fetch_sector_pulse_table_ignores_degenerate_single_row_monthly_data():
         screener_module.yf.Ticker = original_ticker
 
 
+# ---------------------------------------------------------------------------
+# fetch_sector_pulse_table(nifty50_rs=...) -- optional pre-fetched baseline (2026-09-24)
+# ---------------------------------------------------------------------------
+def test_fetch_sector_pulse_table_accepts_prefetched_nifty50_rs():
+    closes_map = {"^FAKEAUTO": [200.0 + i * 2 for i in range(400)]}
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    calls = []
+
+    def _fake_ticker(t):
+        calls.append(t)
+        return _FakeIndexTicker(closes_map[t])
+
+    try:
+        screener_module.yf.Ticker = _fake_ticker
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_rs=5.0,
+        )
+        assert not df.empty
+        row = df[df["Sector"] == "NIFTY FAKEAUTO"].iloc[0]
+        # A rising series far above 5.0 -- confirms the passed-in nifty50_rs was actually used
+        # (not re-fetched -- the fake Nifty50 ticker is never even called).
+        assert row["RS_vs_Nifty50"] is not None
+        assert "^FAKEN50" not in calls
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+def test_fetch_sector_pulse_table_prefetched_none_falls_back_to_fetching():
+    closes_map = {"^FAKEN50": [100.0 + i for i in range(400)], "^FAKEAUTO": [200.0 + i * 2 for i in range(400)]}
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    try:
+        screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_ticker="^FAKEN50", nifty50_rs=None,
+        )
+        assert not df.empty  # nifty50_rs=None (the default) -- fetched internally, same as before
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+# ---------------------------------------------------------------------------
+# compute_sector_breadth_pulse -- Sector Pulse rows for screener.in's 22 Sectors (2026-09-24)
+# ---------------------------------------------------------------------------
+def _signal_row(symbol, sector, ath_price_flag, rs_vs_benchmark):
+    return {"Symbol": symbol, "Sector": sector, "ATH_Price_Flag": ath_price_flag,
+            "RS_vs_Benchmark": rs_vs_benchmark}
+
+
+def test_compute_sector_breadth_pulse_majority_at_ath_flags_true():
+    # 2 of 3 Chemicals stocks (66.7%) are at ATH -- above the 50% threshold -> True.
+    df = pd.DataFrame([
+        _signal_row("A", "Chemicals", True, 10.0),
+        _signal_row("B", "Chemicals", True, 20.0),
+        _signal_row("C", "Chemicals", False, 0.0),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    row = out[out["Sector"] == "Chemicals"].iloc[0]
+    assert row["ATH_Price_Flag"] == True  # noqa: E712
+
+
+def test_compute_sector_breadth_pulse_minority_at_ath_flags_false():
+    # Only 1 of 3 (33.3%) at ATH -- below 50% -> False.
+    df = pd.DataFrame([
+        _signal_row("A", "Realty", True, 10.0),
+        _signal_row("B", "Realty", False, 0.0),
+        _signal_row("C", "Realty", False, 0.0),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    row = out[out["Sector"] == "Realty"].iloc[0]
+    assert row["ATH_Price_Flag"] == False  # noqa: E712
+
+
+def test_compute_sector_breadth_pulse_rs_vs_nifty50_is_mean_stock_rs_minus_nifty50():
+    # stock_rs = RS_vs_Benchmark + benchmark_rs -- A:10+5=15, B:20+5=25 -> mean=20.
+    # RS_vs_Nifty50 = 20 - nifty50_rs(2.0) = 18.0
+    df = pd.DataFrame([
+        _signal_row("A", "Chemicals", True, 10.0),
+        _signal_row("B", "Chemicals", True, 20.0),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    row = out[out["Sector"] == "Chemicals"].iloc[0]
+    assert row["RS_vs_Nifty50"] == pytest.approx(18.0)
+
+
+def test_compute_sector_breadth_pulse_groups_by_raw_sector_not_peer_group():
+    # A stock covered by a curated NSE index (e.g. HDFCBANK/NIFTY BANK) still contributes to
+    # its raw screener.in Sector's breadth row -- this is a parallel, complete 22-sector view,
+    # not a subset excluding index-covered stocks.
+    df = pd.DataFrame([_signal_row("HDFCBANK", "Financial Services", True, 10.0)])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    assert "Financial Services" in set(out["Sector"])
+
+
+def test_compute_sector_breadth_pulse_ignores_rows_with_no_sector():
+    df = pd.DataFrame([
+        _signal_row("A", None, True, 10.0),
+        _signal_row("B", "Chemicals", True, 10.0),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    assert list(out["Sector"]) == ["Chemicals"]
+
+
+def test_compute_sector_breadth_pulse_empty_inputs_return_empty_df():
+    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+    assert sc.compute_sector_breadth_pulse(pd.DataFrame(), 5.0, 2.0).empty
+    assert list(sc.compute_sector_breadth_pulse(pd.DataFrame(), 5.0, 2.0).columns) == list(empty.columns)
+    df = pd.DataFrame([_signal_row("A", "Chemicals", True, 10.0)])
+    assert sc.compute_sector_breadth_pulse(df, None, 2.0).empty
+    assert sc.compute_sector_breadth_pulse(df, 5.0, None).empty
+
+
+def test_compute_sector_breadth_pulse_missing_stock_rs_excluded_from_mean():
+    # C has no RS_vs_Benchmark (NaN) -- must be excluded from the mean, not treated as 0.
+    df = pd.DataFrame([
+        _signal_row("A", "Chemicals", True, 10.0),
+        _signal_row("B", "Chemicals", True, 20.0),
+        _signal_row("C", "Chemicals", False, None),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    row = out[out["Sector"] == "Chemicals"].iloc[0]
+    # Same as the two-stock case above (C excluded) -> mean stays 20.0, RS_vs_Nifty50 = 18.0
+    assert row["RS_vs_Nifty50"] == pytest.approx(18.0)
+
+
 def test_missing_sector_stocks_are_not_grouped_together():
     # Two stocks with NO Sector value (NaN, e.g. yfinance couldn't classify them) and no
     # sectoral index tag -- must NOT collapse into a shared "Sector: nan" bucket and get

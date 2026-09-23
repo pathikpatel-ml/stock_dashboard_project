@@ -173,9 +173,21 @@ def _fetch_index_ath_and_rs(ticker: str, index_name: Optional[str] = None) -> Op
     }
 
 
+def fetch_nifty50_rs(nifty50_ticker: str = None) -> Optional[float]:
+    """Fetch Nifty 50's own 52-week RS -- the shared baseline used by BOTH
+    ``fetch_sector_pulse_table``'s curated-NSE-index rows and
+    ``compute_sector_breadth_pulse``'s screener.in-sector rows, so every Sector Pulse row is
+    comparable on the same scale regardless of which "sector" definition produced it. Returns
+    None (never raises) on any fetch/parse failure.
+    """
+    nifty50_ticker = nifty50_ticker if nifty50_ticker is not None else C.NIFTY_50_INDEX_TICKER
+    return _fetch_index_rs(nifty50_ticker)
+
+
 def fetch_sector_pulse_table(
     tickers: Optional[Dict[str, str]] = None,
     nifty50_ticker: str = None,
+    nifty50_rs: Optional[float] = None,
 ) -> pd.DataFrame:
     """Build the "Sector Pulse" dashboard table: one row per sectoral index (not per stock),
     with its own ATH_Price_Flag and RS_vs_Nifty50 -- both computed the exact same way as for
@@ -186,11 +198,17 @@ def fetch_sector_pulse_table(
     what was asked for this table specifically. If Nifty 50's own RS can't be fetched, returns
     an empty DataFrame (this whole table is meaningless without that baseline) rather than a
     partially-broken one. An individual sectoral index's fetch failure just drops that one row.
+
+    ``nifty50_rs`` (optional) lets a caller that already fetched it once (e.g.
+    ``generate_turtle_signals.py``, which also feeds it to ``compute_sector_breadth_pulse``)
+    pass it straight in instead of this function fetching it again -- omitted, it's fetched
+    internally exactly as before (backward compatible).
     """
     tickers = tickers if tickers is not None else C.SECTORAL_INDEX_TICKERS
     nifty50_ticker = nifty50_ticker if nifty50_ticker is not None else C.NIFTY_50_INDEX_TICKER
 
-    nifty50_rs = _fetch_index_rs(nifty50_ticker)
+    if nifty50_rs is None:
+        nifty50_rs = fetch_nifty50_rs(nifty50_ticker)
     if nifty50_rs is None:
         return pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
 
@@ -206,6 +224,83 @@ def fetch_sector_pulse_table(
             "RS_vs_Nifty50": round(rs - nifty50_rs, 2) if rs is not None else None,
         })
     return pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+
+
+# Default breadth threshold for compute_sector_breadth_pulse's ATH_Price_Flag -- confirmed with
+# the user 2026-09-24: majority (>=50%) of a sector's stocks individually at their own all-time
+# high is treated as the sector itself being "at ATH".
+SECTOR_ATH_BREADTH_THRESHOLD_PCT = 50.0
+
+
+def compute_sector_breadth_pulse(
+    signals_df: pd.DataFrame,
+    benchmark_rs: Optional[float],
+    nifty50_rs: Optional[float],
+    ath_breadth_threshold_pct: float = SECTOR_ATH_BREADTH_THRESHOLD_PCT,
+) -> pd.DataFrame:
+    """Sector Pulse rows for screener.in's real 22 Sector values (2026-09) -- same two-column
+    shape as ``fetch_sector_pulse_table``'s existing 12 curated-NSE-sectoral-index rows, meant
+    to be concatenated alongside them (not replace them), since a screener.in Sector like
+    "Chemicals" has no tradable index of its own the way NIFTY BANK does, so "ATH" and "RS" need
+    a different definition entirely:
+
+    ``ATH_Price_Flag`` (breadth definition, confirmed with the user): True if at least
+    ``ath_breadth_threshold_pct`` of the sector's stocks are THEMSELVES individually flagged
+    ``ATH_Price_Flag=True`` in ``signals_df`` -- each stock's flag already uses its own full
+    monthly price history for a genuine multi-year all-time-high (see ``ath_price_flag``), so
+    this reuses already-computed, already-verified per-stock data with zero extra network
+    calls or synthetic price-index construction (the alternative -- building an artificial
+    composite "sector index" -- was considered and rejected: its history would be limited to
+    whatever daily window is already fetched, not a true multi-year high like the real indices
+    get).
+
+    ``RS_vs_Nifty50``: the sector's own mean 52-week RS (a plain average of every one of its
+    stocks' own RS, reconstructed as ``RS_vs_Benchmark + benchmark_rs`` since raw per-stock RS
+    isn't itself a persisted column) minus Nifty 50's own RS -- the same baseline
+    ``fetch_sector_pulse_table``'s rows already use, so every Sector Pulse row is comparable on
+    one scale regardless of which "sector" definition produced it.
+
+    Groups by every stock's raw ``Sector`` value, independent of whether that stock is ALSO
+    covered by one of the 12 curated NSE indices (e.g. HDFCBANK's Sector is "Financial
+    Services" even though its own RS_vs_Sector is computed against NIFTY BANK) -- this is meant
+    to be a genuinely complete, parallel 22-sector breakdown, not a subset that excludes
+    index-covered stocks.
+
+    Returns an empty (correctly-columned) DataFrame if inputs are missing/unusable -- never
+    raises.
+    """
+    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+    if signals_df is None or signals_df.empty or "Sector" not in signals_df.columns:
+        return empty
+    if benchmark_rs is None or nifty50_rs is None:
+        return empty
+
+    df = signals_df.dropna(subset=["Sector"]).copy()
+    df = df[df["Sector"].astype(str).str.strip() != ""]
+    if df.empty:
+        return empty
+
+    df["_stock_rs"] = df["RS_vs_Benchmark"] + benchmark_rs
+
+    rows = []
+    for sector, group in df.groupby("Sector"):
+        ath_flags = group["ATH_Price_Flag"].dropna()
+        if ath_flags.empty:
+            ath_flag = False
+        else:
+            ath_breadth_pct = 100.0 * ath_flags.astype(bool).mean()
+            ath_flag = bool(ath_breadth_pct >= ath_breadth_threshold_pct)
+
+        stock_rs_values = group["_stock_rs"].dropna()
+        rs_vs_nifty50 = round(float(stock_rs_values.mean()) - nifty50_rs, 2) if not stock_rs_values.empty else None
+
+        rows.append({"Sector": str(sector), "ATH_Price_Flag": ath_flag, "RS_vs_Nifty50": rs_vs_nifty50})
+
+    return (
+        pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+        .sort_values("Sector")
+        .reset_index(drop=True)
+    )
 
 
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:

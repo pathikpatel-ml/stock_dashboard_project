@@ -169,11 +169,13 @@ def _table(df):
 
 
 def _sector_pulse_table(df):
-    """Sector Pulse: one row per sectoral index (not per stock) -- ATH_Price_Flag and
-    RS_vs_Nifty50, both computed directly on the index's own price series (see
-    screener.fetch_sector_pulse_table). Laid out as two side-by-side 3-column halves (Sector
-    Name / ATH Price Flag / RS vs Nifty50), as requested, rather than one long list or a card
-    grid -- 10 real indices split 5-and-5.
+    """Sector Pulse: one row per curated NSE sectoral index (ATH_Price_Flag + RS_vs_Nifty50
+    computed directly on the index's own price series -- see screener.fetch_sector_pulse_table)
+    PLUS one row per screener.in Sector (2026-09-24 -- a breadth-based ATH definition and a
+    mean-RS-based comparison instead, since those sectors have no tradable index of their own;
+    see screener.compute_sector_breadth_pulse). Laid out as two side-by-side 3-column halves
+    (Sector Name / ATH Price Flag / RS vs Nifty50), split evenly regardless of total row count
+    -- no code here assumes any particular number of rows.
     """
     if df is None or df.empty:
         return None

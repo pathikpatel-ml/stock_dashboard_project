@@ -170,15 +170,6 @@ def main():
         limit=args.limit, verbose=True, pause_seconds=args.pause,
     )
 
-    # Sector Pulse table (2026-08-20) -- dashboard summary, one row per sectoral index (not
-    # per stock): ATH_Price_Flag + RS_vs_Nifty50, both computed on the index's own price
-    # series directly. Non-dated rolling file (like turtle_live_prices.csv), always
-    # (re)written so a transient fetch failure here doesn't leave a stale file that never
-    # updates -- an empty table just means the dashboard panel shows nothing this run.
-    sector_pulse = sc.fetch_sector_pulse_table()
-    sector_pulse.to_csv(SECTOR_PULSE_FILE, index=False)
-    print(f"Sector Pulse     : {len(sector_pulse):>4}  -> {os.path.basename(SECTOR_PULSE_FILE)}")
-
     date_str = pd.Timestamp.now().strftime("%Y%m%d")
     signal_date = pd.Timestamp.now().strftime("%Y-%m-%d")
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
@@ -186,6 +177,23 @@ def main():
     # Always write the file (with headers) so the dashboard has a stable, current target.
     signals = out["signals"] if not out["signals"].empty else pd.DataFrame(columns=sc.SIGNAL_COLUMNS)
     signals.to_csv(signals_path, index=False)
+
+    # Sector Pulse table: one row per curated NSE sectoral index (2026-08-20 -- ATH_Price_Flag
+    # + RS_vs_Nifty50 computed on the index's own real price series), PLUS one row per
+    # screener.in Sector (2026-09-24 -- see compute_sector_breadth_pulse's docstring for why
+    # "ATH" and "RS" need a breadth-based definition there instead, since those 22 sectors
+    # have no tradable index of their own). Both halves share the same Nifty 50 RS baseline,
+    # fetched once here and passed to both. Non-dated rolling file (like turtle_live_prices.csv),
+    # always (re)written so a transient fetch failure here doesn't leave a stale file that never
+    # updates -- an empty table just means the dashboard panel shows nothing this run.
+    nifty50_rs = sc.fetch_nifty50_rs()
+    sector_pulse = sc.fetch_sector_pulse_table(nifty50_rs=nifty50_rs)
+    sector_breadth_pulse = sc.compute_sector_breadth_pulse(signals, benchmark_rs, nifty50_rs)
+    sector_pulse = pd.concat([sector_pulse, sector_breadth_pulse], ignore_index=True)
+    sector_pulse.to_csv(SECTOR_PULSE_FILE, index=False)
+    print(f"Sector Pulse     : {len(sector_pulse):>4}  -> {os.path.basename(SECTOR_PULSE_FILE)} "
+          f"({len(sector_breadth_pulse)} screener.in sectors + "
+          f"{len(sector_pulse) - len(sector_breadth_pulse)} curated NSE indices)")
 
     counts = signals["Signal"].value_counts().to_dict() if not signals.empty else {}
     print(f"\nTurtle signals   : {len(signals):>4}  -> {os.path.basename(signals_path)}")
