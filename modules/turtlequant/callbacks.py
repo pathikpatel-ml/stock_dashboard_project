@@ -21,7 +21,7 @@ from modules.turtle.compute import filter_by_index
 from . import compute as tq_compute
 
 _DISPLAY_COLUMNS = [
-    "Symbol", "Indices", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
+    "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
 ]
@@ -29,8 +29,16 @@ _DISPLAY_COLUMNS = [
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
     "Indices": "NSE index/sectoral membership (Nifty 50/100/200, sectoral indices, etc.).",
-    "Sector": "Sector classification (Yahoo Finance).",
-    "Industry": "More specific industry classification within the sector.",
+    "Broad_Sector": (
+        "Top-level macro sector (screener.in's own classification, 12 total), e.g. Energy, "
+        "Financial Services, Healthcare. Blank if screener.in has no listing for this stock."
+    ),
+    "Sector": (
+        "Sector classification -- screener.in's own 22-value hierarchy when available "
+        "(e.g. Oil Gas & Consumable Fuels, Banks), else Yahoo Finance's cruder 12-value tag "
+        "as a fallback for stocks screener.in has no listing for."
+    ),
+    "Industry": "More specific industry classification within the sector (Yahoo Finance).",
     "Current_Price": "Latest weekly close price.",
     "Signal_Date": (
         "The date of the validated BUY or SELL event shown in Signal (blank if there is none "

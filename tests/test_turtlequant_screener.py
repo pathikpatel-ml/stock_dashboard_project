@@ -145,3 +145,35 @@ def test_run_pipeline_raises_if_index_unfetchable(monkeypatch):
 def test_run_pipeline_limit_and_always_returns_dataframes():
     out = sc.run_pipeline(UNIVERSE, limit=1, verbose=False, pause_seconds=0.0)
     assert len(out["signals"]) + len(out["rejections"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Screener.in Sector/Broad_Sector preference (2026-09-24) -- same rule as
+# modules/turtle/screener.py::run_pipeline, applied here so both tabs are consistent.
+# ---------------------------------------------------------------------------
+def test_run_pipeline_prefers_screener_sector_over_universe_yahoo_tag():
+    fundamentals = pd.DataFrame([
+        {"Symbol": "BUYSTOCK", "Broad_Sector": "Energy", "Sector": "Oil, Gas & Consumable Fuels"},
+    ])
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False, pause_seconds=0.0)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert row["Sector"] == "Oil, Gas & Consumable Fuels"
+    assert row["Broad_Sector"] == "Energy"
+
+
+def test_run_pipeline_falls_back_to_universe_sector_when_screener_has_none():
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False, pause_seconds=0.0)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert row["Sector"] == "Alpha"  # the universe CSV's own Yahoo-style tag
+    assert pd.isna(row["Broad_Sector"]) or row["Broad_Sector"] is None
+
+
+def test_run_pipeline_falls_back_per_symbol_when_screener_has_only_some():
+    # Only BUYSTOCK has screener.in data -- HOLDSTOCK must still fall back to its universe tag.
+    fundamentals = pd.DataFrame([
+        {"Symbol": "BUYSTOCK", "Broad_Sector": "Energy", "Sector": "Oil, Gas & Consumable Fuels"},
+    ])
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False, pause_seconds=0.0)
+    signals = out["signals"].set_index("Symbol")
+    assert signals.loc["BUYSTOCK", "Sector"] == "Oil, Gas & Consumable Fuels"
+    assert signals.loc["HOLDSTOCK", "Sector"] == "Beta"

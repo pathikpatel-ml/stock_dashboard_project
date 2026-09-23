@@ -23,14 +23,26 @@ import pandas as pd
 import yfinance as yf
 
 from modules.breakout import data_feed
+from modules.turtle import screener as tt_screener
 from . import compute
 from . import constants as C
 
 SIGNAL_COLUMNS = [
-    "Symbol", "Company", "Sector", "Industry", "Current_Price", "Signal_Date",
+    "Symbol", "Company", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal_Date",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13", "Signal",
 ]
+
+
+def _is_valid_str(value) -> bool:
+    """True for a real, non-blank string value -- False for None/NaN/empty. Local copy of
+    modules.turtle.screener._is_valid_str (same tiny check, kept local rather than importing a
+    private name across modules)."""
+    if value is None:
+        return False
+    if isinstance(value, float) and pd.isna(value):
+        return False
+    return str(value).strip() != ""
 
 
 def _fetch_index_weekly_close(
@@ -70,6 +82,7 @@ def screen_symbol(
     sector,
     industry,
     index_weekly_close: pd.Series,
+    broad_sector=None,
 ) -> Dict:
     """Fetch one symbol's weekly OHLCV and compute its full Turtle Quant signal row. Never
     raises -- returns a REJECT-style dict with a ``reason`` key if data is missing/insufficient,
@@ -104,6 +117,7 @@ def screen_symbol(
     return {
         "Symbol": symbol,
         "Company": company,
+        "Broad_Sector": broad_sector,
         "Sector": sector,
         "Industry": industry,
         "Current_Price": float(close.iloc[-1]),
@@ -126,6 +140,7 @@ def screen_symbol(
 
 def run_pipeline(
     universe_df: pd.DataFrame,
+    fundamentals_df: Optional[pd.DataFrame] = None,
     limit: Optional[int] = None,
     verbose: bool = True,
     pause_seconds: float = 0.1,
@@ -135,6 +150,15 @@ def run_pipeline(
     Returns {"signals": df, "rejections": df}. Fetches the comparative index once; raises
     RuntimeError if it can't be fetched at all (a run without a benchmark is meaningless -- same
     "stop, don't silently degrade" rule as modules/turtle/screener.py::fetch_benchmark_rs).
+
+    ``fundamentals_df`` (``turtle_fundamentals`` shape, optional -- the SAME shared table the
+    Turtle Strategy pipeline reads, not a separate Turtle-Quant-specific one, since this is
+    company-attribute data, not a strategy-specific computation) supplies screener.in's real
+    Sector/Broad_Sector classification (2026-09), preferred over the universe CSV's cruder
+    Yahoo Finance "Sector" tag whenever screener.in has data for a symbol -- mirrors
+    modules/turtle/screener.py::run_pipeline's exact same preference/fallback rule, so both
+    tabs' Sector columns and filters are consistent. Omitted/empty -> every stock falls back to
+    the Yahoo tag (the pre-2026-09 behaviour).
 
     ``pause_seconds`` (default 0.1) adds a light delay after each symbol's fetch -- cheap
     insurance against Yahoo Finance throttling across the full universe. Left at 0 for tests,
@@ -147,6 +171,7 @@ def run_pipeline(
             "Refusing to run without it -- every signal depends on it."
         )
 
+    fundamentals_lookup = tt_screener.build_fundamentals_lookup(fundamentals_df)
     rows = universe_df.head(limit) if limit else universe_df
 
     signals: List[dict] = []
@@ -157,12 +182,18 @@ def run_pipeline(
         if not symbol:
             continue
 
+        fundamentals = fundamentals_lookup.get(symbol, {})
+        screener_sector = fundamentals.get("sector")
+        sector = screener_sector if _is_valid_str(screener_sector) else urow.get("Sector")
+        broad_sector = fundamentals.get("broad_sector")
+
         result = screen_symbol(
             symbol,
             urow.get("Company Name", symbol),
-            urow.get("Sector"),
+            sector,
             urow.get("Industry"),
             index_weekly_close,
+            broad_sector=broad_sector,
         )
         if pause_seconds:
             time.sleep(pause_seconds)

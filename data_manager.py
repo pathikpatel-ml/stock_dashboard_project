@@ -83,7 +83,8 @@ _SECTOR_PULSE_FROM_DB = {"sector": "Sector", "ath_price_flag": "ATH_Price_Flag",
 _LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_as_of": "Price_As_Of"}
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 _TURTLEQUANT_SIGNALS_FROM_DB = {
-    "symbol": "Symbol", "company": "Company", "sector": "Sector", "industry": "Industry",
+    "symbol": "Symbol", "company": "Company", "broad_sector": "Broad_Sector",
+    "sector": "Sector", "industry": "Industry",
     "current_price": "Current_Price", "signal_date": "Signal_Date", "rs_long_term": "RS_Long_Term",
     "rs_short_term": "RS_Short_Term", "adx": "ADX", "rsi": "RSI",
     "supertrend_direction": "SuperTrend_Direction", "volume_building": "Volume_Building",

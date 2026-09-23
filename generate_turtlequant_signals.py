@@ -9,8 +9,10 @@ writes one dated CSV that the dashboard loads at startup:
     turtlequant_signals_<YYYYMMDD>.csv
 
 Universe source: same as generate_turtle_signals.py -- NSE_EQ_All_Stocks_Analysis.csv (Postgres
-``nse_universe`` first, local CSV fallback). No fundamentals/categories file needed -- this is a
-purely technical screen.
+``nse_universe`` first, local CSV fallback). Signal computation itself needs no fundamentals --
+this is a purely technical screen -- but ``turtle_fundamentals`` (2026-09-24) is read anyway to
+pick up screener.in's real Sector/Broad_Sector classification for display/filtering, the same
+shared table and preference/fallback rule generate_turtle_signals.py already uses.
 
 Usage
 -----
@@ -40,11 +42,23 @@ SIGNALS_TEMPLATE = "turtlequant_signals_{date_str}.csv"
 # convention) so the mapping is visible right next to the write call it feeds, matching
 # generate_turtle_signals.py's own style.
 _SIGNALS_DB_COLUMNS = {
-    "Symbol": "symbol", "Company": "company", "Sector": "sector", "Industry": "industry",
+    "Symbol": "symbol", "Company": "company", "Broad_Sector": "broad_sector",
+    "Sector": "sector", "Industry": "industry",
     "Current_Price": "current_price", "Signal_Date": "signal_date", "RS_Long_Term": "rs_long_term",
     "RS_Short_Term": "rs_short_term", "ADX": "adx", "RSI": "rsi",
     "SuperTrend_Direction": "supertrend_direction", "Volume_Building": "volume_building",
     "Price_Above_MA13": "price_above_ma13", "Signal": "signal",
+}
+
+# turtle_fundamentals is the SAME shared table generate_turtle_fundamentals.py (Turtle Strategy)
+# writes -- company-attribute data (screener.in's Sector/Broad_Sector classification), not a
+# strategy-specific computation, so Turtle Quant reads it too rather than duplicating a fetch.
+_FUNDAMENTALS_FROM_DB = {
+    "symbol": "Symbol", "ttm_net_profit": "TTM_Net_Profit",
+    "max_annual_net_profit": "Max_Annual_Net_Profit", "ttm_net_sales": "TTM_Net_Sales",
+    "max_annual_net_sales": "Max_Annual_Net_Sales",
+    "broad_sector": "Broad_Sector", "sector": "Sector",
+    "broad_industry": "Broad_Industry", "industry": "Industry",
 }
 
 # Postgres column name -> CSV column name -- reverse of the universe read, same reasoning as
@@ -87,6 +101,13 @@ def load_universe() -> pd.DataFrame:
     return df.drop_duplicates(subset=["Symbol"]).reset_index(drop=True)
 
 
+def load_fundamentals() -> pd.DataFrame:
+    """Best-effort read of turtle_fundamentals (screener.in Sector/Broad_Sector classification)
+    -- empty DataFrame (not an exception) if unavailable, same as every other optional input
+    here; run_pipeline degrades to the universe CSV's Yahoo Sector tag when this is empty."""
+    return _from_postgres("turtle_fundamentals", _FUNDAMENTALS_FROM_DB)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate Turtle Quant signals")
     ap.add_argument("--limit", type=int, default=None, help="screen only the first N symbols")
@@ -96,9 +117,11 @@ def main():
     args = ap.parse_args()
 
     universe = load_universe()
-    print(f"Universe: {len(universe)} symbols.")
+    fundamentals = load_fundamentals()
+    print(f"Universe: {len(universe)} symbols. Fundamentals rows: {len(fundamentals)}.")
 
-    out = sc.run_pipeline(universe, limit=args.limit, verbose=True, pause_seconds=args.pause)
+    out = sc.run_pipeline(universe, fundamentals_df=fundamentals, limit=args.limit,
+                          verbose=True, pause_seconds=args.pause)
 
     date_str = pd.Timestamp.now().strftime("%Y%m%d")  # for the CSV filename only -- when this
                                                         # batch ran, not the signal's own week

@@ -196,6 +196,7 @@ CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_date ON turtle_signals_his
 CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     symbol               TEXT PRIMARY KEY,
     company              TEXT,
+    broad_sector         TEXT,  -- screener.in's 12-value macro sector (2026-09-24); see turtle_fundamentals
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,
@@ -216,6 +217,7 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_history (
     id                   BIGSERIAL PRIMARY KEY,
     symbol               TEXT NOT NULL,
     company              TEXT,
+    broad_sector         TEXT,  -- see turtlequant_signals_latest's column comment above
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,
