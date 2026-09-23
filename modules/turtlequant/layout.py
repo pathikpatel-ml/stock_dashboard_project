@@ -106,7 +106,7 @@ def create_turtlequant_layout():
                     options=stock_options,
                     value="All",
                     clearable=False,
-                    style={"width": "480px"},
+                    style={"width": "560px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -132,7 +132,7 @@ def create_turtlequant_layout():
                 options=holdings_add_options,
                 placeholder="Search & select a stock you've bought…",
                 clearable=True,
-                style={"width": "480px"},
+                style={"width": "560px"},
             ),
             dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
                        id="tq-holdings-add-btn", color="secondary", outline=True, n_clicks=0),

@@ -116,10 +116,11 @@ def create_turtle_layout():
                     options=stock_options,
                     value="All",
                     clearable=False,
-                    # 480px fits ~99% of "Company Name (SYMBOL)" labels on one line (p99 length
-                    # is 59 chars; only a handful of the longest real names, up to 70 chars,
-                    # still wrap) -- see assets/dashboard.css's .Select-option comment.
-                    style={"width": "480px"},
+                    # 560px comfortably fits every real "Company Name (SYMBOL)" label on one
+                    # line, including the longest one (70 chars, "Deepak Fertilisers And
+                    # Petrochemicals Corporation Limited (DEEPAKFERT)") -- verified live with
+                    # Playwright. See assets/dashboard.css's .Select-option comment.
+                    style={"width": "560px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -160,7 +161,7 @@ def create_turtle_layout():
                 options=watchlist_add_options,
                 placeholder="Search & select a stock to add…",
                 clearable=True,
-                style={"width": "480px"},
+                style={"width": "560px"},
             ),
             dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
                        id="tt-watchlist-add-btn", color="secondary", outline=True, n_clicks=0),
