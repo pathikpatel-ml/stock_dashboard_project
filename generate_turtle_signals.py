@@ -192,6 +192,22 @@ def main():
     print(f"  ADD={counts.get('ADD', 0)}  HOLD={counts.get('HOLD', 0)}  EXIT={counts.get('EXIT', 0)}")
     print(f"Rejections       : {len(out['rejections']):>4}")
 
+    # 2026-09-23: a stock rejected specifically for insufficient_monthly_data (not yet 12
+    # months of listed price history -- see MIN_MONTHLY_ROWS_FOR_ATH) must actually disappear
+    # from turtle_signals_latest, not sit there with whatever it last showed before it was
+    # ever screened -- upsert_dataframe only touches rows present in THIS run's signals, so a
+    # symbol that drops out (or was never in) that set otherwise keeps its stale row forever,
+    # including a pre-2026-09 Yahoo-scheme Sector value the new screener.in classification
+    # never had a chance to overwrite. It naturally reappears, fresh, once it crosses 12
+    # months and clears the guard. Other rejection reasons (fetch errors etc.) are left alone
+    # -- those can be transient, and wiping a stock's row over a one-off glitch would be worse
+    # than leaving it stale for a day.
+    rejections = out["rejections"]
+    not_yet_12_months = (
+        rejections.loc[rejections["reason"] == "insufficient_monthly_data", "Symbol"].tolist()
+        if not rejections.empty and "reason" in rejections.columns else []
+    )
+
     # Postgres writes (2026-08-20 migration) -- dual-write alongside the CSVs above during the
     # migration/verification period; CSV writes get removed once every table's read side is
     # confirmed working end to end (see migrations/20260820_market_data_tables.sql).
@@ -215,6 +231,10 @@ def main():
                     conflict_columns=["symbol", "signal_date"], touch_updated_at=False,
                 )
                 print(f"DB: turtle_signals_history upserted {n} rows")
+
+            if not_yet_12_months:
+                n = mdw.delete_by_symbols(conn, "turtle_signals_latest", not_yet_12_months)
+                print(f"DB: turtle_signals_latest deleted {n} rows (not yet 12 months listed)")
         finally:
             conn.close()
     except Exception as exc:

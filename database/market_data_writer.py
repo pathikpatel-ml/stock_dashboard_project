@@ -137,3 +137,24 @@ def replace_table_contents(conn, table: str, df: pd.DataFrame) -> int:
             execute_values(cur, f"INSERT INTO {table} ({col_list}) VALUES %s", values, page_size=500)
     conn.commit()
     return 0 if df is None else len(df)
+
+
+def delete_by_symbols(conn, table: str, symbols) -> int:
+    """Delete every row in ``table`` whose ``symbol`` is in ``symbols``, as one statement.
+
+    For the narrow case where a symbol needs to actually disappear from a table that's
+    otherwise upserted (not replaced) -- e.g. ``turtle_signals_latest`` for a stock rejected
+    with ``insufficient_monthly_data`` (not yet 12 months listed): leaving its old, stale row
+    in place would keep showing last-known (and possibly pre-this-feature, wrong-scheme) data
+    indefinitely, since ``upsert_dataframe`` only touches rows present in the current run's
+    DataFrame. A None/empty ``symbols`` is a no-op (returns 0), matching ``upsert_dataframe``'s
+    empty-input behaviour, rather than issuing a vacuous ``DELETE ... WHERE symbol IN ()``.
+    """
+    symbols = list(symbols) if symbols is not None else []
+    if not symbols:
+        return 0
+    with conn.cursor() as cur:
+        cur.execute(f"DELETE FROM {table} WHERE symbol = ANY(%s)", (symbols,))
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted

@@ -337,8 +337,14 @@ TO market_data_writer;
 
 -- v20_signals_latest alone also needs DELETE: it's written with REPLACE semantics (delete all
 -- + bulk insert), not upsert, since a sequence that no longer qualifies must be removed, not
--- left as a stale row (see the table's own comment above). No other table needs DELETE.
+-- left as a stale row (see the table's own comment above).
 GRANT DELETE ON v20_signals_latest TO market_data_writer;
+
+-- turtle_signals_latest (2026-09-23): upserted, not replaced, but a symbol rejected for
+-- insufficient_monthly_data (not yet 12 months of listed price history) must still be
+-- deletable individually so its stale pre-screening row doesn't linger forever -- see
+-- generate_turtle_signals.py's targeted delete_by_symbols() call.
+GRANT DELETE ON turtle_signals_latest TO market_data_writer;
 
 GRANT USAGE, SELECT ON
     turtle_signals_history_id_seq,

@@ -178,6 +178,54 @@ def test_replace_table_contents_none_df_still_deletes(_capture_execute_values):
 
 
 # ---------------------------------------------------------------------------
+# delete_by_symbols -- targeted row removal for tables written with upsert (not replace)
+# semantics, where a specific symbol still needs to actually disappear
+# ---------------------------------------------------------------------------
+class _FakeCursorRecordingDelete(_FakeCursor):
+    def __init__(self, log, rowcount=0):
+        self._log = log
+        self.rowcount = rowcount
+
+    def execute(self, sql, params=None):
+        self._log.append(("execute", sql, params))
+
+
+class _FakeConnectionWithDelete(_FakeConnection):
+    def __init__(self, rowcount=0):
+        super().__init__()
+        self.log = []
+        self._rowcount = rowcount
+
+    def cursor(self):
+        return _FakeCursorRecordingDelete(self.log, rowcount=self._rowcount)
+
+
+def test_delete_by_symbols_issues_where_in_any():
+    conn = _FakeConnectionWithDelete(rowcount=2)
+    n = mdw.delete_by_symbols(conn, "turtle_signals_latest", ["GROWW", "LENSKART"])
+    assert n == 2
+    assert conn.committed is True
+    assert conn.log == [
+        ("execute", "DELETE FROM turtle_signals_latest WHERE symbol = ANY(%s)", (["GROWW", "LENSKART"],))
+    ]
+
+
+def test_delete_by_symbols_empty_list_is_noop():
+    conn = _FakeConnectionWithDelete(rowcount=0)
+    n = mdw.delete_by_symbols(conn, "turtle_signals_latest", [])
+    assert n == 0
+    assert conn.log == []
+    assert conn.committed is False
+
+
+def test_delete_by_symbols_none_is_noop():
+    conn = _FakeConnectionWithDelete(rowcount=0)
+    n = mdw.delete_by_symbols(conn, "turtle_signals_latest", None)
+    assert n == 0
+    assert conn.log == []
+
+
+# ---------------------------------------------------------------------------
 # fetch_dataframe -- read-back for generate_*.py scripts' cross-workflow inputs
 # ---------------------------------------------------------------------------
 class _FakeCursorFetching(_FakeCursor):
