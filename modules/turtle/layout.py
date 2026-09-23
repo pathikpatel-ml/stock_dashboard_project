@@ -90,7 +90,9 @@ def create_turtle_layout():
                     options=index_options,
                     value="All",
                     clearable=False,
-                    style={"width": "200px"},
+                    # 230px comfortably fits the longest tag ("NIFTY CONSUMER DURABLES",
+                    # 24 chars) on one line.
+                    style={"width": "230px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -100,7 +102,11 @@ def create_turtle_layout():
                     options=sector_options,
                     value="All",
                     clearable=False,
-                    style={"width": "200px"},
+                    # 300px comfortably fits the longest real sector name (screener.in's
+                    # "Media, Entertainment & Publication", 34 chars) on one line -- see
+                    # assets/dashboard.css's .Select-option comment for why this has to be a
+                    # real control width, not a CSS-only menu override.
+                    style={"width": "300px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -110,7 +116,10 @@ def create_turtle_layout():
                     options=stock_options,
                     value="All",
                     clearable=False,
-                    style={"width": "160px"},
+                    # 480px fits ~99% of "Company Name (SYMBOL)" labels on one line (p99 length
+                    # is 59 chars; only a handful of the longest real names, up to 70 chars,
+                    # still wrap) -- see assets/dashboard.css's .Select-option comment.
+                    style={"width": "480px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -151,7 +160,7 @@ def create_turtle_layout():
                 options=watchlist_add_options,
                 placeholder="Search & select a stock to add…",
                 clearable=True,
-                style={"width": "260px"},
+                style={"width": "480px"},
             ),
             dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
                        id="tt-watchlist-add-btn", color="secondary", outline=True, n_clicks=0),

@@ -83,7 +83,10 @@ def create_turtlequant_layout():
                     options=index_options,
                     value="All",
                     clearable=False,
-                    style={"width": "200px"},
+                    # 230px comfortably fits the longest tag ("NIFTY CONSUMER DURABLES",
+                    # 24 chars) on one line -- see assets/dashboard.css's .Select-option
+                    # comment for why this must be a real control width, not a CSS override.
+                    style={"width": "230px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -93,7 +96,7 @@ def create_turtlequant_layout():
                     options=sector_options,
                     value="All",
                     clearable=False,
-                    style={"width": "200px"},
+                    style={"width": "300px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -103,7 +106,7 @@ def create_turtlequant_layout():
                     options=stock_options,
                     value="All",
                     clearable=False,
-                    style={"width": "160px"},
+                    style={"width": "480px"},
                 ),
             ]),
             html.Div(className="filter-group", children=[
@@ -129,7 +132,7 @@ def create_turtlequant_layout():
                 options=holdings_add_options,
                 placeholder="Search & select a stock you've bought…",
                 clearable=True,
-                style={"width": "260px"},
+                style={"width": "480px"},
             ),
             dbc.Button([html.I(className="fas fa-plus me-1"), "Add"],
                        id="tq-holdings-add-btn", color="secondary", outline=True, n_clicks=0),
