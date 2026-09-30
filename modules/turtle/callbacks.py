@@ -182,6 +182,14 @@ def _sector_pulse_table(df):
 
     display = df.copy()
     display["ATH_Price_Flag"] = display["ATH_Price_Flag"].map({True: "Yes", False: "No"})
+    # e.g. "Automobile and Auto Components (108)" -- Stock_Count itself isn't shown as a
+    # separate column (keeps the existing two-column-per-side layout unchanged), just folded
+    # into the sector name text. Missing/unknown count (e.g. an older cached row) -> plain name.
+    if "Stock_Count" in display.columns:
+        display["Sector"] = display.apply(
+            lambda r: f"{r['Sector']} ({int(r['Stock_Count'])})" if pd.notna(r["Stock_Count"]) else r["Sector"],
+            axis=1,
+        )
 
     half = (len(display) + 1) // 2
     left = display.iloc[:half].reset_index(drop=True)

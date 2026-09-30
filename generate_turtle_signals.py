@@ -45,6 +45,7 @@ SECTOR_PULSE_FILE = os.path.join(REPO_BASE_PATH, "turtle_sector_pulse.csv")
 # equivalent reverse mapping lives in data_manager.py next to the matching read call.
 _SECTOR_PULSE_DB_COLUMNS = {
     "Sector": "sector", "ATH_Price_Flag": "ath_price_flag", "RS_vs_Nifty50": "rs_vs_nifty50",
+    "Stock_Count": "stock_count",
 }
 _SIGNALS_DB_COLUMNS = {
     "Symbol": "symbol", "Company": "company", "Broad_Sector": "broad_sector",
@@ -138,6 +139,21 @@ def load_categories() -> pd.DataFrame:
     return pd.read_csv(CATEGORIES_FILE)
 
 
+def _index_member_counts(categories_df: pd.DataFrame, index_names) -> dict:
+    """How many stocks carry each of ``index_names`` in nse_categories' comma-joined
+    NSE_Categories tag string -- feeds Sector Pulse's Stock_Count column for the curated-index
+    rows (see modules/turtle/screener.py::fetch_sector_pulse_table)."""
+    counts = {name: 0 for name in index_names}
+    if categories_df is None or categories_df.empty or "NSE_Categories" not in categories_df.columns:
+        return counts
+    for tags in categories_df["NSE_Categories"].dropna():
+        for tag in str(tags).split(","):
+            tag = tag.strip()
+            if tag in counts:
+                counts[tag] += 1
+    return counts
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate Turtle Strategy signals")
     ap.add_argument("--limit", type=int, default=None, help="screen only the first N symbols")
@@ -187,7 +203,8 @@ def main():
     # always (re)written so a transient fetch failure here doesn't leave a stale file that never
     # updates -- an empty table just means the dashboard panel shows nothing this run.
     nifty50_rs = sc.fetch_nifty50_rs()
-    sector_pulse = sc.fetch_sector_pulse_table(nifty50_rs=nifty50_rs)
+    index_member_counts = _index_member_counts(categories, sc.C.SECTORAL_INDEX_TICKERS.keys())
+    sector_pulse = sc.fetch_sector_pulse_table(nifty50_rs=nifty50_rs, index_member_counts=index_member_counts)
     sector_breadth_pulse = sc.compute_sector_breadth_pulse(signals, benchmark_rs, nifty50_rs)
     sector_pulse = pd.concat([sector_pulse, sector_breadth_pulse], ignore_index=True)
     sector_pulse.to_csv(SECTOR_PULSE_FILE, index=False)

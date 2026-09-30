@@ -582,7 +582,7 @@ def test_fetch_sector_pulse_table_computes_ath_and_rs_per_index():
             tickers={"NIFTY FAKEAUTO": "^FAKEAUTO", "NIFTY BANK": "^FAKEBANK"},
             nifty50_ticker="^FAKEN50",
         )
-        assert set(df.columns) == {"Sector", "ATH_Price_Flag", "RS_vs_Nifty50"}
+        assert set(df.columns) == {"Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"}
         assert set(df["Sector"]) == {"NIFTY FAKEAUTO", "NIFTY BANK"}
 
         auto_row = df[df["Sector"] == "NIFTY FAKEAUTO"].iloc[0]
@@ -605,7 +605,7 @@ def test_fetch_sector_pulse_table_empty_when_nifty50_unavailable():
         screener_module.yf.Ticker = _raise
         df = sc.fetch_sector_pulse_table(tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_ticker="^FAKEN50")
         assert df.empty
-        assert list(df.columns) == ["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"]
+        assert list(df.columns) == ["Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"]
     finally:
         screener_module.yf.Ticker = original_ticker
 
@@ -763,6 +763,45 @@ def test_compute_sector_breadth_pulse_rs_vs_nifty50_is_mean_stock_rs_minus_nifty
     assert row["RS_vs_Nifty50"] == pytest.approx(18.0)
 
 
+def test_compute_sector_breadth_pulse_stock_count_is_group_size():
+    df = pd.DataFrame([
+        _signal_row("A", "Chemicals", True, 10.0),
+        _signal_row("B", "Chemicals", True, 20.0),
+        _signal_row("C", "Chemicals", False, 0.0),
+        _signal_row("D", "Realty", True, 5.0),
+    ])
+    out = sc.compute_sector_breadth_pulse(df, benchmark_rs=5.0, nifty50_rs=2.0)
+    assert out[out["Sector"] == "Chemicals"].iloc[0]["Stock_Count"] == 3
+    assert out[out["Sector"] == "Realty"].iloc[0]["Stock_Count"] == 1
+
+
+def test_fetch_sector_pulse_table_stock_count_from_index_member_counts():
+    closes_map = {"^FAKEAUTO": [200.0 + i * 2 for i in range(400)]}
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    try:
+        screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
+        df = sc.fetch_sector_pulse_table(
+            tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_rs=5.0,
+            index_member_counts={"NIFTY FAKEAUTO": 42},
+        )
+        assert df[df["Sector"] == "NIFTY FAKEAUTO"].iloc[0]["Stock_Count"] == 42
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
+def test_fetch_sector_pulse_table_stock_count_none_when_not_provided():
+    closes_map = {"^FAKEAUTO": [200.0 + i * 2 for i in range(400)]}
+    import modules.turtle.screener as screener_module
+    original_ticker = screener_module.yf.Ticker
+    try:
+        screener_module.yf.Ticker = lambda t: _FakeIndexTicker(closes_map[t])
+        df = sc.fetch_sector_pulse_table(tickers={"NIFTY FAKEAUTO": "^FAKEAUTO"}, nifty50_rs=5.0)
+        assert df[df["Sector"] == "NIFTY FAKEAUTO"].iloc[0]["Stock_Count"] is None
+    finally:
+        screener_module.yf.Ticker = original_ticker
+
+
 def test_compute_sector_breadth_pulse_groups_by_raw_sector_not_peer_group():
     # A stock covered by a curated NSE index (e.g. HDFCBANK/NIFTY BANK) still contributes to
     # its raw screener.in Sector's breadth row -- this is a parallel, complete 22-sector view,
@@ -782,7 +821,7 @@ def test_compute_sector_breadth_pulse_ignores_rows_with_no_sector():
 
 
 def test_compute_sector_breadth_pulse_empty_inputs_return_empty_df():
-    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"])
     assert sc.compute_sector_breadth_pulse(pd.DataFrame(), 5.0, 2.0).empty
     assert list(sc.compute_sector_breadth_pulse(pd.DataFrame(), 5.0, 2.0).columns) == list(empty.columns)
     df = pd.DataFrame([_signal_row("A", "Chemicals", True, 10.0)])

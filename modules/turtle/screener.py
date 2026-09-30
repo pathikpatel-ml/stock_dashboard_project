@@ -188,6 +188,7 @@ def fetch_sector_pulse_table(
     tickers: Optional[Dict[str, str]] = None,
     nifty50_ticker: str = None,
     nifty50_rs: Optional[float] = None,
+    index_member_counts: Optional[Dict[str, int]] = None,
 ) -> pd.DataFrame:
     """Build the "Sector Pulse" dashboard table: one row per sectoral index (not per stock),
     with its own ATH_Price_Flag and RS_vs_Nifty50 -- both computed the exact same way as for
@@ -203,14 +204,21 @@ def fetch_sector_pulse_table(
     ``generate_turtle_signals.py``, which also feeds it to ``compute_sector_breadth_pulse``)
     pass it straight in instead of this function fetching it again -- omitted, it's fetched
     internally exactly as before (backward compatible).
+
+    ``index_member_counts`` (optional, e.g. ``{"NIFTY BANK": 23, ...}`` from ``nse_categories``
+    membership) sets each row's ``Stock_Count`` -- how many stocks actually belong to that
+    index, mirroring ``compute_sector_breadth_pulse``'s own per-sector count. Omitted/missing
+    entries -> None (backward compatible; existing callers that don't pass this still work).
     """
     tickers = tickers if tickers is not None else C.SECTORAL_INDEX_TICKERS
     nifty50_ticker = nifty50_ticker if nifty50_ticker is not None else C.NIFTY_50_INDEX_TICKER
+    index_member_counts = index_member_counts or {}
+    columns = ["Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"]
 
     if nifty50_rs is None:
         nifty50_rs = fetch_nifty50_rs(nifty50_ticker)
     if nifty50_rs is None:
-        return pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+        return pd.DataFrame(columns=columns)
 
     rows = []
     for index_name, ticker in tickers.items():
@@ -222,8 +230,9 @@ def fetch_sector_pulse_table(
             "Sector": index_name,
             "ATH_Price_Flag": result["ath_price_flag"],
             "RS_vs_Nifty50": round(rs - nifty50_rs, 2) if rs is not None else None,
+            "Stock_Count": index_member_counts.get(index_name),
         })
-    return pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+    return pd.DataFrame(rows, columns=columns)
 
 
 # Default breadth threshold for compute_sector_breadth_pulse's ATH_Price_Flag -- confirmed with
@@ -269,7 +278,7 @@ def compute_sector_breadth_pulse(
     Returns an empty (correctly-columned) DataFrame if inputs are missing/unusable -- never
     raises.
     """
-    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+    empty = pd.DataFrame(columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"])
     if signals_df is None or signals_df.empty or "Sector" not in signals_df.columns:
         return empty
     if benchmark_rs is None or nifty50_rs is None:
@@ -294,10 +303,13 @@ def compute_sector_breadth_pulse(
         stock_rs_values = group["_stock_rs"].dropna()
         rs_vs_nifty50 = round(float(stock_rs_values.mean()) - nifty50_rs, 2) if not stock_rs_values.empty else None
 
-        rows.append({"Sector": str(sector), "ATH_Price_Flag": ath_flag, "RS_vs_Nifty50": rs_vs_nifty50})
+        rows.append({
+            "Sector": str(sector), "ATH_Price_Flag": ath_flag, "RS_vs_Nifty50": rs_vs_nifty50,
+            "Stock_Count": len(group),
+        })
 
     return (
-        pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50"])
+        pd.DataFrame(rows, columns=["Sector", "ATH_Price_Flag", "RS_vs_Nifty50", "Stock_Count"])
         .sort_values("Sector")
         .reset_index(drop=True)
     )

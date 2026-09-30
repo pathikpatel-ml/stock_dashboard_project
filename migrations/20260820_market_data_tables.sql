@@ -127,6 +127,11 @@ CREATE TABLE IF NOT EXISTS turtle_sector_pulse (
     sector          TEXT PRIMARY KEY,
     ath_price_flag  BOOLEAN,
     rs_vs_nifty50   DOUBLE PRECISION,
+    -- 2026-10-01: how many stocks make up this row -- a curated NSE index's real membership
+    -- count for the 12 index rows, or the screener.in-Sector group size for the ~22 sector
+    -- rows (see modules/turtle/screener.py::compute_sector_breadth_pulse). Purely informational
+    -- (e.g. "helps you judge how much a single outlier stock can skew a small sector's numbers).
+    stock_count     INTEGER,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

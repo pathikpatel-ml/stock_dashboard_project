@@ -79,7 +79,10 @@ _TURTLE_SIGNALS_FROM_DB = {
     "outperformance_flag": "Outperformance_Flag", "ttm_net_sales": "TTM_Net_Sales",
     "ath_sales": "ATH_Sales", "ath_sales_flag": "ATH_Sales_Flag", "signal": "Signal",
 }
-_SECTOR_PULSE_FROM_DB = {"sector": "Sector", "ath_price_flag": "ATH_Price_Flag", "rs_vs_nifty50": "RS_vs_Nifty50"}
+_SECTOR_PULSE_FROM_DB = {
+    "sector": "Sector", "ath_price_flag": "ATH_Price_Flag", "rs_vs_nifty50": "RS_vs_Nifty50",
+    "stock_count": "Stock_Count",
+}
 _LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_as_of": "Price_As_Of"}
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 _TURTLEQUANT_SIGNALS_FROM_DB = {
