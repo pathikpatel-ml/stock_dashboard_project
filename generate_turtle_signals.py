@@ -222,12 +222,19 @@ def main():
     try:
         conn = mdw.get_connection()
         try:
-            n = mdw.upsert_dataframe(
+            # REPLACE semantics (delete-all + insert), not upsert -- same reasoning as
+            # v20_signals_latest (see market_data_writer.replace_table_contents's docstring).
+            # 2026-10-01: a screener.in-Sector row (e.g. "Industrials", "Consumer Cyclical" --
+            # old Yahoo-tag leftovers) can legitimately have ZERO members on a later run once
+            # its last remaining stock gets reclassified -- upsert_dataframe only touches rows
+            # present in THIS run's sector_pulse, so a sector that disappeared kept showing a
+            # stale row (caught live: both of the above sat unrefreshed since 2026-09-29 after
+            # their only member stocks were reclassified on 2026-09-30).
+            n = mdw.replace_table_contents(
                 conn, "turtle_sector_pulse",
                 sector_pulse.rename(columns=_SECTOR_PULSE_DB_COLUMNS),
-                conflict_columns=["sector"],
             )
-            print(f"DB: turtle_sector_pulse upserted {n} rows")
+            print(f"DB: turtle_sector_pulse replaced with {n} rows")
 
             if not signals.empty:
                 db_signals = signals.rename(columns=_SIGNALS_DB_COLUMNS).copy()

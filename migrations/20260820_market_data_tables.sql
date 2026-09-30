@@ -348,6 +348,11 @@ GRANT DELETE ON v20_signals_latest TO market_data_writer;
 -- generate_turtle_signals.py's targeted delete_by_symbols() call.
 GRANT DELETE ON turtle_signals_latest TO market_data_writer;
 
+-- turtle_sector_pulse (2026-10-01): written with REPLACE semantics (delete-all + bulk insert,
+-- same as v20_signals_latest) since a sector (screener.in Sector or curated NSE index) can
+-- legitimately have zero members on a later run -- see generate_turtle_signals.py's write call.
+GRANT DELETE ON turtle_sector_pulse TO market_data_writer;
+
 GRANT USAGE, SELECT ON
     turtle_signals_history_id_seq,
     turtlequant_signals_history_id_seq,
