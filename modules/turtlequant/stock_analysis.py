@@ -2,15 +2,21 @@
 Per-stock LLM deep-research for the Turtle Quant tab's admin-only "Analyze" button.
 
 Three sequential studies -- Management Quality, Business Quality, Price & Final Decision --
-using the user's own verbatim prompt text (2026-09-30), run against Perplexity Sonar Pro via
-OpenRouter (chosen specifically for cited, dated, web-grounded factual research -- confirmed
-with the user over a general chat model + bolted-on search plugin). Report 3 explicitly depends
-on reports 1 and 2's actual findings ("Using the findings from the management and business
-studies..."), so it's built by appending both prior reports' full text as reference material in
-its own prompt -- NOT a multi-turn conversation (OpenRouter's chat/completions is stateless per
-call, so a multi-turn thread would just resend the same text anyway), and NOT as assistant-role
-turns (that risks the model treating prior reports as its own draft to revise rather than
-material to synthesize against).
+using the user's own verbatim prompt text (2026-09-30). Report 3 explicitly depends on reports
+1 and 2's actual findings ("Using the findings from the management and business studies..."),
+so it's built by appending both prior reports' full text as reference material in its own
+prompt -- NOT a multi-turn conversation (OpenRouter's chat/completions is stateless per call, so
+a multi-turn thread would just resend the same text anyway), and NOT as assistant-role turns
+(that risks the model treating prior reports as its own draft to revise rather than material to
+synthesize against).
+
+Model: STOCK_ANALYSIS_MODEL, default "openrouter/free" (2026-10-01, the account has no paid
+credit -- see .env.example for the real trade-off this means: free-tier models are weaker and
+typically don't do real web search grounding, so citations will usually come back empty and
+claims are less reliably sourced than a paid, search-capable model like perplexity/sonar-pro
+would give for this "cite every claim" style of prompt. Originally built against sonar-pro,
+switched after confirming live the account is free-tier only (OpenRouter's /auth/key endpoint:
+is_free_tier=true) -- swap STOCK_ANALYSIS_MODEL back once the account has credit.
 
 No LangChain/LangGraph -- plain ``requests`` (already a dependency) against OpenRouter's
 OpenAI-compatible endpoint.
@@ -25,7 +31,16 @@ import requests
 from . import analysis_store
 
 _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-_DEFAULT_MODEL = "perplexity/sonar-pro"
+_DEFAULT_MODEL = "openrouter/free"
+
+
+def current_model() -> str:
+    """The model STOCK_ANALYSIS_MODEL currently resolves to -- shared by _call_openrouter's
+    default and by callers (callbacks.py's start-analysis handler) that need to record, up
+    front, exactly which model a run will use (see analysis_store.start_analysis's ``model``
+    param -- recorded per-row so the UI's fabrication-risk warning stays accurate even after
+    this setting is later changed)."""
+    return os.environ.get("STOCK_ANALYSIS_MODEL", _DEFAULT_MODEL)
 
 
 def _call_openrouter(prompt: str, model: Optional[str] = None, timeout: int = 150) -> tuple[str, list]:
@@ -39,7 +54,7 @@ def _call_openrouter(prompt: str, model: Optional[str] = None, timeout: int = 15
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     if not api_key:
         raise RuntimeError("OPENROUTER_API_KEY environment variable is not set.")
-    model = model or os.environ.get("STOCK_ANALYSIS_MODEL", _DEFAULT_MODEL)
+    model = model or current_model()
 
     resp = requests.post(
         _OPENROUTER_URL,

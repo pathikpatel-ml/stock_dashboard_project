@@ -65,7 +65,7 @@ def test_start_analysis_upserts_running_and_clears_old_fields(monkeypatch):
     rec = _Recorder()
     monkeypatch.setattr(store, "_upsert", rec.fake_upsert)
 
-    row = store.start_analysis("tcs", "Tata Consultancy Services", "admin@example.com")
+    row = store.start_analysis("tcs", "Tata Consultancy Services", "admin@example.com", "openrouter/free")
 
     table, data, on_conflict = rec.upsert_calls[0]
     assert table == "turtlequant_stock_analysis"
@@ -77,6 +77,7 @@ def test_start_analysis_upserts_running_and_clears_old_fields(monkeypatch):
     assert data["price_report"] is None
     assert data["error_message"] is None
     assert data["requested_by"] == "admin@example.com"
+    assert data["model"] == "openrouter/free"
     assert row["status"] == "running"
 
 

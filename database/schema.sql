@@ -154,6 +154,13 @@ CREATE TABLE IF NOT EXISTS turtlequant_stock_analysis (
     price_report          TEXT,
     price_citations       TEXT,
     requested_by          TEXT,   -- admin's email, audit trail
+    -- Which STOCK_ANALYSIS_MODEL actually generated this row's reports -- recorded per-row
+    -- (not just read from the current env var) so old reports keep an accurate record even
+    -- after the model setting is later changed. Free-tier models (openrouter/free) have no
+    -- real web search grounding and confirmed-live will fabricate plausible-sounding but
+    -- entirely false company facts rather than saying "NOT FOUND" -- see modules/turtlequant/
+    -- callbacks.py's _render_analysis_panel for the warning banner keyed off this field.
+    model                 TEXT,
     requested_at          TIMESTAMPTZ,
     completed_at          TIMESTAMPTZ,
     error_message         TEXT,

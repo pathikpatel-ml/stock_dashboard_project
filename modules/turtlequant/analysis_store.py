@@ -26,9 +26,13 @@ def get_analysis(symbol: str) -> Optional[dict]:
     return rows[0] if rows else None
 
 
-def start_analysis(symbol: str, company: str, requested_by: str) -> dict:
+def start_analysis(symbol: str, company: str, requested_by: str, model: str) -> dict:
     """Upsert a fresh 'running' row -- clears any previous reports/error so a re-Analyze doesn't
-    show stale content while the new run is in progress."""
+    show stale content while the new run is in progress. ``model`` is recorded on the row itself
+    (not just read from the current env var later) so a report keeps an accurate record of what
+    actually generated it even after STOCK_ANALYSIS_MODEL is changed -- see
+    modules/turtlequant/callbacks.py's _render_analysis_panel for why this matters (the free-tier
+    model fabricates facts rather than saying "NOT FOUND"; the UI warns based on this field)."""
     now = datetime.now(timezone.utc).isoformat()
     rows = _upsert(_TABLE, {
         "symbol": symbol.upper(),
@@ -42,6 +46,7 @@ def start_analysis(symbol: str, company: str, requested_by: str) -> dict:
         "requested_at": now,
         "completed_at": None,
         "updated_at": now,
+        "model": model,
     }, on_conflict="symbol")
     return rows[0]
 
