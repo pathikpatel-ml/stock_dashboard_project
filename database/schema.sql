@@ -134,6 +134,37 @@ CREATE TABLE IF NOT EXISTS simulator_decision_log (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Turtle Quant "Analyze" button: admin-triggered, per-stock LLM deep-research (Management
+-- Quality / Business Quality / Price & Final Decision, via Perplexity Sonar Pro over OpenRouter
+-- -- see modules/turtlequant/stock_analysis.py). NOT per-user -- a stock's research doesn't
+-- depend on who asked, and it's a shared, admin-gated feature -- so this is a global cache
+-- keyed by symbol, one row per symbol, overwritten on re-Analyze. Accessed via the same
+-- SUPABASE_URL/SUPABASE_SERVICE_KEY REST path as every other table on this page, written
+-- directly by the live app itself (a background thread spawned from a Dash callback, NOT a
+-- GitHub Actions batch job -- this is single-stock, on-demand, admin-only work, a different
+-- scale of problem from the whole-universe batch jobs elsewhere in this repo).
+CREATE TABLE IF NOT EXISTS turtlequant_stock_analysis (
+    symbol                TEXT PRIMARY KEY,
+    company               TEXT,
+    status                TEXT NOT NULL DEFAULT 'pending',  -- pending | running | done | error
+    management_report     TEXT,
+    management_citations  TEXT,   -- JSON-encoded list of source URLs
+    business_report       TEXT,
+    business_citations    TEXT,
+    price_report          TEXT,
+    price_citations       TEXT,
+    requested_by          TEXT,   -- admin's email, audit trail
+    requested_at          TIMESTAMPTZ,
+    completed_at          TIMESTAMPTZ,
+    error_message         TEXT,
+    -- Doubles as a heartbeat: patched after EACH of the 3 stages completes (not just at the
+    -- end), so a row stuck at status='running' with a stale updated_at (see
+    -- analysis_store.is_stale) means the background thread died (e.g. Render recycled the
+    -- process mid-run) rather than genuinely still working -- the UI treats that as failed and
+    -- offers re-Analyze instead of polling forever.
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS gtt_log (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER     NOT NULL REFERENCES users(id),
