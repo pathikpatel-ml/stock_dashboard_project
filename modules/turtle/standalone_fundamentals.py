@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -58,7 +58,8 @@ _new_session = new_session  # internal alias -- kept for the module's own call s
 
 
 def _to_number(text: str) -> Optional[float]:
-    text = text.strip().replace(",", "")
+    text = text.strip().replace(",", "").rstrip("%").strip()  # ROCE%/Promoter% rows carry a
+    # trailing "%" -- harmless no-op for every other (non-percent) value already parsed here.
     if not text or text in ("-", "--"):
         return None
     try:
@@ -219,6 +220,141 @@ def parse_profit_and_loss(html: str) -> Optional[dict]:
     }
 
 
+def _find_section_table(soup: BeautifulSoup, section_title: str):
+    """Generic version of ``_find_pl_table`` -- locates the ``<table>`` under any named
+    ``<h2>`` section (Balance Sheet, Ratios, Cash Flows, ...), not just Profit & Loss."""
+    heading = None
+    for h in soup.find_all("h2"):
+        if h.get_text(strip=True) == section_title:
+            heading = h
+            break
+    if heading is None:
+        return None
+    section = heading.find_parent("section")
+    return section.find("table") if section else None
+
+
+def _extract_annual_series(table, row_labels) -> Optional[Tuple[List[str], List[float]]]:
+    """Returns ``(periods, values)`` for the first row whose label (trailing '+' stripped)
+    is in ``row_labels``, positionally aligned to the header's period columns. The TTM column
+    (present on Profit & Loss but not Balance Sheet/Ratios/Cash Flows) is excluded -- it isn't
+    a real annual period, and including it would corrupt a CAGR/average computed over "the
+    last N years". Unparseable cells are dropped together with their matching period so the
+    two lists never drift out of alignment. Returns None if the row isn't found at all (not
+    the same as "found but empty" -- see quality_flags.py for how an empty-but-found row and a
+    genuinely-missing row are both treated as "insufficient data", just via different paths).
+    """
+    rows = table.find_all("tr")
+    if not rows:
+        return None
+    header_cells = [c.get_text(strip=True) for c in rows[0].find_all(["th", "td"])]
+    periods = header_cells[1:]  # header_cells[0] is the blank corner cell
+    for tr in rows[1:]:
+        cells = [c.get_text(strip=True) for c in tr.find_all(["th", "td"])]
+        if not cells:
+            continue
+        label = re.sub(r"\+$", "", cells[0]).strip()
+        if label in row_labels:
+            values_raw = cells[1:]
+            out_periods, out_values = [], []
+            for i, v in enumerate(values_raw):
+                if i >= len(periods) or periods[i] == "TTM":
+                    continue
+                num = _to_number(v)
+                if num is not None:
+                    out_periods.append(periods[i])
+                    out_values.append(num)
+            return out_periods, out_values
+    return None
+
+
+def parse_balance_sheet_history(html: str) -> Optional[dict]:
+    """Equity Capital + Reserves annual history (Cr) from screener.in's "Balance Sheet" table
+    -- (Equity Capital + Reserves) is total book value; see quality_flags.py for the per-share
+    derivation and 10-year CAGR. None if the section itself can't be found; a found section
+    missing one of the two rows degrades to that key being None, not the whole dict."""
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_section_table(soup, "Balance Sheet")
+    if table is None:
+        return None
+    return {
+        "equity_capital": _extract_annual_series(table, {"Equity Capital"}),
+        "reserves": _extract_annual_series(table, {"Reserves"}),
+    }
+
+
+def parse_ratios_history(html: str) -> Optional[dict]:
+    """ROCE% annual history from screener.in's "Ratios" table. None if the section or the
+    ROCE row itself can't be found."""
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_section_table(soup, "Ratios")
+    if table is None:
+        return None
+    roce = _extract_annual_series(table, {"ROCE %"})
+    if roce is None:
+        return None
+    return {"roce_pct": roce}
+
+
+def parse_cash_flow_history(html: str) -> Optional[dict]:
+    """Cash from Operating Activity annual history (Cr) from screener.in's "Cash Flows" table
+    -- feeds the Price-to-Cash-Flow valuation check. None if the section or row can't be found.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_section_table(soup, "Cash Flows")
+    if table is None:
+        return None
+    cfo = _extract_annual_series(table, {"Cash from Operating Activity"})
+    if cfo is None:
+        return None
+    return {"cfo": cfo}
+
+
+def parse_pl_history_extra(html: str) -> Optional[dict]:
+    """EPS / Interest / Profit-before-tax / Sales annual history from the SAME Profit & Loss
+    table ``parse_profit_and_loss`` already reads -- a separate function (not merged into that
+    one, which has its own established contract/tests for ATH_Profit_Flag/ATH_Sales_Flag) since
+    these feed the NEW quality-flags computation (EPS/Sales growth CAGR, interest coverage, and
+    -- via Net Profit/EPS -- derived shares outstanding for the valuation-ratio checks). ``sales``
+    is period-aligned (unlike ``parse_profit_and_loss``'s plain-list ``annual_net_sales``)
+    specifically so it can be safely zipped with ``eps``'s periods for per-share/valuation-ratio
+    computation -- pairing two INDEPENDENTLY-filtered plain lists by position would silently
+    misalign if either row had an occasional missing/unparseable cell. None if the Profit & Loss
+    section itself can't be found; a found table missing one of the four rows degrades to that
+    key being None.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_pl_table(soup)
+    if table is None:
+        return None
+    return {
+        "eps": _extract_annual_series(table, {"EPS in Rs"}),
+        "interest": _extract_annual_series(table, {"Interest"}),
+        "profit_before_tax": _extract_annual_series(table, {"Profit before tax"}),
+        "sales": _extract_annual_series(table, _SALES_ROW_LABELS),
+        "net_profit": _extract_annual_series(table, _PROFIT_ROW_LABELS),
+    }
+
+
+def parse_promoter_holding_history(html: str) -> Optional[dict]:
+    """Promoter holding % history from screener.in's "Shareholding Pattern" table -- QUARTERLY
+    columns, and only ~3 years of them (12 quarters), confirmed live 2026-10-01 -- screener.in's
+    free tier does not expose a real 10-year promoter-holding series. The "Promoters" label
+    cell is a JS button (``<button>Promoters&nbsp;<span>+</span></button>``), not plain text --
+    ``_extract_annual_series``'s ``get_text(strip=True)`` already concatenates that into
+    "Promoters+", which the existing trailing-'+' strip handles the same as every other row.
+    None if the section or row can't be found.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_section_table(soup, "Shareholding Pattern")
+    if table is None:
+        return None
+    promoters = _extract_annual_series(table, {"Promoters"})
+    if promoters is None:
+        return None
+    return {"promoter_pct": promoters}
+
+
 _SECTOR_TAG_TITLES = (
     ("broad_sector", "Broad Sector"),
     ("sector", "Sector"),
@@ -316,6 +452,15 @@ def fetch_profit_and_loss(
     that finally has usable P&L data doesn't itself carry the tags (or the reverse -- no usable
     P&L found anywhere, but a sector classification was) so this function still returns
     something useful for the sector-only case rather than None.
+
+    2026-10-01: ALSO extracts the Balance Sheet/Ratios/Cash Flows/extra P&L rows/Shareholding
+    Pattern history needed for the Turtle Quant quality flags (``balance_sheet``, ``ratios``,
+    ``cash_flow``, ``pl_extra``, ``promoter_holding`` keys -- see the matching
+    ``parse_*_history`` functions above) from the SAME usable-P&L page, again at zero extra
+    network cost. Unlike sector classification, these are only attempted on the page that
+    actually has usable P&L data (not accumulated as a fallback across every candidate/URL
+    tried) -- the no-usable-P&L-anywhere case is rare enough that this extra complexity wasn't
+    worth it; that case's quality-related keys are simply absent from the returned dict.
     """
     own_session = session is None
     session = session or _new_session()
@@ -336,6 +481,11 @@ def fetch_profit_and_loss(
                                 best_sector = sector
                             if _has_usable_data(result):
                                 result.update(sector or best_sector or {})
+                                result["balance_sheet"] = parse_balance_sheet_history(resp.text)
+                                result["ratios"] = parse_ratios_history(resp.text)
+                                result["cash_flow"] = parse_cash_flow_history(resp.text)
+                                result["pl_extra"] = parse_pl_history_extra(resp.text)
+                                result["promoter_holding"] = parse_promoter_holding_history(resp.text)
                                 return result
                             break  # page loaded fine, just no usable data -- try next URL/candidate
                     except Exception:

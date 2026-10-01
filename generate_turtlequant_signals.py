@@ -31,6 +31,7 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
+from modules.turtle import quality_flags as qf
 from modules.turtlequant import compute as tqc
 from modules.turtlequant import screener as sc
 
@@ -48,17 +49,22 @@ _SIGNALS_DB_COLUMNS = {
     "RS_Short_Term": "rs_short_term", "ADX": "adx", "RSI": "rsi",
     "SuperTrend_Direction": "supertrend_direction", "Volume_Building": "volume_building",
     "Price_Above_MA13": "price_above_ma13", "Signal": "signal",
+    # 2026-10-01: the 9 fundamental quality/valuation flags (CamelCase -> snake_case, same
+    # pairing as modules/turtlequant/screener.py's QUALITY_COLUMNS <-> quality_flags.QUALITY_FIELD_NAMES).
+    **dict(zip(sc.QUALITY_COLUMNS, qf.QUALITY_FIELD_NAMES)),
 }
 
 # turtle_fundamentals is the SAME shared table generate_turtle_fundamentals.py (Turtle Strategy)
-# writes -- company-attribute data (screener.in's Sector/Broad_Sector classification), not a
-# strategy-specific computation, so Turtle Quant reads it too rather than duplicating a fetch.
+# writes -- company-attribute data (screener.in's Sector/Broad_Sector classification, plus the
+# quality/valuation flags), not a strategy-specific computation, so Turtle Quant reads it too
+# rather than duplicating a fetch.
 _FUNDAMENTALS_FROM_DB = {
     "symbol": "Symbol", "ttm_net_profit": "TTM_Net_Profit",
     "max_annual_net_profit": "Max_Annual_Net_Profit", "ttm_net_sales": "TTM_Net_Sales",
     "max_annual_net_sales": "Max_Annual_Net_Sales",
     "broad_sector": "Broad_Sector", "sector": "Sector",
     "broad_industry": "Broad_Industry", "industry": "Industry",
+    **dict(zip(qf.QUALITY_FIELD_NAMES, sc.QUALITY_COLUMNS)),
 }
 
 # Postgres column name -> CSV column name -- reverse of the universe read, same reasoning as

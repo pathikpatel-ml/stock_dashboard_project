@@ -502,3 +502,131 @@ def test_fetch_pl_prefers_real_consolidated_data_when_available():
         "RELIANCE", session=session, retries=1, pause=0, use_search_fallback=False
     )
     assert result["ttm_net_profit"] == 106.0  # REGULAR_COMPANY_HTML's value, not BANK_HTML's
+
+
+# ---------------------------------------------------------------------------
+# Balance Sheet / Ratios / Cash Flows / promoter holding history (2026-10-01, quality flags)
+# ---------------------------------------------------------------------------
+BALANCE_SHEET_HTML = """
+<html><body>
+<section>
+<h2>Balance Sheet</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
+<tr><td>Equity Capital</td><td>100</td><td>100</td><td>100</td></tr>
+<tr><td>Reserves</td><td>5000</td><td>5500</td><td>6000</td></tr>
+<tr><td>Total Liabilities</td><td>10000</td><td>11000</td><td>12000</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+RATIOS_HTML = """
+<html><body>
+<section>
+<h2>Ratios</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
+<tr><td>Debtor Days</td><td>30</td><td>28</td><td>25</td></tr>
+<tr><td>ROCE %</td><td>9%</td><td>10%</td><td>11%</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+CASH_FLOW_HTML = """
+<html><body>
+<section>
+<h2>Cash Flows</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
+<tr><td>Cash from Operating Activity+</td><td>800</td><td>900</td><td>1000</td></tr>
+<tr><td>Net Cash Flow</td><td>50</td><td>60</td><td>70</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+PL_EXTRA_HTML = """
+<html><body>
+<section>
+<h2>Profit & Loss</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th><th>TTM</th></tr>
+<tr><td>Sales+</td><td>1500</td><td>1700</td><td>1900</td><td>1950</td></tr>
+<tr><td>Interest</td><td>50</td><td>60</td><td>70</td><td>75</td></tr>
+<tr><td>Profit before tax</td><td>300</td><td>350</td><td>400</td><td>410</td></tr>
+<tr><td>Net Profit+</td><td>200</td><td>230</td><td>260</td><td>270</td></tr>
+<tr><td>EPS in Rs</td><td>20</td><td>23</td><td>26</td><td>27</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+PROMOTER_HOLDING_HTML = """
+<html><body>
+<section>
+<h2>Shareholding Pattern</h2>
+<table>
+<tr><th></th><th>Sep 2024</th><th>Dec 2024</th><th>Mar 2025</th></tr>
+<tr><td><button>Promoters&nbsp;<span class="blue-icon">+</span></button></td><td>45.00%</td><td>45.50%</td><td>46.00%</td></tr>
+<tr><td>Public+</td><td>55.00%</td><td>54.50%</td><td>54.00%</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+
+def test_parse_balance_sheet_history_excludes_ttm_not_present_and_aligns_periods():
+    result = sf.parse_balance_sheet_history(BALANCE_SHEET_HTML)
+    assert result["equity_capital"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [100.0, 100.0, 100.0])
+    assert result["reserves"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [5000.0, 5500.0, 6000.0])
+
+
+def test_parse_balance_sheet_history_missing_section_returns_none():
+    assert sf.parse_balance_sheet_history("<html><body>not a real page</body></html>") is None
+
+
+def test_parse_balance_sheet_history_found_but_empty_degrades_gracefully():
+    # The section heading exists but the table has no matching rows -- degrades to None values
+    # per-key, not an overall None (mirrors parse_profit_and_loss's row-missing behaviour).
+    html = "<html><body><section><h2>Balance Sheet</h2><table></table></section></body></html>"
+    result = sf.parse_balance_sheet_history(html)
+    assert result == {"equity_capital": None, "reserves": None}
+
+
+def test_parse_ratios_history_strips_percent_sign():
+    result = sf.parse_ratios_history(RATIOS_HTML)
+    assert result["roce_pct"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [9.0, 10.0, 11.0])
+
+
+def test_parse_ratios_history_missing_roce_row_returns_none():
+    html = "<html><body><section><h2>Ratios</h2><table><tr><td>Debtor Days</td></tr></table></section></body></html>"
+    assert sf.parse_ratios_history(html) is None
+
+
+def test_parse_cash_flow_history_strips_plus_suffix():
+    result = sf.parse_cash_flow_history(CASH_FLOW_HTML)
+    assert result["cfo"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [800.0, 900.0, 1000.0])
+
+
+def test_parse_pl_history_extra_excludes_ttm_and_gets_all_rows():
+    result = sf.parse_pl_history_extra(PL_EXTRA_HTML)
+    assert result["interest"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [50.0, 60.0, 70.0])
+    assert result["profit_before_tax"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [300.0, 350.0, 400.0])
+    assert result["eps"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [20.0, 23.0, 26.0])
+    assert result["sales"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [1500.0, 1700.0, 1900.0])
+    assert result["net_profit"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [200.0, 230.0, 260.0])
+
+
+def test_parse_pl_history_extra_missing_section_returns_none():
+    assert sf.parse_pl_history_extra(NO_PL_SECTION_HTML) is None
+
+
+def test_parse_promoter_holding_history_handles_button_label_and_percent():
+    result = sf.parse_promoter_holding_history(PROMOTER_HOLDING_HTML)
+    assert result["promoter_pct"] == (["Sep 2024", "Dec 2024", "Mar 2025"], [45.0, 45.5, 46.0])
+
+
+def test_parse_promoter_holding_history_missing_section_returns_none():
+    assert sf.parse_promoter_holding_history(NO_PL_SECTION_HTML) is None

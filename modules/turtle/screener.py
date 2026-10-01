@@ -317,20 +317,38 @@ def compute_sector_breadth_pulse(
 
 def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
     """``turtle_screener_fundamentals.csv`` (Symbol, TTM_Net_Profit, TTM_Net_Sales,
-    Max_Annual_Net_Profit, Max_Annual_Net_Sales, Broad_Sector, Sector, Broad_Industry, Industry
-    — see ``generate_turtle_fundamentals.py``) -> per-symbol lookup dict, keyed by uppercased
-    Symbol. The four sector/industry fields are screener.in's own classification (2026-09) --
-    see run_pipeline's per-symbol loop for how they're preferred over the universe CSV's cruder
-    Yahoo Finance "Sector" tag.
+    Max_Annual_Net_Profit, Max_Annual_Net_Sales, Broad_Sector, Sector, Broad_Industry, Industry,
+    plus the 9 Turtle Quant quality/valuation flags -- see ``generate_turtle_fundamentals.py``)
+    -> per-symbol lookup dict, keyed by uppercased Symbol. The four sector/industry fields are
+    screener.in's own classification (2026-09) -- see run_pipeline's per-symbol loop for how
+    they're preferred over the universe CSV's cruder Yahoo Finance "Sector" tag. The quality
+    fields (2026-10-01, snake_case keys matching ``quality_flags.QUALITY_FIELD_NAMES``) are
+    consumed by ``modules.turtlequant.screener`` only -- Turtle Strategy's own run_pipeline
+    below never reads them, they just ride along in this shared lookup unused there.
     """
     if fundamentals_df is None or fundamentals_df.empty:
         return {}
     df = fundamentals_df.copy()
     df["Symbol"] = df["Symbol"].astype(str).str.strip().str.upper()
 
+    # CSV/CamelCase column names (Book_Value_CAGR_10Y, ...) -> snake_case keys
+    # (book_value_cagr_10y, ...), matching generate_turtle_fundamentals.py's own
+    # _FUNDAMENTALS_DB_COLUMNS mapping convention.
+    _quality_columns = {
+        "book_value_cagr_10y": "Book_Value_CAGR_10Y", "book_value_growth_flag": "Book_Value_Growth_Flag",
+        "eps_cagr_10y": "EPS_CAGR_10Y", "eps_growth_flag": "EPS_Growth_Flag",
+        "roce_avg_10y": "ROCE_Avg_10Y", "roce_flag": "ROCE_Flag",
+        "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
+        "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
+        "interest_coverage": "Interest_Coverage", "interest_coverage_flag": "Interest_Coverage_Flag",
+        "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",
+        "ps_current": "PS_Current", "ps_5y_avg": "PS_5Y_Avg", "ps_flag": "PS_Flag",
+        "pcf_current": "PCF_Current", "pcf_5y_avg": "PCF_5Y_Avg", "pcf_flag": "PCF_Flag",
+    }
+
     result: Dict[str, Dict[str, float]] = {}
     for _, row in df.iterrows():
-        result[row["Symbol"]] = {
+        entry = {
             "ttm_net_profit": row.get("TTM_Net_Profit"),
             "ttm_net_sales": row.get("TTM_Net_Sales"),
             "max_annual_net_profit": row.get("Max_Annual_Net_Profit"),
@@ -340,6 +358,9 @@ def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[s
             "broad_industry": row.get("Broad_Industry"),
             "industry": row.get("Industry"),
         }
+        for snake_key, csv_col in _quality_columns.items():
+            entry[snake_key] = row.get(csv_col)
+        result[row["Symbol"]] = entry
     return result
 
 

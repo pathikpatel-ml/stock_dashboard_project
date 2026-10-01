@@ -33,6 +33,7 @@ Usage
     python generate_turtle_fundamentals.py --resume        # continue from the last checkpoint
 """
 import argparse
+import calendar
 import os
 import time
 
@@ -45,16 +46,33 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
+from modules.breakout import data_feed
+from modules.turtle import quality_flags as qf
 from modules.turtle import standalone_fundamentals as sf
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
 OUTPUT_FILE = os.path.join(REPO_BASE_PATH, "turtle_screener_fundamentals.csv")
 CHECKPOINT_FILE = os.path.join(REPO_BASE_PATH, "output", "turtle_screener_fundamentals_checkpoint.csv")
+
+# 2026-10-01: the 9 Turtle Quant quality/valuation flags (see modules/turtle/quality_flags.py)
+# -- computed here (not in generate_turtlequant_signals.py) since they're derived from the SAME
+# screener.in page already fetched for TTM profit/sales/sector, just with one extra yfinance
+# monthly-price fetch per symbol for the valuation-ratio checks (see _year_end_prices below).
+_QUALITY_COLUMNS = [
+    "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
+    "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
+    "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
+    "Interest_Coverage", "Interest_Coverage_Flag",
+    "PB_Current", "PB_5Y_Avg", "PB_Flag",
+    "PS_Current", "PS_5Y_Avg", "PS_Flag",
+    "PCF_Current", "PCF_5Y_Avg", "PCF_Flag",
+]
+
 OUTPUT_COLUMNS = [
     "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
     "Broad_Sector", "Sector", "Broad_Industry", "Industry",
-]
+] + _QUALITY_COLUMNS
 CHECKPOINT_EVERY = 50
 
 # CSV column name -> Postgres column name (see generate_turtle_signals.py for why this stays
@@ -65,7 +83,42 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Max_Annual_Net_Sales": "max_annual_net_sales",
     "Broad_Sector": "broad_sector", "Sector": "sector",
     "Broad_Industry": "broad_industry", "Industry": "industry",
+    "Book_Value_CAGR_10Y": "book_value_cagr_10y", "Book_Value_Growth_Flag": "book_value_growth_flag",
+    "EPS_CAGR_10Y": "eps_cagr_10y", "EPS_Growth_Flag": "eps_growth_flag",
+    "ROCE_Avg_10Y": "roce_avg_10y", "ROCE_Flag": "roce_flag",
+    "Sales_CAGR_10Y": "sales_cagr_10y", "Sales_Growth_Flag": "sales_growth_flag",
+    "Promoter_Holding_Change_3Y": "promoter_holding_change_3y", "Promoter_Holding_Flag": "promoter_holding_flag",
+    "Interest_Coverage": "interest_coverage", "Interest_Coverage_Flag": "interest_coverage_flag",
+    "PB_Current": "pb_current", "PB_5Y_Avg": "pb_5y_avg", "PB_Flag": "pb_flag",
+    "PS_Current": "ps_current", "PS_5Y_Avg": "ps_5y_avg", "PS_Flag": "ps_flag",
+    "PCF_Current": "pcf_current", "PCF_5Y_Avg": "pcf_5y_avg", "PCF_Flag": "pcf_flag",
 }
+
+_MONTH_NUM = {m: i for i, m in enumerate(calendar.month_abbr) if m}
+
+
+def _year_end_prices(monthly: pd.DataFrame, periods: list) -> dict:
+    """Maps each screener.in period label (e.g. "Mar 2024") to the closest available monthly
+    close on or before that fiscal year-end date -- feeds quality_flags.compute_all's
+    valuation-ratio checks. Empty dict (not an exception) for missing/unusable price data."""
+    if monthly is None or monthly.empty or "Close" not in monthly.columns:
+        return {}
+    index = pd.DatetimeIndex(monthly.index).tz_localize(None)
+    result = {}
+    for period in periods:
+        try:
+            month_str, year_str = period.split()
+            month_num = _MONTH_NUM.get(month_str)
+            if month_num is None:
+                continue
+            last_day = calendar.monthrange(int(year_str), month_num)[1]
+            target = pd.Timestamp(year=int(year_str), month=month_num, day=last_day)
+        except (ValueError, IndexError):
+            continue
+        mask = index <= target
+        if mask.any():
+            result[period] = float(monthly["Close"].to_numpy()[mask][-1])
+    return result
 
 
 def load_universe_symbols() -> list:
@@ -102,15 +155,42 @@ def load_checkpoint() -> pd.DataFrame:
 
 
 def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
+    empty_quality = {c: None for c in _QUALITY_COLUMNS}
     result = sf.fetch_profit_and_loss(symbol, session=session, retries=retries, pause=pause)
     if result is None:
         return {
             "Symbol": symbol, "TTM_Net_Profit": None, "Max_Annual_Net_Profit": None,
             "TTM_Net_Sales": None, "Max_Annual_Net_Sales": None,
             "Broad_Sector": None, "Sector": None, "Broad_Industry": None, "Industry": None,
+            **empty_quality,
         }
     annual_profit = result.get("annual_net_profit") or []
     annual_sales = result.get("annual_net_sales") or []
+
+    # Quality flags (2026-10-01) -- only attempted when the balance-sheet/P&L-extra history
+    # actually came back (a symbol with no usable page at all has nothing to compute from
+    # anyway); one extra yfinance monthly fetch per symbol, for the valuation-ratio checks'
+    # year-end prices -- never lets a price-fetch hiccup fail the whole row, just leaves the
+    # 3 valuation checks as None (quality_flags.compute_all is already None-safe per-field).
+    quality = dict(empty_quality)
+    if result.get("balance_sheet") or result.get("pl_extra"):
+        try:
+            monthly = data_feed.get_monthly(symbol, period="10y")
+        except Exception:
+            monthly = None
+        periods = (result.get("balance_sheet") or {}).get("equity_capital")
+        periods = periods[0] if periods else []
+        year_end_prices = _year_end_prices(monthly, periods)
+        current_price = (
+            float(monthly["Close"].to_numpy()[-1])
+            if monthly is not None and not monthly.empty and "Close" in monthly.columns else None
+        )
+        computed = qf.compute_all(result, year_end_prices, current_price)
+        # computed's keys are snake_case (e.g. "book_value_cagr_10y"); _QUALITY_COLUMNS are the
+        # CSV/CamelCase names (e.g. "Book_Value_CAGR_10Y") -- reuse _FUNDAMENTALS_DB_COLUMNS'
+        # existing mapping between the two rather than a third naming convention.
+        quality = {col: computed[_FUNDAMENTALS_DB_COLUMNS[col]] for col in _QUALITY_COLUMNS}
+
     return {
         "Symbol": symbol,
         "TTM_Net_Profit": result.get("ttm_net_profit"),
@@ -121,6 +201,7 @@ def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
         "Sector": result.get("sector"),
         "Broad_Industry": result.get("broad_industry"),
         "Industry": result.get("industry"),
+        **quality,
     }
 
 

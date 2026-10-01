@@ -23,15 +23,30 @@ import pandas as pd
 import yfinance as yf
 
 from modules.breakout import data_feed
+from modules.turtle import quality_flags as qf
 from modules.turtle import screener as tt_screener
 from . import compute
 from . import constants as C
+
+# CamelCase CSV/display names for the 9 fundamental quality/valuation flags (2026-10-01) --
+# same values generate_turtle_fundamentals.py already computed and wrote to turtle_fundamentals
+# (via modules/turtle/quality_flags.py), just threaded through here into Turtle Quant's own
+# signal rows. Order matches quality_flags.QUALITY_FIELD_NAMES (snake_case) 1:1.
+QUALITY_COLUMNS = [
+    "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
+    "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
+    "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
+    "Interest_Coverage", "Interest_Coverage_Flag",
+    "PB_Current", "PB_5Y_Avg", "PB_Flag",
+    "PS_Current", "PS_5Y_Avg", "PS_Flag",
+    "PCF_Current", "PCF_5Y_Avg", "PCF_Flag",
+]
 
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal_Date",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13", "Signal",
-]
+] + QUALITY_COLUMNS
 
 
 def _is_valid_str(value) -> bool:
@@ -83,6 +98,7 @@ def screen_symbol(
     industry,
     index_weekly_close: pd.Series,
     broad_sector=None,
+    quality: Optional[dict] = None,
 ) -> Dict:
     """Fetch one symbol's weekly OHLCV and compute its full Turtle Quant signal row. Never
     raises -- returns a REJECT-style dict with a ``reason`` key if data is missing/insufficient,
@@ -114,6 +130,11 @@ def screen_symbol(
 
     signal = compute.classify(rs_long, rs_short, adx_value, volume_ok, price_ok, rsi_value, supertrend_bullish)
 
+    quality = quality or {}
+    quality_row = {
+        camel: quality.get(snake) for camel, snake in zip(QUALITY_COLUMNS, qf.QUALITY_FIELD_NAMES)
+    }
+
     return {
         "Symbol": symbol,
         "Company": company,
@@ -135,6 +156,7 @@ def screen_symbol(
         "Volume_Building": volume_ok,
         "Price_Above_MA13": price_ok,
         "Signal": signal,
+        **quality_row,
     }
 
 
@@ -186,6 +208,7 @@ def run_pipeline(
         screener_sector = fundamentals.get("sector")
         sector = screener_sector if _is_valid_str(screener_sector) else urow.get("Sector")
         broad_sector = fundamentals.get("broad_sector")
+        quality = {field: fundamentals.get(field) for field in qf.QUALITY_FIELD_NAMES}
 
         result = screen_symbol(
             symbol,
@@ -194,6 +217,7 @@ def run_pipeline(
             urow.get("Industry"),
             index_weekly_close,
             broad_sector=broad_sector,
+            quality=quality,
         )
         if pause_seconds:
             time.sleep(pause_seconds)

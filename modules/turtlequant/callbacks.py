@@ -21,13 +21,13 @@ from dash import ALL, Input, Output, State, dash_table, dcc, html
 import data_manager
 from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
-from . import analysis_store, compute as tq_compute, stock_analysis
+from . import analysis_store, compute as tq_compute, screener as sc, stock_analysis
 
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
     "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
     "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
-]
+] + sc.QUALITY_COLUMNS
 
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
@@ -68,6 +68,39 @@ _COLUMN_TOOLTIPS = {
         "Short Term both negative, ADX < 20, price below its 13w MA, RSI < 45 -- and it's the "
         "most recent validated event, coming after a prior validated BUY."
     ),
+    # 2026-10-01: fundamental quality/valuation flags, from screener.in's Balance Sheet/Ratios/
+    # Cash Flows/Profit & Loss history (10 years where available) plus historical stock prices.
+    # See modules/turtle/quality_flags.py for every exact formula.
+    "Book_Value_CAGR_10Y": "10-year CAGR (%) of (Equity Capital + Reserves) -- total book value growth.",
+    "Book_Value_Growth_Flag": "True if Book Value CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
+    "EPS_CAGR_10Y": "10-year CAGR (%) of EPS (Rs).",
+    "EPS_Growth_Flag": "True if EPS CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
+    "ROCE_Avg_10Y": "Plain average of ROCE% over the last 10 years (not a per-year minimum).",
+    "ROCE_Flag": "True if ROCE Avg (10Y) > 10%. Blank if fewer than 5 years of data exist.",
+    "Sales_CAGR_10Y": "10-year CAGR (%) of Sales/Revenue.",
+    "Sales_Growth_Flag": "True if Sales CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
+    "Promoter_Holding_Change_3Y": (
+        "Percentage-point change in promoter holding over screener.in's real available window "
+        "(~3 years / 12 quarters -- NOT 10 years, no free 10-year promoter-holding source exists)."
+    ),
+    "Promoter_Holding_Flag": "True if promoter holding is the same or higher than ~3 years ago.",
+    "Interest_Coverage": (
+        "Latest year's (Profit before tax + Interest) / Interest. Blank if the company has zero "
+        "interest expense (see the flag -- a debt-free company passes automatically)."
+    ),
+    "Interest_Coverage_Flag": (
+        "True if Interest Coverage > 5, OR the company has zero interest expense (no debt to "
+        "service -- treated as an automatic pass, not insufficient data)."
+    ),
+    "PB_Current": "Current Price-to-Book, computed the same derivation method as every historical year below (for a fair comparison).",
+    "PB_5Y_Avg": "Average Price-to-Book over the last 5 fiscal years.",
+    "PB_Flag": "True if the 5-year average P/B is higher than the current P/B -- i.e. the stock is cheaper than its own recent history.",
+    "PS_Current": "Current Price-to-Sales, same derivation method as the 5-year average.",
+    "PS_5Y_Avg": "Average Price-to-Sales over the last 5 fiscal years.",
+    "PS_Flag": "True if the 5-year average P/S is higher than the current P/S.",
+    "PCF_Current": "Current Price-to-(Operating)-Cash-Flow, same derivation method as the 5-year average.",
+    "PCF_5Y_Avg": "Average Price-to-Cash-Flow over the last 5 fiscal years.",
+    "PCF_Flag": "True if the 5-year average P/CF is higher than the current P/CF.",
 }
 
 
@@ -89,6 +122,10 @@ def _table(df):
     for pct_col in ("RS_Long_Term", "RS_Short_Term"):
         if pct_col in display_df.columns:
             display_df[pct_col] = pd.to_numeric(display_df[pct_col], errors="coerce").round(3)
+    _quality_numeric_cols = [c for c in sc.QUALITY_COLUMNS if not c.endswith("_Flag")]
+    for num_col in _quality_numeric_cols:
+        if num_col in display_df.columns:
+            display_df[num_col] = pd.to_numeric(display_df[num_col], errors="coerce").round(2)
     for blank_col in ("Signal", "Signal_Date"):
         if blank_col in display_df.columns:
             display_df[blank_col] = display_df[blank_col].where(display_df[blank_col].notna(), None)

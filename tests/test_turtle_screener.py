@@ -232,11 +232,20 @@ def test_build_fundamentals_lookup_shape():
     df = pd.DataFrame([_fundamentals_row("X", ttm_net_profit=110, max_annual_net_profit=100,
                                           ttm_net_sales=210, max_annual_net_sales=200)])
     lookup = sc.build_fundamentals_lookup(df)
-    assert lookup["X"] == {
-        "ttm_net_profit": 110, "max_annual_net_profit": 100,
-        "ttm_net_sales": 210, "max_annual_net_sales": 200,
-        "broad_sector": None, "sector": None, "broad_industry": None, "industry": None,
-    }
+    entry = lookup["X"]
+    assert entry["ttm_net_profit"] == 110
+    assert entry["max_annual_net_profit"] == 100
+    assert entry["ttm_net_sales"] == 210
+    assert entry["max_annual_net_sales"] == 200
+    assert entry["broad_sector"] is None
+    assert entry["sector"] is None
+    assert entry["broad_industry"] is None
+    assert entry["industry"] is None
+    # 2026-10-01: the 9 Turtle-Quant-only quality/valuation fields ride along too (unused by
+    # Turtle Strategy's own run_pipeline), all None here since _fundamentals_row doesn't set them.
+    import modules.turtle.quality_flags as qf
+    for field in qf.QUALITY_FIELD_NAMES:
+        assert entry[field] is None
 
 
 def test_run_pipeline_prefers_screener_sector_over_universe_yahoo_tag():

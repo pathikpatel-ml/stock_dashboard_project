@@ -117,6 +117,36 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     sector                  TEXT,
     broad_industry          TEXT,
     industry                TEXT,
+    -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- 10-year CAGR/ROCE
+    -- from screener.in's Balance Sheet/Ratios/Cash Flows/Profit & Loss history (same page,
+    -- zero extra screener.in requests), plus one extra yfinance monthly-price fetch per symbol
+    -- for the 3 valuation-ratio checks (5yr-avg P/B, P/S, P/CF vs current). See
+    -- modules/turtle/quality_flags.py for every formula and documented assumption (ROCE as a
+    -- 10-year average not a per-year minimum; zero-interest treated as an automatic pass on
+    -- interest coverage; promoter holding scoped to the real ~3-year window screener.in's free
+    -- shareholding data actually has, not the originally-asked 10 years). All nullable --
+    -- insufficient history -> NULL, never a guessed/short-window value.
+    book_value_cagr_10y        DOUBLE PRECISION,
+    book_value_growth_flag     BOOLEAN,
+    eps_cagr_10y                DOUBLE PRECISION,
+    eps_growth_flag             BOOLEAN,
+    roce_avg_10y                DOUBLE PRECISION,
+    roce_flag                   BOOLEAN,
+    sales_cagr_10y              DOUBLE PRECISION,
+    sales_growth_flag           BOOLEAN,
+    promoter_holding_change_3y  DOUBLE PRECISION,
+    promoter_holding_flag       BOOLEAN,
+    interest_coverage           DOUBLE PRECISION,
+    interest_coverage_flag      BOOLEAN,
+    pb_current                  DOUBLE PRECISION,
+    pb_5y_avg                   DOUBLE PRECISION,
+    pb_flag                     BOOLEAN,
+    ps_current                  DOUBLE PRECISION,
+    ps_5y_avg                   DOUBLE PRECISION,
+    ps_flag                     BOOLEAN,
+    pcf_current                 DOUBLE PRECISION,
+    pcf_5y_avg                  DOUBLE PRECISION,
+    pcf_flag                    BOOLEAN,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -214,6 +244,30 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     price_above_ma13     BOOLEAN,
     signal               TEXT,   -- BUY / HOLD / SELL
     signal_date          DATE NOT NULL,
+    -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- see
+    -- turtle_fundamentals' own column comment above for the full explanation; same values,
+    -- threaded through by modules/turtlequant/screener.py the same way Broad_Sector/Sector are.
+    book_value_cagr_10y        DOUBLE PRECISION,
+    book_value_growth_flag     BOOLEAN,
+    eps_cagr_10y                DOUBLE PRECISION,
+    eps_growth_flag             BOOLEAN,
+    roce_avg_10y                DOUBLE PRECISION,
+    roce_flag                   BOOLEAN,
+    sales_cagr_10y              DOUBLE PRECISION,
+    sales_growth_flag           BOOLEAN,
+    promoter_holding_change_3y  DOUBLE PRECISION,
+    promoter_holding_flag       BOOLEAN,
+    interest_coverage           DOUBLE PRECISION,
+    interest_coverage_flag      BOOLEAN,
+    pb_current                  DOUBLE PRECISION,
+    pb_5y_avg                   DOUBLE PRECISION,
+    pb_flag                     BOOLEAN,
+    ps_current                  DOUBLE PRECISION,
+    ps_5y_avg                   DOUBLE PRECISION,
+    ps_flag                     BOOLEAN,
+    pcf_current                 DOUBLE PRECISION,
+    pcf_5y_avg                  DOUBLE PRECISION,
+    pcf_flag                    BOOLEAN,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_latest_signal ON turtlequant_signals_latest(signal);
@@ -235,6 +289,27 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_history (
     price_above_ma13     BOOLEAN,
     signal               TEXT,
     signal_date          DATE NOT NULL,
+    book_value_cagr_10y        DOUBLE PRECISION,
+    book_value_growth_flag     BOOLEAN,
+    eps_cagr_10y                DOUBLE PRECISION,
+    eps_growth_flag             BOOLEAN,
+    roce_avg_10y                DOUBLE PRECISION,
+    roce_flag                   BOOLEAN,
+    sales_cagr_10y              DOUBLE PRECISION,
+    sales_growth_flag           BOOLEAN,
+    promoter_holding_change_3y  DOUBLE PRECISION,
+    promoter_holding_flag       BOOLEAN,
+    interest_coverage           DOUBLE PRECISION,
+    interest_coverage_flag      BOOLEAN,
+    pb_current                  DOUBLE PRECISION,
+    pb_5y_avg                   DOUBLE PRECISION,
+    pb_flag                     BOOLEAN,
+    ps_current                  DOUBLE PRECISION,
+    ps_5y_avg                   DOUBLE PRECISION,
+    ps_flag                     BOOLEAN,
+    pcf_current                 DOUBLE PRECISION,
+    pcf_5y_avg                  DOUBLE PRECISION,
+    pcf_flag                    BOOLEAN,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (symbol, signal_date)
 );
