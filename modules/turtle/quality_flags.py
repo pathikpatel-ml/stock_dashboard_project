@@ -52,8 +52,13 @@ def cagr(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
          min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[float]:
     """Compound annual growth rate (%) of the LAST ``max_years+1`` annual columns (i.e. up to
     ``max_years`` year-over-year periods), oldest to newest. None if fewer than ``min_years``
-    usable years exist, the start value isn't strictly positive (CAGR is undefined/meaningless
-    for a loss-making or zero base year), or any value is missing.
+    usable years exist, either the start OR end value isn't strictly positive (CAGR is
+    undefined/meaningless for a loss-making or zero base/latest year -- e.g. EPS swinging from
+    positive 10 years ago to negative today has no real growth RATE; naively computing
+    ``(negative/positive) ** (1/years)`` in Python returns a COMPLEX number for a fractional
+    exponent of a negative base, not a sensible float -- confirmed live, this crashed the real
+    production run on a real loss-making company's EPS history before this guard was added),
+    or any value is missing.
     """
     values = _values_only(series)
     if len(values) < min_years + 1:
@@ -61,7 +66,7 @@ def cagr(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
     window = values[-(max_years + 1):]
     start, end = window[0], window[-1]
     years = len(window) - 1
-    if start is None or end is None or start <= 0 or years <= 0:
+    if start is None or end is None or start <= 0 or end <= 0 or years <= 0:
         return None
     return (((end / start) ** (1.0 / years)) - 1.0) * 100.0
 

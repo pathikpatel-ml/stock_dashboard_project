@@ -55,6 +55,20 @@ def test_cagr_none_when_start_value_not_positive():
     assert qf.cagr(_series(values2)) is None
 
 
+def test_cagr_none_when_end_value_not_positive():
+    # Real production bug (2026-10-01): EPS swinging from positive 10 years ago to negative
+    # (loss-making) today -- (negative/positive) ** (1/years) is a COMPLEX number in Python for
+    # a fractional exponent, which crashed growth_flag's "> threshold" comparison on a real
+    # company's live data. Must return None, not attempt the power operation at all.
+    values = [10.0, 10.0, 10.0, 10.0, 10.0, -5.0]
+    assert qf.cagr(_series(values)) is None
+
+
+def test_cagr_zero_end_value_returns_none():
+    values = [10.0, 10.0, 10.0, 10.0, 10.0, 0.0]
+    assert qf.cagr(_series(values)) is None
+
+
 def test_cagr_none_for_none_series():
     assert qf.cagr(None) is None
 
