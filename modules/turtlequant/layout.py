@@ -142,12 +142,4 @@ def create_turtlequant_layout():
         dcc.Loading(type="circle", children=[
             html.Div(id="tq-signals-container", className="dash-table-container")
         ]),
-
-        # Admin-only per-stock "Analyze" deep-research panel (modules/turtlequant/stock_analysis.py)
-        # -- hidden by default, shown by selecting a row in the signals table above. Mirrors
-        # modules/v20_layout.py's v20-stock-history-panel (a plain Div, not a dbc.Modal).
-        html.Div(id="tq-analysis-panel", style={"display": "none"}),
-        dcc.Interval(id="tq-analysis-poll-interval", interval=8000, disabled=True, max_intervals=60),
-        dcc.Store(id="tq-analysis-selected-symbol"),
-        dcc.Store(id="tq-analysis-selected-company"),
     ])
