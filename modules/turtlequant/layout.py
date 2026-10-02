@@ -61,14 +61,12 @@ def create_turtlequant_layout():
     holdings_add_options = _stock_dropdown_options(df, extra_first=None)
 
     return html.Div(className="section-container", children=[
-        html.H3("⚡ Turtle Quant — BUY / SELL"),
+        html.H3("⚡ Turtle Quant — Fundamental Quality Screen"),
         html.P(
-            "Weekly relative strength (52-week & 13-week) vs NSE:NIFTY, confirmed by SuperTrend, "
-            "ADX/DMI trend strength, RSI, and price/volume moving-average build-up. BUY and SELL "
-            "are both all-or-nothing -- BUY needs all 7 conditions to align, SELL needs all 6 of "
-            "the reversed conditions (volume isn't part of SELL). The Signal column only shows a "
-            "VALIDATED event -- blank until a stock has had a genuine BUY, then it alternates "
-            "BUY/SELL from there; never shows HOLD.",
+            "10-year book value/EPS/sales growth, ROCE, promoter holding trend, interest "
+            "coverage, and current valuation (P/B, P/S, P/CF) vs. each stock's own 5-year "
+            "average -- screener.in-sourced quality/valuation flags, filterable and sortable "
+            "like every other column.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),
@@ -107,20 +105,6 @@ def create_turtlequant_layout():
                     value="All",
                     clearable=False,
                     style={"width": "560px"},
-                ),
-            ]),
-            html.Div(className="filter-group", children=[
-                html.Label("This week:", style={"fontWeight": "500", "fontSize": "13px"}),
-                dcc.Dropdown(
-                    id="tq-signal-filter",
-                    options=[
-                        {"label": "All", "value": "All"},
-                        {"label": "BUY only", "value": "BUY"},
-                        {"label": "SELL only", "value": "SELL"},
-                    ],
-                    value="All",
-                    clearable=False,
-                    style={"width": "160px"},
                 ),
             ]),
         ]),

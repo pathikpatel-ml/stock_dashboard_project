@@ -2,20 +2,18 @@ name: Generate Turtle Quant Signals
 
 on:
   schedule:
-    # 02:30 UTC Sunday (~8:00 AM IST) -- runs ONCE per week, over the weekend, using the
-    # just-closed, fully-final previous week (through Friday's close). Deliberately NOT a
-    # weekday schedule: this is a weekly-candle strategy, so evaluating a still-forming
-    # mid-week candle every weekday made the exact moment to act on a signal unclear (you'd
-    # see Monday's signal only after Monday's session had already happened, based on a week
-    # that wasn't even done yet). Running once on the weekend means the signal is fully
-    # settled and ready before Monday's market open -- confirmed with the user 2026-09-05.
+    # 02:30 UTC Sunday -- 30 min after turtle_fundamentals.yml's weekly screener.in scrape
+    # (00:00 UTC Sunday... see that workflow's own comment), so this run picks up that run's
+    # freshly-updated quality/valuation flags. 2026-10-02: the original weekly-candle technical
+    # signal system that motivated this exact timing was removed; kept the same slot since it
+    # still serves the (now sole) purpose of propagating turtle_fundamentals -> this table.
     - cron: '30 2 * * 0'
   workflow_dispatch:
 
 jobs:
   generate-turtlequant-signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -25,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy yfinance requests psycopg2-binary python-dotenv
+        pip install pandas numpy requests psycopg2-binary python-dotenv
     - name: Generate Turtle Quant signals
       env:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}

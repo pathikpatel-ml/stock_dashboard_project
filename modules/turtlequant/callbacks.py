@@ -1,10 +1,10 @@
 """
 Dash callbacks for the Turtle Quant tab.
 
-Two callbacks: the main render (Indices/Sector/Stock/Signal filters -> a colour-coded results
-table, plus a staleness banner), and a "My Holdings" add/remove callback that writes only to
-the logged-in user's own turtlequant_watchlist rows (via modules.auth.user_store) -- never
-touches market-data tables.
+Two callbacks: the main render (Indices/Sector/Stock filters -> a results table, plus a
+staleness banner), and a "My Holdings" add/remove callback that writes only to the logged-in
+user's own turtlequant_watchlist rows (via modules.auth.user_store) -- never touches
+market-data tables.
 """
 import json
 from datetime import datetime
@@ -18,12 +18,10 @@ from dash import ALL, Input, Output, State, dash_table, html
 import data_manager
 from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
-from . import compute as tq_compute, screener as sc
+from . import screener as sc
 
 _DISPLAY_COLUMNS = [
-    "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price", "Signal_Date", "Signal",
-    "RS_Long_Term", "RS_Short_Term", "ADX", "RSI",
-    "SuperTrend_Direction", "Volume_Building", "Price_Above_MA13",
+    "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price",
 ] + sc.QUALITY_COLUMNS
 
 _COLUMN_TOOLTIPS = {
@@ -39,32 +37,7 @@ _COLUMN_TOOLTIPS = {
         "as a fallback for stocks screener.in has no listing for."
     ),
     "Industry": "More specific industry classification within the sector (Yahoo Finance).",
-    "Current_Price": "Latest weekly close price.",
-    "Signal_Date": (
-        "The date of the validated BUY or SELL event shown in Signal (blank if there is none "
-        "yet) -- the week that event actually happened, not the day the batch job last ran."
-    ),
-    "RS_Long_Term": (
-        "52-week relative strength vs NSE:NIFTY: (1 + stock's 52wk return/100) / "
-        "(1 + Nifty's 52wk return/100) - 1. Above 0 = outperforming Nifty over the year "
-        "(required for BUY); below 0 required for SELL (along with 5 other conditions)."
-    ),
-    "RS_Short_Term": "Same formula as RS Long Term, over a 13-week window -- recent momentum.",
-    "ADX": "Trend strength (13-period DMI smoothing). >= 20 required for BUY; < 20 required for SELL.",
-    "RSI": "21-period RSI. >= 55 required for BUY; < 45 required for SELL.",
-    "SuperTrend_Direction": "SuperTrend(10, 3) on weekly bars. Bullish required for BUY; bearish required for SELL.",
-    "Volume_Building": "True if the latest week's volume is above its own 13-week average volume. BUY-only -- not part of SELL.",
-    "Price_Above_MA13": "True if the latest weekly close is above its own 13-week moving average. Below required for SELL.",
-    "Signal": (
-        "**Blank** — no validated BUY has ever been recorded for this stock yet (tracking "
-        "started 2026-09-05) -- even if it's currently technically weak, there's nothing to "
-        "'exit' without a prior recorded entry.\n\n"
-        "**BUY** — all 7 hold together: SuperTrend bullish, RS Long & Short Term both positive, "
-        "ADX >= 20, volume building, price above its 13w MA, RSI >= 55.\n\n"
-        "**SELL** — all 6 hold together (volume not included): SuperTrend bearish, RS Long & "
-        "Short Term both negative, ADX < 20, price below its 13w MA, RSI < 45 -- and it's the "
-        "most recent validated event, coming after a prior validated BUY."
-    ),
+    "Current_Price": "Latest daily close price.",
     # 2026-10-01: fundamental quality/valuation flags, from screener.in's Balance Sheet/Ratios/
     # Cash Flows/Profit & Loss history (10 years where available) plus historical stock prices.
     # See modules/turtle/quality_flags.py for every exact formula.
@@ -116,16 +89,10 @@ def _table(df):
         display_df["Current_Price"] = pd.to_numeric(
             display_df["Current_Price"], errors="coerce"
         ).round(0).astype("Int64")
-    for pct_col in ("RS_Long_Term", "RS_Short_Term"):
-        if pct_col in display_df.columns:
-            display_df[pct_col] = pd.to_numeric(display_df[pct_col], errors="coerce").round(3)
     _quality_numeric_cols = [c for c in sc.QUALITY_COLUMNS if not c.endswith("_Flag")]
     for num_col in _quality_numeric_cols:
         if num_col in display_df.columns:
             display_df[num_col] = pd.to_numeric(display_df[num_col], errors="coerce").round(2)
-    for blank_col in ("Signal", "Signal_Date"):
-        if blank_col in display_df.columns:
-            display_df[blank_col] = display_df[blank_col].where(display_df[blank_col].notna(), None)
 
     return dash_table.DataTable(
         id="tq-signals-table",
@@ -149,8 +116,6 @@ def _table(df):
         style_header={"backgroundColor": "#f1f5f9", "fontWeight": "600"},
         style_data_conditional=[
             {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"},
-            {"if": {"filter_query": '{Signal} = "BUY"'}, "backgroundColor": "#d4edda", "color": "#155724"},
-            {"if": {"filter_query": '{Signal} = "SELL"'}, "backgroundColor": "#f8d7da", "color": "#721c24"},
         ],
     )
 
@@ -219,12 +184,11 @@ def register_turtlequant_callbacks(app):
         [Input("tq-indices-filter", "value"),
          Input("tq-sector-filter", "value"),
          Input("tq-stock-filter", "value"),
-         Input("tq-signal-filter", "value"),
          Input("tq-auto-refresh-interval", "n_intervals"),
          Input("tq-holdings-tags", "children")],  # re-render immediately on add/remove
         prevent_initial_call=False,
     )
-    def render_turtlequant(indices_value, sector_value, stock_value, signal_value, _n_intervals, _holdings_tags):
+    def render_turtlequant(indices_value, sector_value, stock_value, _n_intervals, _holdings_tags):
         # Re-sync on every render, not just at process boot -- same reasoning as
         # modules/turtle/callbacks.py::render_turtle.
         data_manager.load_turtlequant_data_on_startup()
@@ -248,20 +212,6 @@ def register_turtlequant_callbacks(app):
         )
         df["Indices"] = df["Symbol"].map(categories_map)
 
-        # Replace the raw weekly classify() Signal/Signal_Date with the VALIDATED state from the
-        # transition log -- confirmed with the user 2026-09-05: the displayed Signal must be
-        # blank until a symbol has ever had a genuine recorded transition, and must only ever
-        # show BUY or SELL, never HOLD. The raw per-week classification still runs and still
-        # drives detect_transition() (see generate_turtlequant_signals.py) -- only what's
-        # DISPLAYED here changes, not the underlying detection pipeline.
-        validated = tq_compute.current_validated_signal(data_manager.turtlequant_transitions_df)
-        df = df.drop(columns=["Signal", "Signal_Date"], errors="ignore")
-        if not validated.empty:
-            df = df.merge(validated, on="Symbol", how="left")
-        else:
-            df["Signal"] = None
-            df["Signal_Date"] = None
-
         if indices_value == "My Holdings":
             user_id = _current_user_id()
             holdings_symbols = set(user_store.get_turtlequant_watchlist(user_id)) if user_id else set()
@@ -275,9 +225,6 @@ def register_turtlequant_callbacks(app):
 
         if stock_value and stock_value != "All":
             df = df[df["Symbol"] == stock_value]
-
-        if signal_value and signal_value != "All":
-            df = df[df["Signal"] == signal_value]
 
         if df.empty:
             return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date)

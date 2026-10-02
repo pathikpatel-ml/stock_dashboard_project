@@ -59,7 +59,6 @@ LOADED_TURTLE_SOURCE = None
 
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
-turtlequant_transitions_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
 LOADED_TURTLEQUANT_SOURCE = None
 
@@ -87,15 +86,22 @@ _LIVE_PRICES_FROM_DB = {"symbol": "Symbol", "live_price": "Live_Price", "price_a
 _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 _TURTLEQUANT_SIGNALS_FROM_DB = {
     "symbol": "Symbol", "company": "Company", "broad_sector": "Broad_Sector",
-    "sector": "Sector", "industry": "Industry",
-    "current_price": "Current_Price", "signal_date": "Signal_Date", "rs_long_term": "RS_Long_Term",
-    "rs_short_term": "RS_Short_Term", "adx": "ADX", "rsi": "RSI",
-    "supertrend_direction": "SuperTrend_Direction", "volume_building": "Volume_Building",
-    "price_above_ma13": "Price_Above_MA13", "signal": "Signal",
-}
-_TURTLEQUANT_TRANSITIONS_FROM_DB = {
-    "symbol": "Symbol", "transition_date": "Transition_Date",
-    "from_signal": "From_Signal", "to_signal": "To_Signal",
+    "sector": "Sector", "industry": "Industry", "current_price": "Current_Price",
+    # Fundamental quality/valuation flags (2026-10-01) -- snake_case DB columns -> the CamelCase
+    # names modules/turtlequant/screener.py::QUALITY_COLUMNS and callbacks.py's _DISPLAY_COLUMNS
+    # expect. BUG FIX 2026-10-02: these were missing from this map entirely, so the flags sat in
+    # Postgres correctly computed but never actually rendered in the live table (silently
+    # dropped by _table()'s "only columns present in df" filter) -- caught while removing the
+    # unrelated technical-signal columns below.
+    "book_value_cagr_10y": "Book_Value_CAGR_10Y", "book_value_growth_flag": "Book_Value_Growth_Flag",
+    "eps_cagr_10y": "EPS_CAGR_10Y", "eps_growth_flag": "EPS_Growth_Flag",
+    "roce_avg_10y": "ROCE_Avg_10Y", "roce_flag": "ROCE_Flag",
+    "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
+    "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
+    "interest_coverage": "Interest_Coverage", "interest_coverage_flag": "Interest_Coverage_Flag",
+    "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",
+    "ps_current": "PS_Current", "ps_5y_avg": "PS_5Y_Avg", "ps_flag": "PS_Flag",
+    "pcf_current": "PCF_Current", "pcf_5y_avg": "PCF_5Y_Avg", "pcf_flag": "PCF_Flag",
 }
 _V20_FROM_DB = {
     "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
@@ -488,7 +494,7 @@ def load_turtlequant_data_on_startup():
     load_and_process_data_on_startup()) for its Indices filter -- same Nifty 50/100/200/sectoral
     membership file, no separate categories fetch needed.
     """
-    global turtlequant_signals_df, turtlequant_transitions_df
+    global turtlequant_signals_df
     global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE
 
     today_str = datetime.now().strftime("%Y%m%d")
@@ -504,17 +510,7 @@ def load_turtlequant_data_on_startup():
         )
         LOADED_TURTLEQUANT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
 
-    # Validated BUY/SELL transition events -- powers the dashboard's displayed Signal/Signal_Date
-    # (see modules.turtlequant.compute.current_validated_signal): a stock only shows BUY or SELL
-    # once it has a genuine recorded transition; otherwise blank. Never HOLD -- detect_transition
-    # never logs a move into HOLD. Postgres-only (no CSV fallback -- additive/optional; the main
-    # signals table above is what matters for the dashboard to function at all).
-    turtlequant_transitions_df = _from_postgres("turtlequant_signal_transitions", _TURTLEQUANT_TRANSITIONS_FROM_DB)
-
-    print(
-        f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals, "
-        f"{len(turtlequant_transitions_df)} transition rows (source={LOADED_TURTLEQUANT_SOURCE})."
-    )
+    print(f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals (source={LOADED_TURTLEQUANT_SOURCE}).")
 
 
 def get_turtle_signals_by_offset(offset: int = 0):

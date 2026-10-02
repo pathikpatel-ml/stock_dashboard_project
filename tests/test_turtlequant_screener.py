@@ -1,150 +1,45 @@
 """
-End-to-end-style test of the Turtle Quant screening pipeline (modules/turtlequant/screener.py),
-mirroring tests/test_turtle_screener.py's monkeypatch style: no live network, weekly OHLCV is
-stubbed via monkeypatching modules.breakout.data_feed.get_weekly and
-modules.turtlequant.screener._fetch_index_weekly_close.
+Tests for the Turtle Quant screening pipeline (modules/turtlequant/screener.py).
 
-Symbol design (deterministic by construction):
-  - BUYSTOCK  -> BUY  (steady strong uptrend, far outperforming the index, rising volume)
-  - SELLSTOCK -> SELL (weak, choppy decline -- deliberately LOW ADX, not a sharp strongly-
-                        trending crash: SELL is now all-6-conditions-together (2026-09-05),
-                        including ADX < 20, so a high-ADX strong downtrend would actually fail
-                        the ADX condition and land in HOLD instead -- see the classify()
-                        docstring for the full symmetric BUY/SELL truth table)
-  - HOLDSTOCK -> HOLD (steady uptrend but underperforming the index on both RS windows)
-  - REJECT_NODATA  -> rejected, reason "no_weekly_data" (fetch returns None)
-  - REJECT_SHORT   -> rejected, reason "insufficient_weekly_data" (fewer than MIN_WEEKLY_ROWS)
-
-All series use 81 weekly points (index 0..80) at exactly 7-day (Monday) spacing, so "52 weeks
-before the latest point" lands exactly on index 28, and "13 weeks before" on index 67 -- see
-tests/test_turtlequant_engine.py::test_relative_strength_vs_index_known_ratio for the same
-alignment fact used directly.
+2026-10-02: the original weekly RS/SuperTrend/ADX/RSI technical-signal system was removed per
+explicit user request. What's left is a pure, network-free fundamental quality/valuation screen
+-- these tests no longer monkeypatch any fetch, since run_pipeline now does no I/O at all.
 """
 import os
 import sys
 
-import numpy as np
 import pandas as pd
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from modules.breakout import data_feed
 from modules.turtlequant import screener as sc
 
-N = 81
-
-
-def _linear(start, end, n=N):
-    step = (end - start) / (n - 1)
-    return [start + step * i for i in range(n)]
-
-
-def _choppy_decline(start, end, n=N):
-    """A declining series with an alternating zigzag superimposed -- keeps ADX low (weak/
-    choppy trend) despite the net downward drift, unlike a smooth monotonic decline (which
-    has very HIGH ADX, since ADX measures directional persistence, not direction). Needed
-    because SELL now requires ADX < 20 -- see module docstring."""
-    base = np.linspace(start, end, n)
-    zigzag = np.array([-22 if i % 2 == 0 else 3 for i in range(n)])
-    return (base + zigzag).tolist()
-
-
-def _weekly_df(closes, volumes=None):
-    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=len(closes), freq="W-MON")
-    if volumes is None:
-        volumes = [1_000_000] * len(closes)
-    return pd.DataFrame(
-        {"High": closes, "Low": closes, "Close": closes, "Volume": volumes}, index=dates
-    )
-
-
-def _weekly_close_series(closes):
-    dates = pd.date_range(end=pd.Timestamp.now().normalize(), periods=len(closes), freq="W-MON")
-    return pd.Series(closes, index=dates)
-
-
-INDEX_WEEKLY_CLOSE = _weekly_close_series(_linear(100, 160))
-
-WEEKLY = {
-    "BUYSTOCK": _weekly_df(_linear(100, 400), volumes=_linear(100_000, 500_000)),
-    "SELLSTOCK": _weekly_df(_choppy_decline(300, 90)),
-    "HOLDSTOCK": _weekly_df(_linear(100, 140)),
-    "REJECT_SHORT": _weekly_df(_linear(100, 120, n=20)),  # < MIN_WEEKLY_ROWS (60)
-    # REJECT_NODATA: no entry at all -> fake_get_weekly returns None.
-}
-
 UNIVERSE = pd.DataFrame([
-    {"Symbol": "BUYSTOCK", "Company Name": "Buy Co", "Sector": "Alpha", "Industry": "Widgets"},
-    {"Symbol": "SELLSTOCK", "Company Name": "Sell Co", "Sector": "Alpha", "Industry": "Widgets"},
-    {"Symbol": "HOLDSTOCK", "Company Name": "Hold Co", "Sector": "Beta", "Industry": "Gadgets"},
-    {"Symbol": "REJECT_SHORT", "Company Name": "Short Co", "Sector": "Beta", "Industry": "Gadgets"},
-    {"Symbol": "REJECT_NODATA", "Company Name": "No Data Co", "Sector": "Beta", "Industry": "Gadgets"},
+    {"Symbol": "BUYSTOCK", "Company Name": "Buy Co", "Sector": "Alpha", "Industry": "Widgets", "Current_Price": 400.0},
+    {"Symbol": "HOLDSTOCK", "Company Name": "Hold Co", "Sector": "Beta", "Industry": "Gadgets", "Current_Price": 140.0},
 ])
 
 
-def _fake_get_weekly(symbol, period=None, use_cache=True):
-    return WEEKLY.get(symbol)
-
-
-def _fake_fetch_index_weekly_close(ticker=None):
-    return INDEX_WEEKLY_CLOSE
-
-
-@pytest.fixture(autouse=True)
-def _patch_fetches(monkeypatch):
-    monkeypatch.setattr(data_feed, "get_weekly", _fake_get_weekly)
-    monkeypatch.setattr(sc, "_fetch_index_weekly_close", _fake_fetch_index_weekly_close)
-
-
-def test_run_pipeline_schema_and_signal_domain():
-    out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
+def test_run_pipeline_schema():
+    out = sc.run_pipeline(UNIVERSE, verbose=False)
     signals = out["signals"]
     assert list(signals.columns) == sc.SIGNAL_COLUMNS
-    assert set(signals["Signal"].unique()) <= {"BUY", "HOLD", "SELL"}
+    assert len(signals) == 2
+    assert out["rejections"].empty
 
 
-def test_run_pipeline_buy_sell_hold_by_construction():
-    out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
-    signals = out["signals"].set_index("Symbol")
-
-    assert signals.loc["BUYSTOCK", "Signal"] == "BUY"
-    assert signals.loc["SELLSTOCK", "Signal"] == "SELL"
-    assert signals.loc["HOLDSTOCK", "Signal"] == "HOLD"
-
-
-def test_signal_date_is_the_weekly_candles_own_date_not_today():
-    # Confirmed with the user 2026-09-05: signal_date must be the date of the weekly candle the
-    # classification is actually based on, not "whatever day the batch job happened to run" --
-    # otherwise re-running mid-week against the same still-forming candle would fabricate a new
-    # dated row every day instead of updating that one week's row.
-    out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
-    signals = out["signals"].set_index("Symbol")
-
-    expected = WEEKLY["BUYSTOCK"].index[-1].strftime("%Y-%m-%d")
-    assert signals.loc["BUYSTOCK", "Signal_Date"] == expected
+def test_run_pipeline_passes_through_universe_fields():
+    out = sc.run_pipeline(UNIVERSE, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert row["Company"] == "Buy Co"
+    assert row["Industry"] == "Widgets"
+    assert row["Current_Price"] == pytest.approx(400.0)
 
 
-def test_run_pipeline_rejects_missing_and_short_history():
-    out = sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
-    rejections = out["rejections"].set_index("Symbol")["reason"].to_dict()
-
-    assert rejections["REJECT_NODATA"] == "no_weekly_data"
-    assert rejections["REJECT_SHORT"] == "insufficient_weekly_data"
-    signals_symbols = set(out["signals"]["Symbol"])
-    assert "REJECT_NODATA" not in signals_symbols
-    assert "REJECT_SHORT" not in signals_symbols
-
-
-def test_run_pipeline_raises_if_index_unfetchable(monkeypatch):
-    monkeypatch.setattr(sc, "_fetch_index_weekly_close", lambda ticker=None: None)
-    with pytest.raises(RuntimeError):
-        sc.run_pipeline(UNIVERSE, verbose=False, pause_seconds=0.0)
-
-
-def test_run_pipeline_limit_and_always_returns_dataframes():
-    out = sc.run_pipeline(UNIVERSE, limit=1, verbose=False, pause_seconds=0.0)
-    assert len(out["signals"]) + len(out["rejections"]) == 1
+def test_run_pipeline_limit():
+    out = sc.run_pipeline(UNIVERSE, limit=1, verbose=False)
+    assert len(out["signals"]) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -155,14 +50,14 @@ def test_run_pipeline_prefers_screener_sector_over_universe_yahoo_tag():
     fundamentals = pd.DataFrame([
         {"Symbol": "BUYSTOCK", "Broad_Sector": "Energy", "Sector": "Oil, Gas & Consumable Fuels"},
     ])
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False, pause_seconds=0.0)
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
     row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
     assert row["Sector"] == "Oil, Gas & Consumable Fuels"
     assert row["Broad_Sector"] == "Energy"
 
 
 def test_run_pipeline_falls_back_to_universe_sector_when_screener_has_none():
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False, pause_seconds=0.0)
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False)
     row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
     assert row["Sector"] == "Alpha"  # the universe CSV's own Yahoo-style tag
     assert pd.isna(row["Broad_Sector"]) or row["Broad_Sector"] is None
@@ -173,7 +68,7 @@ def test_run_pipeline_falls_back_per_symbol_when_screener_has_only_some():
     fundamentals = pd.DataFrame([
         {"Symbol": "BUYSTOCK", "Broad_Sector": "Energy", "Sector": "Oil, Gas & Consumable Fuels"},
     ])
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False, pause_seconds=0.0)
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
     signals = out["signals"].set_index("Symbol")
     assert signals.loc["BUYSTOCK", "Sector"] == "Oil, Gas & Consumable Fuels"
     assert signals.loc["HOLDSTOCK", "Sector"] == "Beta"
@@ -189,7 +84,7 @@ def test_run_pipeline_threads_quality_flags_through_to_signal_row():
         "ROCE_Avg_10Y": 9.9, "ROCE_Flag": False,
         "PB_Current": 2.1, "PB_5Y_Avg": 2.45, "PB_Flag": True,
     }])
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False, pause_seconds=0.0)
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
     row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
     assert row["Book_Value_CAGR_10Y"] == pytest.approx(14.59)
     assert row["Book_Value_Growth_Flag"] == True  # noqa: E712
@@ -199,7 +94,7 @@ def test_run_pipeline_threads_quality_flags_through_to_signal_row():
 
 
 def test_run_pipeline_quality_flags_none_when_no_fundamentals():
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False, pause_seconds=0.0)
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False)
     row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
     for col in sc.QUALITY_COLUMNS:
         assert pd.isna(row[col]) or row[col] is None

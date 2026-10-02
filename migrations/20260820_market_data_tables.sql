@@ -224,9 +224,12 @@ CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_symbol ON turtle_signals_h
 CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_date ON turtle_signals_history(signal_date);
 
 -- ---------------------------------------------------------------
--- 7b. Turtle Quant signals -- same hybrid latest+history shape as Turtle Strategy's own
---     tables above, but an unrelated methodology (weekly RS vs NSE:NIFTY + SuperTrend/ADX/RSI,
---     "Turtle Quant" firm, not Turtle Wealth). Added 2026-09-02.
+-- 7b. Turtle Quant signals -- a pure fundamental quality/valuation screen (10yr book value/EPS/
+--     sales growth, ROCE, promoter holding trend, interest coverage, P/B-P/S-P/CF vs. 5yr own
+--     average). Added 2026-09-02 as a weekly RS/SuperTrend/ADX/RSI technical-signal system;
+--     that entire system (and its companion turtlequant_signals_history/
+--     turtlequant_signal_transitions tables) was REMOVED 2026-10-02 per explicit user request
+--     (the user doesn't trade off it) -- only the fundamental flags (added 2026-10-01) remain.
 -- ---------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     symbol               TEXT PRIMARY KEY,
@@ -235,15 +238,6 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,
-    rs_long_term         DOUBLE PRECISION,
-    rs_short_term        DOUBLE PRECISION,
-    adx                  DOUBLE PRECISION,
-    rsi                  DOUBLE PRECISION,
-    supertrend_direction TEXT,   -- 'BULLISH' / 'BEARISH'
-    volume_building      BOOLEAN,
-    price_above_ma13     BOOLEAN,
-    signal               TEXT,   -- BUY / HOLD / SELL
-    signal_date          DATE NOT NULL,
     -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- see
     -- turtle_fundamentals' own column comment above for the full explanation; same values,
     -- threaded through by modules/turtlequant/screener.py the same way Broad_Sector/Sector are.
@@ -270,77 +264,18 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     pcf_flag                    BOOLEAN,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_latest_signal ON turtlequant_signals_latest(signal);
 
-CREATE TABLE IF NOT EXISTS turtlequant_signals_history (
-    id                   BIGSERIAL PRIMARY KEY,
-    symbol               TEXT NOT NULL,
-    company              TEXT,
-    broad_sector         TEXT,  -- see turtlequant_signals_latest's column comment above
-    sector               TEXT,
-    industry             TEXT,
-    current_price        DOUBLE PRECISION,
-    rs_long_term         DOUBLE PRECISION,
-    rs_short_term        DOUBLE PRECISION,
-    adx                  DOUBLE PRECISION,
-    rsi                  DOUBLE PRECISION,
-    supertrend_direction TEXT,
-    volume_building      BOOLEAN,
-    price_above_ma13     BOOLEAN,
-    signal               TEXT,
-    signal_date          DATE NOT NULL,
-    book_value_cagr_10y        DOUBLE PRECISION,
-    book_value_growth_flag     BOOLEAN,
-    eps_cagr_10y                DOUBLE PRECISION,
-    eps_growth_flag             BOOLEAN,
-    roce_avg_10y                DOUBLE PRECISION,
-    roce_flag                   BOOLEAN,
-    sales_cagr_10y              DOUBLE PRECISION,
-    sales_growth_flag           BOOLEAN,
-    promoter_holding_change_3y  DOUBLE PRECISION,
-    promoter_holding_flag       BOOLEAN,
-    interest_coverage           DOUBLE PRECISION,
-    interest_coverage_flag      BOOLEAN,
-    pb_current                  DOUBLE PRECISION,
-    pb_5y_avg                   DOUBLE PRECISION,
-    pb_flag                     BOOLEAN,
-    ps_current                  DOUBLE PRECISION,
-    ps_5y_avg                   DOUBLE PRECISION,
-    ps_flag                     BOOLEAN,
-    pcf_current                 DOUBLE PRECISION,
-    pcf_5y_avg                  DOUBLE PRECISION,
-    pcf_flag                    BOOLEAN,
-    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (symbol, signal_date)
-);
-CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_symbol ON turtlequant_signals_history(symbol);
-CREATE INDEX IF NOT EXISTS idx_turtlequant_signals_history_date ON turtlequant_signals_history(signal_date);
-
--- ---------------------------------------------------------------
--- 7c. Turtle Quant signal transitions -- a curated event log, NOT one row per week. Only
---     written when a symbol's signal actually CHANGES between two distinct recorded weeks
---     (never for the same week being re-evaluated intraday as fresher data comes in -- see
---     generate_turtlequant_signals.py's transition-detection logic), and only when the new
---     signal is BUY or SELL (a move into/out of HOLD isn't logged as an event here -- per the
---     user's own framing, HOLD isn't an actionable "entry"/"exit" point, 2026-09-05). This is
---     what actually answers "when did this stock last enter a fresh BUY, and when did it exit
---     via SELL" as a real sequence, since turtlequant_signals_history's Last_Buy_Date/
---     Last_Sell_Date (see modules/turtlequant/compute.py::last_signal_dates) only finds the
---     most recent OCCURRENCE of each, not a curated alternating event list. Added 2026-09-05.
---     Necessarily starts empty and only from today forward -- no historical backfill is
---     possible (the underlying signal history itself only exists from today).
--- ---------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS turtlequant_signal_transitions (
-    id               BIGSERIAL PRIMARY KEY,
-    symbol           TEXT NOT NULL,
-    transition_date  DATE NOT NULL,   -- the (new) week's signal_date this transition took effect
-    from_signal      TEXT,            -- previous recorded signal; NULL if this is the symbol's
-                                       -- very first recorded signal ever (nothing to transition from)
-    to_signal        TEXT NOT NULL,   -- 'BUY' or 'SELL' -- see comment above on scope
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (symbol, transition_date)
-);
-CREATE INDEX IF NOT EXISTS idx_turtlequant_transitions_symbol ON turtlequant_signal_transitions(symbol);
+-- Migration (2026-10-02, run once by hand via DATABASE_URL -- this file is a reference copy,
+-- not applied by any migration tooling, same as every other table here):
+--   DROP INDEX IF EXISTS idx_turtlequant_signals_latest_signal;
+--   ALTER TABLE turtlequant_signals_latest
+--       DROP COLUMN IF EXISTS signal_date, DROP COLUMN IF EXISTS rs_long_term,
+--       DROP COLUMN IF EXISTS rs_short_term, DROP COLUMN IF EXISTS adx,
+--       DROP COLUMN IF EXISTS rsi, DROP COLUMN IF EXISTS supertrend_direction,
+--       DROP COLUMN IF EXISTS volume_building, DROP COLUMN IF EXISTS price_above_ma13,
+--       DROP COLUMN IF EXISTS signal;
+--   DROP TABLE IF EXISTS turtlequant_signals_history;
+--   DROP TABLE IF EXISTS turtlequant_signal_transitions;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.
@@ -412,8 +347,6 @@ GRANT SELECT, INSERT, UPDATE ON
     turtle_signals_latest,
     turtle_signals_history,
     turtlequant_signals_latest,
-    turtlequant_signals_history,
-    turtlequant_signal_transitions,
     v20_signals_latest
 TO market_data_writer;
 
@@ -434,7 +367,5 @@ GRANT DELETE ON turtle_signals_latest TO market_data_writer;
 GRANT DELETE ON turtle_sector_pulse TO market_data_writer;
 
 GRANT USAGE, SELECT ON
-    turtle_signals_history_id_seq,
-    turtlequant_signals_history_id_seq,
-    turtlequant_signal_transitions_id_seq
+    turtle_signals_history_id_seq
 TO market_data_writer;

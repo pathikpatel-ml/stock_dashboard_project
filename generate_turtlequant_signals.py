@@ -1,18 +1,16 @@
 #!/usr/bin/env python
 """
-Generate Turtle Quant signals (weekly RS vs NSE:NIFTY + SuperTrend/ADX/RSI trend-following).
+Generate Turtle Quant signals (fundamental quality/valuation screen).
 
-Runs the Turtle Quant screening pipeline (modules/turtlequant/screener.py) over the same NSE
-universe the Turtle Strategy pipeline already uses, fetching weekly OHLCV from yfinance, and
-writes one dated CSV that the dashboard loads at startup:
+2026-10-02: the original weekly RS/SuperTrend/ADX/RSI technical-signal system was removed per
+explicit user request. This script now just projects the shared NSE universe + the quality/
+valuation flags already computed by generate_turtle_fundamentals.py (turtle_fundamentals) into
+one dated CSV + Postgres table the dashboard loads:
 
     turtlequant_signals_<YYYYMMDD>.csv
 
 Universe source: same as generate_turtle_signals.py -- NSE_EQ_All_Stocks_Analysis.csv (Postgres
-``nse_universe`` first, local CSV fallback). Signal computation itself needs no fundamentals --
-this is a purely technical screen -- but ``turtle_fundamentals`` (2026-09-24) is read anyway to
-pick up screener.in's real Sector/Broad_Sector classification for display/filtering, the same
-shared table and preference/fallback rule generate_turtle_signals.py already uses.
+``nse_universe`` first, local CSV fallback).
 
 Usage
 -----
@@ -32,7 +30,6 @@ except ImportError:
 
 from database import market_data_writer as mdw
 from modules.turtle import quality_flags as qf
-from modules.turtlequant import compute as tqc
 from modules.turtlequant import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -44,11 +41,7 @@ SIGNALS_TEMPLATE = "turtlequant_signals_{date_str}.csv"
 # generate_turtle_signals.py's own style.
 _SIGNALS_DB_COLUMNS = {
     "Symbol": "symbol", "Company": "company", "Broad_Sector": "broad_sector",
-    "Sector": "sector", "Industry": "industry",
-    "Current_Price": "current_price", "Signal_Date": "signal_date", "RS_Long_Term": "rs_long_term",
-    "RS_Short_Term": "rs_short_term", "ADX": "adx", "RSI": "rsi",
-    "SuperTrend_Direction": "supertrend_direction", "Volume_Building": "volume_building",
-    "Price_Above_MA13": "price_above_ma13", "Signal": "signal",
+    "Sector": "sector", "Industry": "industry", "Current_Price": "current_price",
     # 2026-10-01: the 9 fundamental quality/valuation flags (CamelCase -> snake_case, same
     # pairing as modules/turtlequant/screener.py's QUALITY_COLUMNS <-> quality_flags.QUALITY_FIELD_NAMES).
     **dict(zip(sc.QUALITY_COLUMNS, qf.QUALITY_FIELD_NAMES)),
@@ -108,87 +101,44 @@ def load_universe() -> pd.DataFrame:
 
 
 def load_fundamentals() -> pd.DataFrame:
-    """Best-effort read of turtle_fundamentals (screener.in Sector/Broad_Sector classification)
-    -- empty DataFrame (not an exception) if unavailable, same as every other optional input
-    here; run_pipeline degrades to the universe CSV's Yahoo Sector tag when this is empty."""
+    """Best-effort read of turtle_fundamentals (screener.in Sector/Broad_Sector classification +
+    quality/valuation flags) -- empty DataFrame (not an exception) if unavailable, same as every
+    other optional input here; run_pipeline degrades to the universe CSV's Yahoo Sector tag and
+    all-None quality flags when this is empty."""
     return _from_postgres("turtle_fundamentals", _FUNDAMENTALS_FROM_DB)
 
 
 def main():
     ap = argparse.ArgumentParser(description="Generate Turtle Quant signals")
     ap.add_argument("--limit", type=int, default=None, help="screen only the first N symbols")
-    ap.add_argument("--pause", type=float, default=0.1,
-                     help="seconds to pause after each symbol's fetch, to ease Yahoo Finance "
-                          "throttling risk across the full universe (default: 0.1)")
     args = ap.parse_args()
 
     universe = load_universe()
     fundamentals = load_fundamentals()
     print(f"Universe: {len(universe)} symbols. Fundamentals rows: {len(fundamentals)}.")
 
-    out = sc.run_pipeline(universe, fundamentals_df=fundamentals, limit=args.limit,
-                          verbose=True, pause_seconds=args.pause)
+    out = sc.run_pipeline(universe, fundamentals_df=fundamentals, limit=args.limit, verbose=True)
 
-    date_str = pd.Timestamp.now().strftime("%Y%m%d")  # for the CSV filename only -- when this
-                                                        # batch ran, not the signal's own week
+    date_str = pd.Timestamp.now().strftime("%Y%m%d")
     signals_path = os.path.join(REPO_BASE_PATH, SIGNALS_TEMPLATE.format(date_str=date_str))
 
     # Always write the file (with headers) so the dashboard has a stable, current target.
     signals = out["signals"] if not out["signals"].empty else pd.DataFrame(columns=sc.SIGNAL_COLUMNS)
     signals.to_csv(signals_path, index=False)
 
-    counts = signals["Signal"].value_counts().to_dict() if not signals.empty else {}
     print(f"\nTurtle Quant signals : {len(signals):>4}  -> {os.path.basename(signals_path)}")
-    print(f"  BUY={counts.get('BUY', 0)}  HOLD={counts.get('HOLD', 0)}  SELL={counts.get('SELL', 0)}")
-    print(f"Rejections           : {len(out['rejections']):>4}")
+    for flag_col in [c for c in sc.QUALITY_COLUMNS if c.endswith("_Flag")]:
+        true_count = int((signals[flag_col] == True).sum()) if flag_col in signals.columns else 0  # noqa: E712
+        print(f"  {flag_col}: {true_count} True")
 
-    # Postgres writes -- dual-write alongside the CSV, same pattern as generate_turtle_signals.py.
+    # Postgres write -- dual-write alongside the CSV, same pattern as generate_turtle_signals.py.
     try:
         conn = mdw.get_connection()
         try:
             if not signals.empty:
-                # Read the PRE-this-run state before it gets overwritten below -- this is the
-                # "previous signal" transition detection compares against. Only symbol/signal/
-                # signal_date matter here; a missing/empty prior table just means every symbol
-                # looks like a first-ever signal (no transitions logged yet), which is correct.
-                previous = mdw.fetch_dataframe(conn, "turtlequant_signals_latest")
-                previous_lookup = (
-                    {row.symbol: (row.signal, str(row.signal_date)) for row in previous.itertuples()}
-                    if not previous.empty else {}
-                )
-
                 db_signals = signals.rename(columns=_SIGNALS_DB_COLUMNS).copy()
                 n = mdw.upsert_dataframe(conn, "turtlequant_signals_latest", db_signals, conflict_columns=["symbol"])
                 print(f"DB: turtlequant_signals_latest upserted {n} rows")
-                n = mdw.upsert_dataframe(
-                    conn, "turtlequant_signals_history", db_signals,
-                    conflict_columns=["symbol", "signal_date"], touch_updated_at=False,
-                )
-                print(f"DB: turtlequant_signals_history upserted {n} rows")
-
-                transitions = []
-                for row in db_signals.itertuples():
-                    prev_signal, prev_date = previous_lookup.get(row.symbol, (None, None))
-                    transition = tqc.detect_transition(prev_signal, prev_date, row.signal, row.signal_date)
-                    if transition:
-                        transitions.append({
-                            "symbol": row.symbol,
-                            "transition_date": row.signal_date,
-                            "from_signal": transition["from_signal"],
-                            "to_signal": transition["to_signal"],
-                        })
-                if transitions:
-                    n = mdw.upsert_dataframe(
-                        conn, "turtlequant_signal_transitions", pd.DataFrame(transitions),
-                        conflict_columns=["symbol", "transition_date"], touch_updated_at=False,
-                    )
-                    preview_parts = [
-                        f"{t['symbol']}:{t['from_signal']}->{t['to_signal']}" for t in transitions[:10]
-                    ]
-                    preview = ", ".join(preview_parts) + (", ..." if len(transitions) > 10 else "")
-                    print(f"DB: turtlequant_signal_transitions upserted {n} rows ({preview})")
-                else:
-                    print("DB: turtlequant_signal_transitions -- no new transitions this run")
         finally:
             conn.close()
     except Exception as exc:
