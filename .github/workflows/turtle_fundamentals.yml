@@ -8,7 +8,7 @@ on:
 jobs:
   generate-turtle-fundamentals:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -24,4 +24,9 @@ jobs:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
         SCREENER_IN_EMAIL: ${{ secrets.SCREENER_IN_EMAIL }}
         SCREENER_IN_PASSWORD: ${{ secrets.SCREENER_IN_PASSWORD }}
-      run: python generate_turtle_fundamentals.py --pause 0.5
+        # 2026-10-02: unbuffered stdout -- a killed run previously showed ZERO log output for
+        # its entire 3-hour lifetime because Python block-buffers stdout when it isn't a
+        # terminal (exactly GitHub Actions' case), so a forced kill loses everything still
+        # sitting in the buffer. This was actively hiding whether the job was truly hung or
+        # just slow. -u makes every print() visible immediately, giving real diagnostic signal.
+      run: python -u generate_turtle_fundamentals.py --pause 0.5
