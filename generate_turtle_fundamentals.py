@@ -191,20 +191,21 @@ def fetch_one(symbol: str, session, retries: int, pause: float, nse_session=None
         periods = (result.get("balance_sheet") or {}).get("equity_capital")
         periods = periods[0] if periods else []
         year_end_prices = _year_end_prices(monthly, periods)
-        # 2026-10-02 fix: PB_Current/PS_Current/PCF_Current need TODAY's price, not the last bar
-        # of a monthly fetch (which can be up to ~30 days stale -- caught live: a monthly fetch
-        # returned Sep 30's close (1187.00) when the real latest daily close was Oct 1's
-        # (1167.70), a ~1.7% discrepancy, and silently differed from the Current_Price shown
-        # elsewhere in the same dashboard row). A short daily fetch gives the genuine latest
-        # close at negligible extra cost.
-        try:
-            daily = data_feed.get_daily(symbol, period="5d")
-            current_price = (
-                float(daily["Close"].to_numpy()[-1])
-                if daily is not None and not daily.empty and "Close" in daily.columns else None
-            )
-        except Exception:
-            current_price = None
+        # 2026-10-02: a same-day attempt to fix PB_Current/PS_Current/PCF_Current's ~30-day-stale
+        # price (using the last MONTHLY bar) by adding a separate get_daily() call per symbol was
+        # REVERTED the same day -- confirmed live in production that roughly doubling the number
+        # of per-symbol yfinance calls (~2,600 -> ~5,200) caused the full-universe job to hang for
+        # 3+ hours and get killed by the workflow timeout, producing ZERO usable output for that
+        # run. This matches a known, already-documented failure class in this codebase: yfinance's
+        # underlying transport can abandon a native thread in a way its own ``timeout=`` parameter
+        # doesn't reliably bound (see the V20 Render crash-loop this was fixed for previously) --
+        # confirmed by two ~75-minute gaps between log lines in the killed run's logs. Accepting
+        # the last monthly bar's staleness (~30 days worst case, ~1.7% observed) is a far smaller
+        # risk than losing an entire batch run to an unbounded hang.
+        current_price = (
+            float(monthly["Close"].to_numpy()[-1])
+            if monthly is not None and not monthly.empty and "Close" in monthly.columns else None
+        )
         # NSE's own promoter-holding data (2026-10-02) -- the primary regulatory source, keyed by
         # the same NSE symbol, no mapping needed. Merged into `result` so quality_flags.compute_all
         # can prefer it over screener.in's shorter promoter-holding window; never lets an NSE
