@@ -47,6 +47,7 @@ except ImportError:
 
 from database import market_data_writer as mdw
 from modules.breakout import data_feed
+from modules.turtle import nse_shareholding as nse_sh
 from modules.turtle import quality_flags as qf
 from modules.turtle import standalone_fundamentals as sf
 
@@ -63,6 +64,7 @@ _QUALITY_COLUMNS = [
     "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
     "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
     "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
+    "Promoter_Pledge_Pct", "Promoter_Pledge_Flag",
     "Interest_Coverage", "Interest_Coverage_Flag",
     "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
     "PB_Current", "PB_5Y_Avg", "PB_Flag",
@@ -90,6 +92,7 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "ROCE_Avg_10Y": "roce_avg_10y", "ROCE_Flag": "roce_flag",
     "Sales_CAGR_10Y": "sales_cagr_10y", "Sales_Growth_Flag": "sales_growth_flag",
     "Promoter_Holding_Change_3Y": "promoter_holding_change_3y", "Promoter_Holding_Flag": "promoter_holding_flag",
+    "Promoter_Pledge_Pct": "promoter_pledge_pct", "Promoter_Pledge_Flag": "promoter_pledge_flag",
     "Interest_Coverage": "interest_coverage", "Interest_Coverage_Flag": "interest_coverage_flag",
     "Quality_Of_Turnover_Pct": "quality_of_turnover_pct", "Quality_Of_Turnover_Flag": "quality_of_turnover_flag",
     "PB_Current": "pb_current", "PB_5Y_Avg": "pb_5y_avg", "PB_Flag": "pb_flag",
@@ -159,7 +162,7 @@ def load_checkpoint() -> pd.DataFrame:
     return pd.DataFrame(columns=OUTPUT_COLUMNS)
 
 
-def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
+def fetch_one(symbol: str, session, retries: int, pause: float, nse_session=None) -> dict:
     empty_quality = {c: None for c in _QUALITY_COLUMNS}
     result = sf.fetch_profit_and_loss(symbol, session=session, retries=retries, pause=pause)
     if result is None:
@@ -190,6 +193,12 @@ def fetch_one(symbol: str, session, retries: int, pause: float) -> dict:
             float(monthly["Close"].to_numpy()[-1])
             if monthly is not None and not monthly.empty and "Close" in monthly.columns else None
         )
+        # NSE's own promoter-holding/pledge data (2026-10-02) -- the primary regulatory source,
+        # keyed by the same NSE symbol, no mapping needed. Merged into `result` so
+        # quality_flags.compute_all can prefer it over screener.in's shorter promoter-holding
+        # window; never lets an NSE hiccup fail the row (both fetches are already None-safe).
+        result["nse_promoter_holding"] = nse_sh.fetch_promoter_holding_history(symbol, session=nse_session)
+        result["nse_pledge_pct"] = nse_sh.fetch_promoter_pledge_pct(symbol, session=nse_session)
         computed = qf.compute_all(result, year_end_prices, current_price)
         # computed's keys are snake_case (e.g. "book_value_cagr_10y"); _QUALITY_COLUMNS are the
         # CSV/CamelCase names (e.g. "Book_Value_CAGR_10Y") -- reuse _FUNDAMENTALS_DB_COLUMNS'
@@ -237,12 +246,13 @@ def main():
     os.makedirs(os.path.dirname(CHECKPOINT_FILE), exist_ok=True)
 
     session = sf.new_session()
+    nse_session = nse_sh.new_session()
     ok_count = 0
     fail_count = 0
     start = time.time()
     try:
         for i, symbol in enumerate(symbols, 1):
-            row = fetch_one(symbol, session, args.retries, args.pause)
+            row = fetch_one(symbol, session, args.retries, args.pause, nse_session=nse_session)
             rows.append(row)
             if row["TTM_Net_Profit"] is not None or row["TTM_Net_Sales"] is not None:
                 ok_count += 1
@@ -258,6 +268,7 @@ def main():
                       f"(ok={ok_count} fail={fail_count}, {elapsed:.0f}s elapsed)")
     finally:
         session.close()
+        nse_session.close()
         pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
 
     result_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS).drop_duplicates(subset=["Symbol"], keep="last")

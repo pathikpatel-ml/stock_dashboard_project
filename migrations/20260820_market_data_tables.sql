@@ -136,6 +136,12 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
     promoter_holding_flag       BOOLEAN,
+    -- Promoter Pledge (2026-10-02) -- sourced from NSE's own corporate-pledgedata API (the
+    -- primary regulatory source), not screener.in (confirmed zero pledge data on its free
+    -- tier). Keyed by the exact NSE symbol already used everywhere -- see
+    -- modules/turtle/nse_shareholding.py.
+    promoter_pledge_pct         DOUBLE PRECISION,
+    promoter_pledge_flag        BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
     -- 2026-10-02 additions: Quality of Turnover (Other Income / Total Revenue, a real red-flag
@@ -263,6 +269,12 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
     promoter_holding_flag       BOOLEAN,
+    -- Promoter Pledge (2026-10-02) -- sourced from NSE's own corporate-pledgedata API (the
+    -- primary regulatory source), not screener.in (confirmed zero pledge data on its free
+    -- tier). Keyed by the exact NSE symbol already used everywhere -- see
+    -- modules/turtle/nse_shareholding.py.
+    promoter_pledge_pct         DOUBLE PRECISION,
+    promoter_pledge_flag        BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
     -- 2026-10-02: Quality of Turnover + the 3 category-aggregate flags the dashboard actually

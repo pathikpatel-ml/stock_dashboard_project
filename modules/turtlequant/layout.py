@@ -65,9 +65,9 @@ def create_turtlequant_layout():
         html.P(
             "Growth = Yes only if EVERY year's Book Value/EPS/Sales growth and ROCE clear 10% "
             "(not just the overall average) and promoter holding hasn't declined. Red Flag = "
-            "Yes only if Quality of Turnover < 10% and Interest Coverage > 5 (Promoter Pledge "
-            "excluded -- no free data source exists for it yet). Value = Yes only if current "
-            "P/B, P/S, and P/CF are all cheaper than their own 5-year average.",
+            "Yes only if Promoter Pledge < 1%, Quality of Turnover < 10%, and Interest Coverage "
+            "> 5. Value = Yes only if current P/B, P/S, and P/CF are all cheaper than their own "
+            "5-year average.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),
