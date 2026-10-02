@@ -2,7 +2,7 @@
 Pure functions for the Turtle Quant tab's fundamental quality/valuation flags.
 
 2026-10-02 redesign (per explicit user request): the growth checks (Book Value/EPS/Sales
-growth, ROCE) no longer pass on an overall 10-year CAGR/average -- EVERY individual year in
+growth, ROE) no longer pass on an overall 10-year CAGR/average -- EVERY individual year in
 the trailing window must clear the threshold. Added Quality of Turnover (Other Income / Total
 Revenue < 10%) as a real, buildable red-flag condition. Added three category-aggregate flags
 (Growth / Red Flag / Value) that the dashboard displays instead of the 21+ individual metrics.
@@ -14,8 +14,19 @@ everywhere in this app (no Moneycontrol-style code-mapping project needed after 
 now includes all 3 of the user's originally-requested conditions: Promoter Pledge, Quality of
 Turnover, Interest Coverage.
 
+ROE instead of ROCE (same day, later still): screener.in's free "Ratios" history table only has
+ROCE% for non-financial companies and ONLY ROE% for banks/NBFCs (never both) -- using
+screener.in's own row would have left ~2,000+ non-financial companies with no year-by-year ROE
+history at all (only a single current-snapshot number exists for them elsewhere on the page).
+Solved by deriving ROE ourselves, per year, from data already fetched for every company
+regardless of type: ``roe_by_year()`` = Net Profit / (Equity Capital + Reserves) -- both already
+parsed for the Book Value Growth and EPS Growth checks. No new network fetch, works uniformly
+for every company, verified by hand against RELIANCE's real data (8-13% across 2015-2026,
+consistent with its known real-world ROE range). ``parse_ratios_history``/screener.in's ROCE row
+is no longer used anywhere in this pipeline.
+
 Computed from screener.in's per-symbol annual history
-(modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/parse_ratios_history/
+(modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/
 parse_cash_flow_history/parse_pl_history_extra) plus NSE's own promoter-holding/pledge data
 (modules/turtle/nse_shareholding.py) plus historical stock prices (for the three valuation-ratio
 checks).
@@ -38,7 +49,7 @@ from typing import Dict, List, Optional, Tuple
 # dashboard only displays the 3 trailing category-aggregate flags.
 QUALITY_FIELD_NAMES = [
     "book_value_cagr_10y", "book_value_growth_flag", "eps_cagr_10y", "eps_growth_flag",
-    "roce_avg_10y", "roce_flag", "sales_cagr_10y", "sales_growth_flag",
+    "roe_avg_10y", "roe_flag", "sales_cagr_10y", "sales_growth_flag",
     "promoter_holding_change_3y", "promoter_holding_flag",
     "promoter_pledge_pct", "promoter_pledge_flag",
     "interest_coverage", "interest_coverage_flag",
@@ -53,7 +64,7 @@ MAX_YEARS_FOR_GROWTH = 10
 MIN_YEARS_FOR_GROWTH = 5  # fewer usable annual columns than this -> None, not a shaky number
 
 GROWTH_THRESHOLD_PCT = 10.0
-ROCE_THRESHOLD_PCT = 10.0
+ROE_THRESHOLD_PCT = 10.0
 INTEREST_COVERAGE_THRESHOLD = 5.0
 QUALITY_OF_TURNOVER_THRESHOLD_PCT = 10.0
 PROMOTER_PLEDGE_THRESHOLD_PCT = 1.0
@@ -126,12 +137,34 @@ def yoy_growth_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_G
 def level_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
                   min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[List[float]]:
     """The trailing ``max_years`` raw annual values as-is (no growth computation) -- used for
-    ROCE, where each year's own VALUE (not its growth) must clear the threshold. None if fewer
+    ROE, where each year's own VALUE (not its growth) must clear the threshold. None if fewer
     than ``min_years`` usable years exist."""
     values = _values_only(series)
     if len(values) < min_years:
         return None
     return values[-max_years:]
+
+
+def roe_by_year(net_profit: Optional[Series], book_value: Optional[Series]) -> Optional[Series]:
+    """Derived ROE (%%) per year = Net Profit / (Equity Capital + Reserves) -- NOT screener.in's
+    own "ROCE %%"/"ROE %%" row (see module docstring for why: that row is ROCE for non-financial
+    companies and ROE for banks/NBFCs, never both, so using it directly would leave most
+    companies with no year-by-year ROE history at all). Both inputs are already parsed/derived
+    for other checks (EPS growth, Book Value growth), so this needs no new data. Only periods
+    present in BOTH series are kept; a zero/missing book value for a period is skipped (division
+    undefined). None if either input is missing."""
+    if net_profit is None or book_value is None:
+        return None
+    np_periods, np_values = net_profit
+    bv_by_period = dict(zip(*book_value))
+    periods, values = [], []
+    for period, profit in zip(np_periods, np_values):
+        bv = bv_by_period.get(period)
+        if bv is None or bv == 0 or profit is None:
+            continue
+        periods.append(period)
+        values.append((profit / bv) * 100.0)
+    return (periods, values) if periods else None
 
 
 def all_years_above_threshold(values: Optional[List[float]], threshold: float) -> Optional[bool]:
@@ -316,10 +349,10 @@ def _all_true(*flags: Optional[bool]) -> bool:
 
 def growth_category_flag(
     book_value_growth_flag: Optional[bool], eps_growth_flag: Optional[bool],
-    roce_flag: Optional[bool], sales_growth_flag: Optional[bool],
+    roe_flag: Optional[bool], sales_growth_flag: Optional[bool],
     promoter_holding_flag: Optional[bool],
 ) -> bool:
-    return _all_true(book_value_growth_flag, eps_growth_flag, roce_flag, sales_growth_flag, promoter_holding_flag)
+    return _all_true(book_value_growth_flag, eps_growth_flag, roe_flag, sales_growth_flag, promoter_holding_flag)
 
 
 def red_flag_category_flag(
@@ -374,12 +407,13 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     """Ties every quality-flag function above together into the final scalar columns
     ``generate_turtle_fundamentals.py`` writes to ``turtle_fundamentals`` -- one call per
     symbol, given that symbol's raw ``standalone_fundamentals.fetch_profit_and_loss()`` result
-    (which now carries ``balance_sheet``/``ratios``/``cash_flow``/``pl_extra``/
-    ``promoter_holding`` -- see that function's docstring) plus a period-label -> stock-price
-    mapping for the valuation-ratio checks (the caller fetches these via yfinance; this module
-    stays pure/I/O-free) and today's live current price.
+    (which carries ``balance_sheet``/``cash_flow``/``pl_extra``/``promoter_holding`` -- see that
+    function's docstring), ``nse_promoter_holding``/``nse_pledge_pct`` merged in by the caller
+    (see ``modules/turtle/nse_shareholding.py``), plus a period-label -> stock-price mapping for
+    the valuation-ratio checks (the caller fetches these via yfinance; this module stays
+    pure/I/O-free) and today's live current price.
 
-    2026-10-02: Book Value/EPS/Sales growth and ROCE now require EVERY individual year in the
+    2026-10-02: Book Value/EPS/Sales growth and ROE now require EVERY individual year in the
     trailing window to clear the threshold (not just the overall CAGR/average) -- the CAGR/
     average numeric fields are still computed and returned (useful for debugging/export) but no
     longer determine their own flag. Adds Quality of Turnover (a real red-flag check) and three
@@ -388,7 +422,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     metric never prevents the others from computing.
     """
     balance_sheet = fetch_result.get("balance_sheet") or {}
-    ratios = fetch_result.get("ratios") or {}
     cash_flow = fetch_result.get("cash_flow") or {}
     pl_extra = fetch_result.get("pl_extra") or {}
     promoter_holding = fetch_result.get("promoter_holding") or {}
@@ -400,7 +433,9 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     interest = pl_extra.get("interest")
     pbt = pl_extra.get("profit_before_tax")
     other_income = pl_extra.get("other_income")
-    roce = ratios.get("roce_pct")
+    # Derived (not screener.in's own row) -- see module docstring for why: screener.in's "Ratios"
+    # history has ROCE for non-financial companies and ROE for banks/NBFCs, never both.
+    roe = roe_by_year(net_profit, book_value)
     cfo = cash_flow.get("cfo")
     # NSE's own promoter-holding history (2026-10-02) is preferred over screener.in's -- longer
     # window (~5.5 years back to ~Dec 2021, vs screener.in's ~3) and the primary regulatory
@@ -412,13 +447,13 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     book_value_cagr_10y = cagr(book_value)
     eps_cagr_10y = cagr(eps)
     sales_cagr_10y = cagr(sales)
-    roce_avg_10y = average(roce)
+    roe_avg_10y = average(roe)
     coverage = interest_coverage(pbt, interest)
 
     book_value_growth_flag = all_years_above_threshold(yoy_growth_values(book_value), GROWTH_THRESHOLD_PCT)
     eps_growth_flag = all_years_above_threshold(yoy_growth_values(eps), GROWTH_THRESHOLD_PCT)
     sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
-    roce_flag_value = all_years_above_threshold(level_values(roce), ROCE_THRESHOLD_PCT)
+    roe_flag_value = all_years_above_threshold(level_values(roe), ROE_THRESHOLD_PCT)
     promoter_flag = promoter_holding_flag(promoter_pct)
     pledge_flag = promoter_pledge_flag(pledge_pct)
     interest_flag = interest_coverage_flag(coverage, interest)
@@ -454,8 +489,8 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "book_value_growth_flag": book_value_growth_flag,
         "eps_cagr_10y": eps_cagr_10y,
         "eps_growth_flag": eps_growth_flag,
-        "roce_avg_10y": roce_avg_10y,
-        "roce_flag": roce_flag_value,
+        "roe_avg_10y": roe_avg_10y,
+        "roe_flag": roe_flag_value,
         "sales_cagr_10y": sales_cagr_10y,
         "sales_growth_flag": sales_growth_flag,
         "promoter_holding_change_3y": promoter_holding_change(promoter_pct),
@@ -476,7 +511,7 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "pcf_5y_avg": pcf_5y_avg,
         "pcf_flag": pcf_flag,
         "growth_category_flag": growth_category_flag(
-            book_value_growth_flag, eps_growth_flag, roce_flag_value, sales_growth_flag, promoter_flag,
+            book_value_growth_flag, eps_growth_flag, roe_flag_value, sales_growth_flag, promoter_flag,
         ),
         "red_flag_category_flag": red_flag_category_flag(pledge_flag, qot_flag, interest_flag),
         "value_category_flag": value_category_flag(pb_flag, ps_flag, pcf_flag),

@@ -81,15 +81,15 @@ def test_run_pipeline_threads_quality_flags_through_to_signal_row():
     fundamentals = pd.DataFrame([{
         "Symbol": "BUYSTOCK",
         "Book_Value_CAGR_10Y": 14.59, "Book_Value_Growth_Flag": True,
-        "ROCE_Avg_10Y": 9.9, "ROCE_Flag": False,
+        "ROE_Avg_10Y": 9.9, "ROE_Flag": False,
         "PB_Current": 2.1, "PB_5Y_Avg": 2.45, "PB_Flag": True,
     }])
     out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
     row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
     assert row["Book_Value_CAGR_10Y"] == pytest.approx(14.59)
     assert row["Book_Value_Growth_Flag"] == True  # noqa: E712
-    assert row["ROCE_Avg_10Y"] == pytest.approx(9.9)
-    assert row["ROCE_Flag"] == False  # noqa: E712
+    assert row["ROE_Avg_10Y"] == pytest.approx(9.9)
+    assert row["ROE_Flag"] == False  # noqa: E712
     assert row["PB_Flag"] == True  # noqa: E712
 
 

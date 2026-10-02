@@ -26,7 +26,7 @@ from modules.turtle import screener as tt_screener
 # signal rows. Order matches quality_flags.QUALITY_FIELD_NAMES (snake_case) 1:1.
 QUALITY_COLUMNS = [
     "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
-    "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
+    "ROE_Avg_10Y", "ROE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
     "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
     "Promoter_Pledge_Pct", "Promoter_Pledge_Flag",
     "Interest_Coverage", "Interest_Coverage_Flag",

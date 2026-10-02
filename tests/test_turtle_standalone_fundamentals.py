@@ -521,19 +521,6 @@ BALANCE_SHEET_HTML = """
 </body></html>
 """
 
-RATIOS_HTML = """
-<html><body>
-<section>
-<h2>Ratios</h2>
-<table>
-<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
-<tr><td>Debtor Days</td><td>30</td><td>28</td><td>25</td></tr>
-<tr><td>ROCE %</td><td>9%</td><td>10%</td><td>11%</td></tr>
-</table>
-</section>
-</body></html>
-"""
-
 CASH_FLOW_HTML = """
 <html><body>
 <section>
@@ -594,16 +581,6 @@ def test_parse_balance_sheet_history_found_but_empty_degrades_gracefully():
     html = "<html><body><section><h2>Balance Sheet</h2><table></table></section></body></html>"
     result = sf.parse_balance_sheet_history(html)
     assert result == {"equity_capital": None, "reserves": None}
-
-
-def test_parse_ratios_history_strips_percent_sign():
-    result = sf.parse_ratios_history(RATIOS_HTML)
-    assert result["roce_pct"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [9.0, 10.0, 11.0])
-
-
-def test_parse_ratios_history_missing_roce_row_returns_none():
-    html = "<html><body><section><h2>Ratios</h2><table><tr><td>Debtor Days</td></tr></table></section></body></html>"
-    assert sf.parse_ratios_history(html) is None
 
 
 def test_parse_cash_flow_history_strips_plus_suffix():

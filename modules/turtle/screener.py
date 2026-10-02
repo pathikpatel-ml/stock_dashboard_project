@@ -337,7 +337,7 @@ def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[s
     _quality_columns = {
         "book_value_cagr_10y": "Book_Value_CAGR_10Y", "book_value_growth_flag": "Book_Value_Growth_Flag",
         "eps_cagr_10y": "EPS_CAGR_10Y", "eps_growth_flag": "EPS_Growth_Flag",
-        "roce_avg_10y": "ROCE_Avg_10Y", "roce_flag": "ROCE_Flag",
+        "roe_avg_10y": "ROE_Avg_10Y", "roe_flag": "ROE_Flag",
         "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
         "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
         "promoter_pledge_pct": "Promoter_Pledge_Pct", "promoter_pledge_flag": "Promoter_Pledge_Flag",

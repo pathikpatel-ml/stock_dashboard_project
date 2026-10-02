@@ -130,8 +130,11 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     book_value_growth_flag     BOOLEAN,
     eps_cagr_10y                DOUBLE PRECISION,
     eps_growth_flag             BOOLEAN,
-    roce_avg_10y                DOUBLE PRECISION,
-    roce_flag                   BOOLEAN,
+    -- ROE (not screener.in's own ROCE/ROE row), derived from Net Profit / Book Value --
+    -- see modules/turtle/quality_flags.py::roe_by_year's docstring for why (screener.in's free
+    -- "Ratios" history has ROCE for non-financial companies, ROE for banks/NBFCs, never both).
+    roe_avg_10y                 DOUBLE PRECISION,
+    roe_flag                    BOOLEAN,
     sales_cagr_10y              DOUBLE PRECISION,
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
@@ -263,8 +266,11 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     book_value_growth_flag     BOOLEAN,
     eps_cagr_10y                DOUBLE PRECISION,
     eps_growth_flag             BOOLEAN,
-    roce_avg_10y                DOUBLE PRECISION,
-    roce_flag                   BOOLEAN,
+    -- ROE (not screener.in's own ROCE/ROE row), derived from Net Profit / Book Value --
+    -- see modules/turtle/quality_flags.py::roe_by_year's docstring for why (screener.in's free
+    -- "Ratios" history has ROCE for non-financial companies, ROE for banks/NBFCs, never both).
+    roe_avg_10y                 DOUBLE PRECISION,
+    roe_flag                    BOOLEAN,
     sales_cagr_10y              DOUBLE PRECISION,
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,

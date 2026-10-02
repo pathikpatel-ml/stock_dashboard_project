@@ -132,6 +132,29 @@ def test_level_values_none_when_fewer_than_min_years():
     assert qf.level_values(_series([10.0, 10.0]), min_years=5) is None
 
 
+# ---------------------------------------------------------------------------
+# roe_by_year (2026-10-02: derived ourselves, not screener.in's own ROCE/ROE row -- see
+# quality_flags.py's module docstring for why)
+# ---------------------------------------------------------------------------
+def test_roe_by_year_hand_computed():
+    net_profit = (["Mar 2024", "Mar 2025"], [1000.0, 1100.0])
+    book_value = (["Mar 2024", "Mar 2025"], [10000.0, 10000.0])
+    result = qf.roe_by_year(net_profit, book_value)
+    assert result == (["Mar 2024", "Mar 2025"], [10.0, 11.0])
+
+
+def test_roe_by_year_skips_zero_or_missing_book_value():
+    net_profit = (["Mar 2024", "Mar 2025"], [1000.0, 1100.0])
+    book_value = (["Mar 2024"], [10000.0])  # Mar 2025 missing
+    result = qf.roe_by_year(net_profit, book_value)
+    assert result == (["Mar 2024"], [10.0])
+
+
+def test_roe_by_year_none_when_either_input_missing():
+    assert qf.roe_by_year(None, (["Mar 2024"], [10000.0])) is None
+    assert qf.roe_by_year((["Mar 2024"], [1000.0]), None) is None
+
+
 def test_all_years_above_threshold_true_when_every_year_passes():
     assert qf.all_years_above_threshold([11.0, 15.0, 20.0], 10.0) is True
 

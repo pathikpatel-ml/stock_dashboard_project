@@ -53,7 +53,7 @@ _COLUMN_TOOLTIPS = {
     "Current_Price": "Latest daily close price.",
     "Growth": (
         "Yes only if ALL 5 hold: Book Value/EPS/Sales growth > 10% in EVERY individual year "
-        "(not just the overall average), ROCE > 10% in EVERY individual year, and promoter "
+        "(not just the overall average), ROE > 10% in EVERY individual year, and promoter "
         "holding hasn't decreased over screener.in's real ~3-year window. A single weak year "
         "in any metric, or missing data, makes this No."
     ),

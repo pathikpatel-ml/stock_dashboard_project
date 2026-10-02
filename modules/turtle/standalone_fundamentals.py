@@ -283,19 +283,6 @@ def parse_balance_sheet_history(html: str) -> Optional[dict]:
     }
 
 
-def parse_ratios_history(html: str) -> Optional[dict]:
-    """ROCE% annual history from screener.in's "Ratios" table. None if the section or the
-    ROCE row itself can't be found."""
-    soup = BeautifulSoup(html, "html.parser")
-    table = _find_section_table(soup, "Ratios")
-    if table is None:
-        return None
-    roce = _extract_annual_series(table, {"ROCE %"})
-    if roce is None:
-        return None
-    return {"roce_pct": roce}
-
-
 def parse_cash_flow_history(html: str) -> Optional[dict]:
     """Cash from Operating Activity annual history (Cr) from screener.in's "Cash Flows" table
     -- feeds the Price-to-Cash-Flow valuation check. None if the section or row can't be found.
@@ -455,8 +442,8 @@ def fetch_profit_and_loss(
     P&L found anywhere, but a sector classification was) so this function still returns
     something useful for the sector-only case rather than None.
 
-    2026-10-01: ALSO extracts the Balance Sheet/Ratios/Cash Flows/extra P&L rows/Shareholding
-    Pattern history needed for the Turtle Quant quality flags (``balance_sheet``, ``ratios``,
+    2026-10-01: ALSO extracts the Balance Sheet/Cash Flows/extra P&L rows/Shareholding
+    Pattern history needed for the Turtle Quant quality flags (``balance_sheet``,
     ``cash_flow``, ``pl_extra``, ``promoter_holding`` keys -- see the matching
     ``parse_*_history`` functions above) from the SAME usable-P&L page, again at zero extra
     network cost. Unlike sector classification, these are only attempted on the page that
@@ -484,7 +471,6 @@ def fetch_profit_and_loss(
                             if _has_usable_data(result):
                                 result.update(sector or best_sector or {})
                                 result["balance_sheet"] = parse_balance_sheet_history(resp.text)
-                                result["ratios"] = parse_ratios_history(resp.text)
                                 result["cash_flow"] = parse_cash_flow_history(resp.text)
                                 result["pl_extra"] = parse_pl_history_extra(resp.text)
                                 result["promoter_holding"] = parse_promoter_holding_history(resp.text)
