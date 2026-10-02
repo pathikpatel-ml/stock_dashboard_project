@@ -22,4 +22,6 @@ jobs:
     - name: Generate Turtle standalone fundamentals (screener.in)
       env:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
+        SCREENER_IN_EMAIL: ${{ secrets.SCREENER_IN_EMAIL }}
+        SCREENER_IN_PASSWORD: ${{ secrets.SCREENER_IN_PASSWORD }}
       run: python generate_turtle_fundamentals.py --pause 0.5
