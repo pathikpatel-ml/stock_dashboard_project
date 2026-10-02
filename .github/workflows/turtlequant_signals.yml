@@ -23,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy requests psycopg2-binary python-dotenv
+        pip install pandas numpy yfinance requests psycopg2-binary python-dotenv
     - name: Generate Turtle Quant signals
       env:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
