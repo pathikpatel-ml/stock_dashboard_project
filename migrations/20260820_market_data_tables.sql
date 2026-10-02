@@ -117,6 +117,11 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     sector                  TEXT,
     broad_industry          TEXT,
     industry                TEXT,
+    -- BSE scrip code (2026-10-02), e.g. "500325" for RELIANCE -- parsed from the same
+    -- already-fetched screener.in page. Used to join this symbol against screener.in's own
+    -- SCREENING query results for Promoter Pledge (see modules/turtle/screener_in_login.py),
+    -- which link each row by BSE code, not NSE symbol.
+    bse_code                TEXT,
     -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- 10-year CAGR/ROCE
     -- from screener.in's Balance Sheet/Ratios/Cash Flows/Profit & Loss history (same page,
     -- zero extra screener.in requests), plus one extra yfinance monthly-price fetch per symbol

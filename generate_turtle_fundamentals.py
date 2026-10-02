@@ -49,6 +49,7 @@ from database import market_data_writer as mdw
 from modules.breakout import data_feed
 from modules.turtle import nse_shareholding as nse_sh
 from modules.turtle import quality_flags as qf
+from modules.turtle import screener_in_login as sil
 from modules.turtle import standalone_fundamentals as sf
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -75,7 +76,7 @@ _QUALITY_COLUMNS = [
 
 OUTPUT_COLUMNS = [
     "Symbol", "TTM_Net_Profit", "Max_Annual_Net_Profit", "TTM_Net_Sales", "Max_Annual_Net_Sales",
-    "Broad_Sector", "Sector", "Broad_Industry", "Industry",
+    "Broad_Sector", "Sector", "Broad_Industry", "Industry", "BSE_Code",
 ] + _QUALITY_COLUMNS
 CHECKPOINT_EVERY = 50
 
@@ -86,7 +87,7 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Max_Annual_Net_Profit": "max_annual_net_profit", "TTM_Net_Sales": "ttm_net_sales",
     "Max_Annual_Net_Sales": "max_annual_net_sales",
     "Broad_Sector": "broad_sector", "Sector": "sector",
-    "Broad_Industry": "broad_industry", "Industry": "industry",
+    "Broad_Industry": "broad_industry", "Industry": "industry", "BSE_Code": "bse_code",
     "Book_Value_CAGR_10Y": "book_value_cagr_10y", "Book_Value_Growth_Flag": "book_value_growth_flag",
     "EPS_CAGR_10Y": "eps_cagr_10y", "EPS_Growth_Flag": "eps_growth_flag",
     "ROE_Avg_10Y": "roe_avg_10y", "ROE_Flag": "roe_flag",
@@ -170,6 +171,7 @@ def fetch_one(symbol: str, session, retries: int, pause: float, nse_session=None
             "Symbol": symbol, "TTM_Net_Profit": None, "Max_Annual_Net_Profit": None,
             "TTM_Net_Sales": None, "Max_Annual_Net_Sales": None,
             "Broad_Sector": None, "Sector": None, "Broad_Industry": None, "Industry": None,
+            "BSE_Code": None,
             **empty_quality,
         }
     annual_profit = result.get("annual_net_profit") or []
@@ -189,16 +191,28 @@ def fetch_one(symbol: str, session, retries: int, pause: float, nse_session=None
         periods = (result.get("balance_sheet") or {}).get("equity_capital")
         periods = periods[0] if periods else []
         year_end_prices = _year_end_prices(monthly, periods)
-        current_price = (
-            float(monthly["Close"].to_numpy()[-1])
-            if monthly is not None and not monthly.empty and "Close" in monthly.columns else None
-        )
-        # NSE's own promoter-holding/pledge data (2026-10-02) -- the primary regulatory source,
-        # keyed by the same NSE symbol, no mapping needed. Merged into `result` so
-        # quality_flags.compute_all can prefer it over screener.in's shorter promoter-holding
-        # window; never lets an NSE hiccup fail the row (both fetches are already None-safe).
+        # 2026-10-02 fix: PB_Current/PS_Current/PCF_Current need TODAY's price, not the last bar
+        # of a monthly fetch (which can be up to ~30 days stale -- caught live: a monthly fetch
+        # returned Sep 30's close (1187.00) when the real latest daily close was Oct 1's
+        # (1167.70), a ~1.7% discrepancy, and silently differed from the Current_Price shown
+        # elsewhere in the same dashboard row). A short daily fetch gives the genuine latest
+        # close at negligible extra cost.
+        try:
+            daily = data_feed.get_daily(symbol, period="5d")
+            current_price = (
+                float(daily["Close"].to_numpy()[-1])
+                if daily is not None and not daily.empty and "Close" in daily.columns else None
+            )
+        except Exception:
+            current_price = None
+        # NSE's own promoter-holding data (2026-10-02) -- the primary regulatory source, keyed by
+        # the same NSE symbol, no mapping needed. Merged into `result` so quality_flags.compute_all
+        # can prefer it over screener.in's shorter promoter-holding window; never lets an NSE
+        # hiccup fail the row (the fetch is already None-safe). Promoter PLEDGE is NOT computed
+        # here -- see main()'s post-processing pass, which fills it in from screener.in's own
+        # login-gated screening query (modules/turtle/screener_in_login.py) across the whole
+        # universe in one pass, far more efficient than a per-symbol fetch.
         result["nse_promoter_holding"] = nse_sh.fetch_promoter_holding_history(symbol, session=nse_session)
-        result["nse_pledge_pct"] = nse_sh.fetch_promoter_pledge_pct(symbol, session=nse_session)
         computed = qf.compute_all(result, year_end_prices, current_price)
         # computed's keys are snake_case (e.g. "book_value_cagr_10y"); _QUALITY_COLUMNS are the
         # CSV/CamelCase names (e.g. "Book_Value_CAGR_10Y") -- reuse _FUNDAMENTALS_DB_COLUMNS'
@@ -215,6 +229,7 @@ def fetch_one(symbol: str, session, retries: int, pause: float, nse_session=None
         "Sector": result.get("sector"),
         "Broad_Industry": result.get("broad_industry"),
         "Industry": result.get("industry"),
+        "BSE_Code": result.get("bse_code"),
         **quality,
     }
 
@@ -270,6 +285,49 @@ def main():
         session.close()
         nse_session.close()
         pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
+
+    # Promoter Pledge (2026-10-02): a SEPARATE pass, after every symbol's BSE code is known --
+    # screener.in's own login-gated screening query covers the whole universe in ~55 paginated
+    # requests (see modules/turtle/screener_in_login.py), instead of a per-symbol fetch (NSE's
+    # own pledge endpoint was caught serving stale data as current; Moneycontrol's per-symbol
+    # fetch was too slow/flaky at full-universe scale). Joined locally by BSE code (screener.in's
+    # screening results link by BSE code, not NSE symbol -- see
+    # standalone_fundamentals.py::parse_bse_code for where each row's own BSE_Code comes from).
+    # Login failure or missing credentials degrades gracefully: pledge stays None/False for every
+    # row (same as "unavailable"), never crashes the run.
+    screener_email = os.environ.get("SCREENER_IN_EMAIL")
+    screener_password = os.environ.get("SCREENER_IN_PASSWORD")
+    if screener_email and screener_password:
+        sil_session = sil.new_session()
+        try:
+            if sil.login(sil_session, screener_email, screener_password):
+                pledge_map = sil.fetch_all_pledge_data(sil_session)
+                print(f"Screener.in pledge data: {len(pledge_map)} companies fetched.")
+                matched = 0
+                for row in rows:
+                    # screener.in's own company-name links are inconsistent: large/well-known
+                    # companies link by NSE symbol (e.g. "RELIANCE"), others by numeric BSE code
+                    # -- try the symbol first, fall back to BSE code (see
+                    # modules/turtle/screener_in_login.py's module docstring).
+                    bse_code = row.get("BSE_Code")
+                    pledge_pct = pledge_map.get(row["Symbol"])
+                    if pledge_pct is None and bse_code:
+                        pledge_pct = pledge_map.get(bse_code)
+                    if pledge_pct is not None:
+                        matched += 1
+                    pledge_flag = qf.promoter_pledge_flag(pledge_pct)
+                    row["Promoter_Pledge_Pct"] = pledge_pct
+                    row["Promoter_Pledge_Flag"] = pledge_flag
+                    row["Red_Flag_Category_Flag"] = qf.red_flag_category_flag(
+                        pledge_flag, row.get("Quality_Of_Turnover_Flag"), row.get("Interest_Coverage_Flag"),
+                    )
+                print(f"  matched {matched}/{len(rows)} symbols to a BSE code with pledge data")
+            else:
+                print("WARNING: screener.in login failed -- Promoter Pledge unavailable this run.")
+        finally:
+            sil_session.close()
+    else:
+        print("WARNING: SCREENER_IN_EMAIL/SCREENER_IN_PASSWORD not set -- Promoter Pledge unavailable.")
 
     result_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS).drop_duplicates(subset=["Symbol"], keep="last")
     result_df.to_csv(OUTPUT_FILE, index=False)

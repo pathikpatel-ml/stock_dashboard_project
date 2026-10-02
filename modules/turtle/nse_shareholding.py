@@ -1,29 +1,25 @@
 """
-NSE's own (not screener.in's) promoter-holding history and promoter-pledge data.
+NSE's own (not screener.in's) promoter-holding history.
 
 2026-10-02: screener.in's free Shareholding Pattern table only has ~3 years (12 quarters) of
-promoter-holding history and NO pledge data at all (confirmed repeatedly). NSE itself -- the
-primary regulatory source, keyed by the exact same NSE symbol already used everywhere in this
-app, no name/code mapping needed -- publishes both directly:
+promoter-holding history. NSE itself -- the primary regulatory source, keyed by the exact same
+NSE symbol already used everywhere in this app, no name/code mapping needed -- publishes
+``/api/corporate-share-holdings-master``: quarterly promoter-holding % (``pr_and_prgrp``),
+confirmed live to go back to ~Dec 2021 (~5.5 years, better than screener.in's ~3) and no
+further; NSE's own digitized archive for this disclosure type simply starts there. Reverse-
+engineered live from NSE's own JS bundle (``corporate-filings.js``) since it's undocumented;
+confirmed with a 100-symbol stress test (mixed large/mid/small-cap, including distressed names)
+-- zero failures, consistent across repeated fetches (the CDN cache here serves a stable,
+correct snapshot).
 
-  * ``/api/corporate-share-holdings-master`` -- quarterly promoter-holding % (``pr_and_prgrp``),
-    confirmed live to go back to ~Dec 2021 (~5.5 years, better than screener.in's ~3) and no
-    further; NSE's own digitized archive for this disclosure type simply starts there.
-  * ``/api/corporate-pledgedata`` -- the CURRENT promoter-pledge snapshot. ``numSharesPledged``
-    / ``totPromoterHolding`` is pledge as a %% of the promoter's OWN holding (the standard
-    convention, e.g. "30% of promoter holding is pledged") -- NOT the same as the response's own
-    ``percSharesPledged`` field, which is pledged shares as a %% of TOTAL shares outstanding
-    (verified by hand: for RELIANCE, 187667566 / 13532538722 * 100 = 1.39%, matching
-    ``percSharesPledged`` exactly; 187667566 / 6944962964 * 100 = 2.70%, the real promoter-pledge
-    %%). An empty ``data`` array means NSE has no pledge disclosure on file for this company at
-    all -- treated as a genuine 0%% (no pledge ever reported), not "unavailable" -- this is a
-    real regulatory feed, not a scrape of someone's derived/cached page.
-
-Both endpoints were reverse-engineered live from NSE's own JS bundles (``corporate-filings.js``,
-``pledge-data-csp.js``) since neither is documented; confirmed with a 100-symbol stress test
-(mixed large/mid/small-cap, including distressed names) -- zero failures, ~0.5s/symbol combined
-for both calls, safely usable across the full ~2,600-symbol universe within the existing
-screener.in batch job's runtime budget.
+This module ONLY covers promoter HOLDING now. An earlier version also covered promoter PLEDGE
+via NSE's ``/api/corporate-pledgedata`` -- removed 2026-10-02 after it was caught returning
+stale data as if current (verified live: showed Suzlon at a historical 59.37%% pledge, via a
+CDN-cached snapshot, when the real current figure -- independently confirmed -- is 0%%, fully
+resolved). A Moneycontrol-based replacement was also tried and rejected (accurate data, but
+~50%% of requests hit a 20s timeout before succeeding on retry, making a full-universe run take
+an estimated ~12 hours). Promoter Pledge is now sourced from screener.in's own login-gated
+screening query instead -- see modules/turtle/screener_in_login.py.
 """
 from __future__ import annotations
 
@@ -103,44 +99,6 @@ def fetch_promoter_holding_history(
                         except (TypeError, ValueError):
                             continue
                     return (periods, values) if periods else None
-            except Exception:
-                pass
-            time.sleep(pause * (attempt + 1))
-        return None
-    finally:
-        if own_session:
-            session.close()
-
-
-def fetch_promoter_pledge_pct(
-    symbol: str, session: Optional[requests.Session] = None, retries: int = 3, pause: float = 1.0,
-) -> Optional[float]:
-    """Current promoter-pledge %% -- pledged shares as a %% of the promoter's OWN holding (see
-    module docstring for why this is NOT the response's own ``percSharesPledged`` field). Returns
-    0.0 if NSE has no pledge disclosure on file (a real "never pledged", not missing data).
-    None only on an actual network/parse failure or a genuinely unusable record (zero reported
-    promoter holding -- division undefined)."""
-    url = f"https://www.nseindia.com/api/corporate-pledgedata?index=equities&symbol={symbol}"
-    own_session = session is None
-    session = session or new_session()
-    try:
-        for attempt in range(retries):
-            try:
-                resp = session.get(url, timeout=20)
-                if resp.status_code == 200:
-                    payload = resp.json()
-                    rows = payload.get("data") if isinstance(payload, dict) else None
-                    if not rows:
-                        return 0.0  # no pledge disclosure on file -- genuinely never pledged
-                    row = rows[0]
-                    try:
-                        pledged = float(row.get("numSharesPledged"))
-                        promoter_total = float(row.get("totPromoterHolding"))
-                    except (TypeError, ValueError):
-                        return None
-                    if promoter_total <= 0:
-                        return None
-                    return (pledged / promoter_total) * 100.0
             except Exception:
                 pass
             time.sleep(pause * (attempt + 1))

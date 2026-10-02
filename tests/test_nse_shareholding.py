@@ -1,12 +1,9 @@
 """
-Unit tests for modules/turtle/nse_shareholding.py -- NSE's own promoter-holding history and
-promoter-pledge data. No live network: a fake session stands in for NSE's API, matching
-tests/test_nse_category_fetcher.py's style.
+Unit tests for modules/turtle/nse_shareholding.py -- NSE's own promoter-holding history. No
+live network: a fake session stands in for NSE's API, matching tests/test_nse_category_fetcher.py's style.
 """
 import os
 import sys
-
-import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -74,45 +71,3 @@ def test_fetch_promoter_holding_history_retries_then_succeeds():
 def test_fetch_promoter_holding_history_none_after_exhausting_retries():
     session = _FakeSession(payload=SHAREHOLDING_PAYLOAD, fail_times=5)
     assert nsh.fetch_promoter_holding_history("X", session=session, retries=2, pause=0) is None
-
-
-# ---------------------------------------------------------------------------
-# fetch_promoter_pledge_pct
-# ---------------------------------------------------------------------------
-def test_fetch_promoter_pledge_pct_hand_computed():
-    # matches the real RELIANCE values verified live: 187667566 / 6944962964 * 100 = 2.70%
-    payload = {"data": [{"numSharesPledged": "187667566", "totPromoterHolding": "6944962964"}]}
-    session = _FakeSession(payload=payload)
-    result = nsh.fetch_promoter_pledge_pct("RELIANCE", session=session, retries=1, pause=0)
-    assert result == pytest.approx(2.70, abs=0.01)
-
-
-def test_fetch_promoter_pledge_pct_high_pledge_hand_computed():
-    # matches real SUZLON values verified live: 955040602 / 1608685603 * 100 = 59.37%
-    payload = {"data": [{"numSharesPledged": "955040602", "totPromoterHolding": "1608685603"}]}
-    session = _FakeSession(payload=payload)
-    result = nsh.fetch_promoter_pledge_pct("SUZLON", session=session, retries=1, pause=0)
-    assert result == pytest.approx(59.37, abs=0.01)
-
-
-def test_fetch_promoter_pledge_pct_zero_when_no_disclosure_on_file():
-    # empty data array -- a real "never pledged", not missing data (see module docstring)
-    session = _FakeSession(payload={"data": []})
-    assert nsh.fetch_promoter_pledge_pct("X", session=session, retries=1, pause=0) == 0.0
-
-
-def test_fetch_promoter_pledge_pct_none_when_promoter_holding_zero():
-    payload = {"data": [{"numSharesPledged": "0", "totPromoterHolding": "0"}]}
-    session = _FakeSession(payload=payload)
-    assert nsh.fetch_promoter_pledge_pct("X", session=session, retries=1, pause=0) is None
-
-
-def test_fetch_promoter_pledge_pct_none_on_unparseable_values():
-    payload = {"data": [{"numSharesPledged": None, "totPromoterHolding": "100"}]}
-    session = _FakeSession(payload=payload)
-    assert nsh.fetch_promoter_pledge_pct("X", session=session, retries=1, pause=0) is None
-
-
-def test_fetch_promoter_pledge_pct_none_after_exhausting_retries():
-    session = _FakeSession(payload={"data": []}, fail_times=5)
-    assert nsh.fetch_promoter_pledge_pct("X", session=session, retries=2, pause=0) is None

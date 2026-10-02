@@ -219,14 +219,39 @@ def test_promoter_holding_flag_constant_true():
     assert qf.promoter_holding_flag(series) is True
 
 
-def test_promoter_holding_flag_decrease_false():
-    series = _series([50.0, 49.0, 48.0, 45.0])
+def test_promoter_holding_flag_decrease_beyond_tolerance_false():
+    # 50 -> 45 is a 5.1-point decline -- just over the 5-point tolerance -- fails.
+    series = _series([50.0, 49.0, 48.0, 44.9])
     assert qf.promoter_holding_flag(series) is False
+
+
+def test_promoter_holding_flag_small_decline_within_tolerance_true():
+    # 2026-10-02, per the user's own instruction: a decline of up to 5 percentage points still
+    # counts as a pass (e.g. a promoter trimming stake slightly isn't a real red flag).
+    series = _series([50.0, 49.0, 48.0, 46.0])  # 4-point decline
+    assert qf.promoter_holding_flag(series) is True
+
+
+def test_promoter_holding_flag_decline_exactly_at_tolerance_boundary_true():
+    series = _series([50.0, 45.0])  # exactly 5-point decline
+    assert qf.promoter_holding_flag(series) is True
 
 
 def test_promoter_holding_flag_none_when_insufficient_data():
     assert qf.promoter_holding_flag(_series([50.0])) is None
     assert qf.promoter_holding_flag(None) is None
+
+
+def test_promoter_holding_flag_true_when_always_zero_no_promoter_group():
+    # Real case: ICICIBANK/ITC/L&T show a flat 0% every quarter -- no promoter to decrease.
+    assert qf.promoter_holding_flag(_series([0.0, 0.0, 0.0, 0.0])) is True
+
+
+def test_promoter_holding_flag_true_when_promoter_ceased_to_exist():
+    # Real case: HDFCBANK had a real promoter (~25.8%) until its 2023 merger with HDFC Ltd, then
+    # dropped to 0 -- treated as an automatic pass (a 25+ point drop would otherwise fail the
+    # 5-point tolerance check), not a penalized "decrease".
+    assert qf.promoter_holding_flag(_series([25.83, 25.73, 0.0, 0.0])) is True
 
 
 def test_promoter_holding_change_value():

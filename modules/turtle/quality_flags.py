@@ -68,6 +68,7 @@ ROE_THRESHOLD_PCT = 10.0
 INTEREST_COVERAGE_THRESHOLD = 5.0
 QUALITY_OF_TURNOVER_THRESHOLD_PCT = 10.0
 PROMOTER_PLEDGE_THRESHOLD_PCT = 1.0
+PROMOTER_HOLDING_DECLINE_TOLERANCE_PCT = 5.0
 
 Series = Tuple[Optional[List[str]], List[float]]  # (periods, values), as the parsers return
 
@@ -212,17 +213,34 @@ def interest_coverage_flag(
     return coverage > threshold
 
 
-def promoter_holding_flag(promoter_pct: Optional[Series]) -> Optional[bool]:
-    """True if the latest quarter's promoter holding % is >= the OLDEST available quarter --
-    whatever real window the caller's data source provides (NSE's own ~5.5-year history,
-    preferred as of 2026-10-02; screener.in's ~3-year history as a fallback if NSE's fetch
-    failed -- see compute_all()). Only compares the two endpoints, not every quarter in between.
+def promoter_holding_flag(
+    promoter_pct: Optional[Series], decline_tolerance_pct: float = PROMOTER_HOLDING_DECLINE_TOLERANCE_PCT,
+) -> Optional[bool]:
+    """True if the latest quarter's promoter holding % is constant/increasing vs. the OLDEST
+    available quarter, OR has declined by at most ``decline_tolerance_pct`` percentage points
+    (2026-10-02, per the user's own instruction: a small decline -- e.g. a promoter trimming
+    stake slightly for personal liquidity/tax reasons -- isn't treated as a real red flag, only
+    a decline of more than 5 points is) -- whatever real window the caller's data source
+    provides (NSE's own ~5.5-year history, preferred as of 2026-10-02; screener.in's ~3-year
+    history as a fallback if NSE's fetch failed -- see compute_all()). Only compares the two
+    endpoints, not every quarter in between.
+
+    If the CURRENT (latest) promoter holding is exactly 0 -- the company genuinely has no
+    promoter group right now (confirmed live: ICICIBANK/ITC/L&T show a flat 0 every quarter;
+    HDFCBANK shows a real transition from ~25.8% to 0 after its 2023 merger with HDFC Ltd, its
+    former promoter) -- this is treated as an automatic pass BEFORE the tolerance check above
+    (a 25+ point drop to zero would otherwise fail the 5-point tolerance): there is no promoter
+    left to have decreased its holding, so the condition is trivially fulfilled, mirroring
+    interest_coverage_flag's zero-debt auto-pass.
+
     None if fewer than 2 quarters of data exist at all.
     """
     values = _values_only(promoter_pct)
     if len(values) < 2:
         return None
-    return values[-1] >= values[0]
+    if values[-1] == 0:
+        return True
+    return (values[0] - values[-1]) <= decline_tolerance_pct
 
 
 def promoter_holding_change(promoter_pct: Optional[Series]) -> Optional[float]:
@@ -408,7 +426,7 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     ``generate_turtle_fundamentals.py`` writes to ``turtle_fundamentals`` -- one call per
     symbol, given that symbol's raw ``standalone_fundamentals.fetch_profit_and_loss()`` result
     (which carries ``balance_sheet``/``cash_flow``/``pl_extra``/``promoter_holding`` -- see that
-    function's docstring), ``nse_promoter_holding``/``nse_pledge_pct`` merged in by the caller
+    function's docstring), ``nse_promoter_holding``/``pledge_pct`` merged in by the caller
     (see ``modules/turtle/nse_shareholding.py``), plus a period-label -> stock-price mapping for
     the valuation-ratio checks (the caller fetches these via yfinance; this module stays
     pure/I/O-free) and today's live current price.
@@ -442,7 +460,13 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     # source, not a secondary scrape. Falls back to screener.in's series only if the NSE fetch
     # itself failed for this symbol (see generate_turtle_fundamentals.py's fetch_one()).
     promoter_pct = fetch_result.get("nse_promoter_holding") or promoter_holding.get("promoter_pct")
-    pledge_pct = fetch_result.get("nse_pledge_pct")
+    # Pledge is NOT computed here -- it's filled in by a separate post-processing pass in
+    # generate_turtle_fundamentals.py (screener.in's own login-gated screening query covers the
+    # whole universe in ~55 paginated requests, far more efficient than a per-symbol fetch; see
+    # modules/turtle/screener_in_login.py). ``fetch_result`` simply won't have this key during
+    # the main per-symbol pass, so pledge_pct/flag/red_flag_category_flag all correctly compute
+    # as None/False here and get overwritten afterward once the real value is known.
+    pledge_pct = fetch_result.get("pledge_pct")
 
     book_value_cagr_10y = cagr(book_value)
     eps_cagr_10y = cagr(eps)
