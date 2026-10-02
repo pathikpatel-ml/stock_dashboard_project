@@ -64,9 +64,11 @@ _QUALITY_COLUMNS = [
     "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
     "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
     "Interest_Coverage", "Interest_Coverage_Flag",
+    "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
     "PB_Current", "PB_5Y_Avg", "PB_Flag",
     "PS_Current", "PS_5Y_Avg", "PS_Flag",
     "PCF_Current", "PCF_5Y_Avg", "PCF_Flag",
+    "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
 OUTPUT_COLUMNS = [
@@ -89,9 +91,12 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Sales_CAGR_10Y": "sales_cagr_10y", "Sales_Growth_Flag": "sales_growth_flag",
     "Promoter_Holding_Change_3Y": "promoter_holding_change_3y", "Promoter_Holding_Flag": "promoter_holding_flag",
     "Interest_Coverage": "interest_coverage", "Interest_Coverage_Flag": "interest_coverage_flag",
+    "Quality_Of_Turnover_Pct": "quality_of_turnover_pct", "Quality_Of_Turnover_Flag": "quality_of_turnover_flag",
     "PB_Current": "pb_current", "PB_5Y_Avg": "pb_5y_avg", "PB_Flag": "pb_flag",
     "PS_Current": "ps_current", "PS_5Y_Avg": "ps_5y_avg", "PS_Flag": "ps_flag",
     "PCF_Current": "pcf_current", "PCF_5Y_Avg": "pcf_5y_avg", "PCF_Flag": "pcf_flag",
+    "Growth_Category_Flag": "growth_category_flag", "Red_Flag_Category_Flag": "red_flag_category_flag",
+    "Value_Category_Flag": "value_category_flag",
 }
 
 _MONTH_NUM = {m: i for i, m in enumerate(calendar.month_abbr) if m}

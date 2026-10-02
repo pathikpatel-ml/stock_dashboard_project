@@ -333,6 +333,8 @@ def parse_pl_history_extra(html: str) -> Optional[dict]:
         "profit_before_tax": _extract_annual_series(table, {"Profit before tax"}),
         "sales": _extract_annual_series(table, _SALES_ROW_LABELS),
         "net_profit": _extract_annual_series(table, _PROFIT_ROW_LABELS),
+        # 2026-10-02: Quality of Turnover red-flag check (Other Income / Total Revenue).
+        "other_income": _extract_annual_series(table, {"Other Income"}),
     }
 
 

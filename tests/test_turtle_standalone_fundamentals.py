@@ -554,6 +554,7 @@ PL_EXTRA_HTML = """
 <table>
 <tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th><th>TTM</th></tr>
 <tr><td>Sales+</td><td>1500</td><td>1700</td><td>1900</td><td>1950</td></tr>
+<tr><td>Other Income+</td><td>80</td><td>90</td><td>100</td><td>105</td></tr>
 <tr><td>Interest</td><td>50</td><td>60</td><td>70</td><td>75</td></tr>
 <tr><td>Profit before tax</td><td>300</td><td>350</td><td>400</td><td>410</td></tr>
 <tr><td>Net Profit+</td><td>200</td><td>230</td><td>260</td><td>270</td></tr>
@@ -617,6 +618,7 @@ def test_parse_pl_history_extra_excludes_ttm_and_gets_all_rows():
     assert result["eps"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [20.0, 23.0, 26.0])
     assert result["sales"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [1500.0, 1700.0, 1900.0])
     assert result["net_profit"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [200.0, 230.0, 260.0])
+    assert result["other_income"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [80.0, 90.0, 100.0])
 
 
 def test_parse_pl_history_extra_missing_section_returns_none():

@@ -341,9 +341,12 @@ def build_fundamentals_lookup(fundamentals_df: pd.DataFrame) -> Dict[str, Dict[s
         "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
         "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
         "interest_coverage": "Interest_Coverage", "interest_coverage_flag": "Interest_Coverage_Flag",
+        "quality_of_turnover_pct": "Quality_Of_Turnover_Pct", "quality_of_turnover_flag": "Quality_Of_Turnover_Flag",
         "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",
         "ps_current": "PS_Current", "ps_5y_avg": "PS_5Y_Avg", "ps_flag": "PS_Flag",
         "pcf_current": "PCF_Current", "pcf_5y_avg": "PCF_5Y_Avg", "pcf_flag": "PCF_Flag",
+        "growth_category_flag": "Growth_Category_Flag", "red_flag_category_flag": "Red_Flag_Category_Flag",
+        "value_category_flag": "Value_Category_Flag",
     }
 
     result: Dict[str, Dict[str, float]] = {}

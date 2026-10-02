@@ -63,10 +63,11 @@ def create_turtlequant_layout():
     return html.Div(className="section-container", children=[
         html.H3("⚡ Turtle Quant — Fundamental Quality Screen"),
         html.P(
-            "10-year book value/EPS/sales growth, ROCE, promoter holding trend, interest "
-            "coverage, and current valuation (P/B, P/S, P/CF) vs. each stock's own 5-year "
-            "average -- screener.in-sourced quality/valuation flags, filterable and sortable "
-            "like every other column.",
+            "Growth = Yes only if EVERY year's Book Value/EPS/Sales growth and ROCE clear 10% "
+            "(not just the overall average) and promoter holding hasn't declined. Red Flag = "
+            "Yes only if Quality of Turnover < 10% and Interest Coverage > 5 (Promoter Pledge "
+            "excluded -- no free data source exists for it yet). Value = Yes only if current "
+            "P/B, P/S, and P/CF are all cheaper than their own 5-year average.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),

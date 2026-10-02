@@ -18,11 +18,24 @@ from dash import ALL, Input, Output, State, dash_table, html
 import data_manager
 from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
-from . import screener as sc
 
+# 2026-10-02 redesign (per explicit user request): the dashboard shows only 3 aggregate
+# Yes/No columns -- Growth, Red Flag, Value -- instead of the 21 individual metrics. The
+# individual values still flow through the full pipeline (turtle_fundamentals,
+# turtlequant_signals_latest) for debugging/export, just not displayed here anymore.
+# See modules/turtle/quality_flags.py for every formula.
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price",
-] + sc.QUALITY_COLUMNS
+    "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
+]
+
+# The 3 category columns get short display names/ids on the table itself (the underlying
+# dataframe column stays the full name everywhere else in the pipeline).
+_CATEGORY_DISPLAY_NAMES = {
+    "Growth_Category_Flag": "Growth",
+    "Red_Flag_Category_Flag": "Red Flag",
+    "Value_Category_Flag": "Value",
+}
 
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
@@ -38,39 +51,23 @@ _COLUMN_TOOLTIPS = {
     ),
     "Industry": "More specific industry classification within the sector (Yahoo Finance).",
     "Current_Price": "Latest daily close price.",
-    # 2026-10-01: fundamental quality/valuation flags, from screener.in's Balance Sheet/Ratios/
-    # Cash Flows/Profit & Loss history (10 years where available) plus historical stock prices.
-    # See modules/turtle/quality_flags.py for every exact formula.
-    "Book_Value_CAGR_10Y": "10-year CAGR (%) of (Equity Capital + Reserves) -- total book value growth.",
-    "Book_Value_Growth_Flag": "True if Book Value CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
-    "EPS_CAGR_10Y": "10-year CAGR (%) of EPS (Rs).",
-    "EPS_Growth_Flag": "True if EPS CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
-    "ROCE_Avg_10Y": "Plain average of ROCE% over the last 10 years (not a per-year minimum).",
-    "ROCE_Flag": "True if ROCE Avg (10Y) > 10%. Blank if fewer than 5 years of data exist.",
-    "Sales_CAGR_10Y": "10-year CAGR (%) of Sales/Revenue.",
-    "Sales_Growth_Flag": "True if Sales CAGR (10Y) > 10%. Blank if fewer than 5 years of data exist.",
-    "Promoter_Holding_Change_3Y": (
-        "Percentage-point change in promoter holding over screener.in's real available window "
-        "(~3 years / 12 quarters -- NOT 10 years, no free 10-year promoter-holding source exists)."
+    "Growth": (
+        "Yes only if ALL 5 hold: Book Value/EPS/Sales growth > 10% in EVERY individual year "
+        "(not just the overall average), ROCE > 10% in EVERY individual year, and promoter "
+        "holding hasn't decreased over screener.in's real ~3-year window. A single weak year "
+        "in any metric, or missing data, makes this No."
     ),
-    "Promoter_Holding_Flag": "True if promoter holding is the same or higher than ~3 years ago.",
-    "Interest_Coverage": (
-        "Latest year's (Profit before tax + Interest) / Interest. Blank if the company has zero "
-        "interest expense (see the flag -- a debt-free company passes automatically)."
+    "Red Flag": (
+        "Yes only if BOTH hold: Quality of Turnover (Other Income / Total Revenue) < 10%, and "
+        "Interest Coverage > 5 (or zero debt). Promoter Pledge % is NOT included -- no free "
+        "data source exists for it on screener.in; a Moneycontrol-based version is a planned "
+        "follow-up, not yet built."
     ),
-    "Interest_Coverage_Flag": (
-        "True if Interest Coverage > 5, OR the company has zero interest expense (no debt to "
-        "service -- treated as an automatic pass, not insufficient data)."
+    "Value": (
+        "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Cash-Flow "
+        "are each cheaper than their own 5-year average -- i.e. the stock is cheap relative to "
+        "its own recent valuation history on all three measures."
     ),
-    "PB_Current": "Current Price-to-Book, computed the same derivation method as every historical year below (for a fair comparison).",
-    "PB_5Y_Avg": "Average Price-to-Book over the last 5 fiscal years.",
-    "PB_Flag": "True if the 5-year average P/B is higher than the current P/B -- i.e. the stock is cheaper than its own recent history.",
-    "PS_Current": "Current Price-to-Sales, same derivation method as the 5-year average.",
-    "PS_5Y_Avg": "Average Price-to-Sales over the last 5 fiscal years.",
-    "PS_Flag": "True if the 5-year average P/S is higher than the current P/S.",
-    "PCF_Current": "Current Price-to-(Operating)-Cash-Flow, same derivation method as the 5-year average.",
-    "PCF_5Y_Avg": "Average Price-to-Cash-Flow over the last 5 fiscal years.",
-    "PCF_Flag": "True if the 5-year average P/CF is higher than the current P/CF.",
 }
 
 
@@ -89,10 +86,11 @@ def _table(df):
         display_df["Current_Price"] = pd.to_numeric(
             display_df["Current_Price"], errors="coerce"
         ).round(0).astype("Int64")
-    _quality_numeric_cols = [c for c in sc.QUALITY_COLUMNS if not c.endswith("_Flag")]
-    for num_col in _quality_numeric_cols:
-        if num_col in display_df.columns:
-            display_df[num_col] = pd.to_numeric(display_df[num_col], errors="coerce").round(2)
+    for cat_col in _CATEGORY_DISPLAY_NAMES:
+        if cat_col in display_df.columns:
+            display_df[cat_col] = display_df[cat_col].map({True: "Yes", False: "No"}).fillna("No")
+    display_df = display_df.rename(columns=_CATEGORY_DISPLAY_NAMES)
+    cols = [_CATEGORY_DISPLAY_NAMES.get(c, c) for c in cols]
 
     return dash_table.DataTable(
         id="tq-signals-table",
@@ -116,6 +114,14 @@ def _table(df):
         style_header={"backgroundColor": "#f1f5f9", "fontWeight": "600"},
         style_data_conditional=[
             {"if": {"row_index": "odd"}, "backgroundColor": "#f8f9fa"},
+        ] + [
+            {"if": {"filter_query": f'{{{col}}} = "Yes"', "column_id": col},
+             "backgroundColor": "#d4edda", "color": "#155724"}
+            for col in _CATEGORY_DISPLAY_NAMES.values()
+        ] + [
+            {"if": {"filter_query": f'{{{col}}} = "No"', "column_id": col},
+             "backgroundColor": "#f8d7da", "color": "#721c24"}
+            for col in _CATEGORY_DISPLAY_NAMES.values()
         ],
     )
 

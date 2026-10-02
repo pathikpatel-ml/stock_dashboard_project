@@ -1,12 +1,21 @@
 """
-Pure functions for the Turtle Quant tab's fundamental quality/valuation flags (2026-10-01).
+Pure functions for the Turtle Quant tab's fundamental quality/valuation flags.
 
-Nine flags, requested by the user, computed from screener.in's per-symbol annual history
+2026-10-02 redesign (per explicit user request): the growth checks (Book Value/EPS/Sales
+growth, ROCE) no longer pass on an overall 10-year CAGR/average -- EVERY individual year in
+the trailing window must clear the threshold. Added Quality of Turnover (Other Income / Total
+Revenue < 10%) as a real, buildable red-flag condition. Added three category-aggregate flags
+(Growth / Red Flag / Value) that the dashboard displays instead of the 21 individual metrics.
+Promoter PLEDGE % is still NOT included anywhere here -- confirmed (again, 2026-10-02) that
+screener.in's free tier has no pledge data at all; Moneycontrol genuinely has it, but using it
+needs a separate NSE-symbol -> Moneycontrol-code mapping project across the full universe,
+deferred as its own follow-up task per the user's own choice. Red Flag is therefore decided
+from its other 2 conditions (Quality of Turnover, Interest Coverage) only.
+
+Computed from screener.in's per-symbol annual history
 (modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/parse_ratios_history/
 parse_cash_flow_history/parse_pl_history_extra/parse_promoter_holding_history) plus historical
-stock prices (for the three valuation-ratio checks). Two originally-requested criteria are
-deliberately NOT here: "quality turnover" (undefined -- the user will describe it later) and
-promoter PLEDGE % (confirmed live: no free data source exists on screener.in for this at all).
+stock prices (for the three valuation-ratio checks).
 
 All "10 years" mean "however many trailing annual columns screener.in actually has, capped at
 10" -- fewer than MIN_YEARS_FOR_GROWTH usable years -> None (insufficient data), never a
@@ -18,17 +27,21 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-# The 21 snake_case field names compute_all() returns -- shared here so callers (
+# The snake_case field names compute_all() returns -- shared here so callers (
 # modules/turtle/screener.py::build_fundamentals_lookup, modules/turtlequant/screener.py's
-# fundamentals-merge loop) don't each hardcode their own copy of this list.
+# fundamentals-merge loop) don't each hardcode their own copy of this list. The individual
+# metric fields (everything before the last 5) are kept for debugging/export even though the
+# dashboard only displays the 3 trailing category-aggregate flags.
 QUALITY_FIELD_NAMES = [
     "book_value_cagr_10y", "book_value_growth_flag", "eps_cagr_10y", "eps_growth_flag",
     "roce_avg_10y", "roce_flag", "sales_cagr_10y", "sales_growth_flag",
     "promoter_holding_change_3y", "promoter_holding_flag",
     "interest_coverage", "interest_coverage_flag",
+    "quality_of_turnover_pct", "quality_of_turnover_flag",
     "pb_current", "pb_5y_avg", "pb_flag",
     "ps_current", "ps_5y_avg", "ps_flag",
     "pcf_current", "pcf_5y_avg", "pcf_flag",
+    "growth_category_flag", "red_flag_category_flag", "value_category_flag",
 ]
 
 MAX_YEARS_FOR_GROWTH = 10
@@ -37,6 +50,7 @@ MIN_YEARS_FOR_GROWTH = 5  # fewer usable annual columns than this -> None, not a
 GROWTH_THRESHOLD_PCT = 10.0
 ROCE_THRESHOLD_PCT = 10.0
 INTEREST_COVERAGE_THRESHOLD = 5.0
+QUALITY_OF_TURNOVER_THRESHOLD_PCT = 10.0
 
 Series = Tuple[Optional[List[str]], List[float]]  # (periods, values), as the parsers return
 
@@ -82,16 +96,46 @@ def average(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
     return sum(window) / len(window)
 
 
-def growth_flag(cagr_pct: Optional[float], threshold_pct: float = GROWTH_THRESHOLD_PCT) -> Optional[bool]:
-    if cagr_pct is None:
+def yoy_growth_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
+                       min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[List[float]]:
+    """Year-over-year %% growth for each consecutive pair in the trailing ``max_years + 1`` raw
+    annual values (same windowing as ``cagr()``) -- i.e. up to ``max_years`` growth figures, one
+    per year. None if fewer than ``min_years + 1`` raw values exist, or any base value in the
+    window is non-positive (a growth RATE is undefined from a zero/negative base -- same
+    reasoning as ``cagr()``'s start/end guard, applied per-year here instead of start/end only).
+    """
+    values = _values_only(series)
+    if len(values) < min_years + 1:
         return None
-    return cagr_pct > threshold_pct
+    window = values[-(max_years + 1):]
+    growth = []
+    for i in range(len(window) - 1):
+        base, nxt = window[i], window[i + 1]
+        if base is None or nxt is None or base <= 0:
+            return None
+        growth.append((nxt / base - 1.0) * 100.0)
+    return growth
 
 
-def roce_flag(roce_avg_pct: Optional[float], threshold_pct: float = ROCE_THRESHOLD_PCT) -> Optional[bool]:
-    if roce_avg_pct is None:
+def level_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
+                  min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[List[float]]:
+    """The trailing ``max_years`` raw annual values as-is (no growth computation) -- used for
+    ROCE, where each year's own VALUE (not its growth) must clear the threshold. None if fewer
+    than ``min_years`` usable years exist."""
+    values = _values_only(series)
+    if len(values) < min_years:
         return None
-    return roce_avg_pct > threshold_pct
+    return values[-max_years:]
+
+
+def all_years_above_threshold(values: Optional[List[float]], threshold: float) -> Optional[bool]:
+    """True only if EVERY value in ``values`` exceeds ``threshold`` (2026-10-02 redesign: a
+    single weak year fails the whole metric, not just an overall average/CAGR). None if
+    ``values`` itself is None (insufficient underlying data -- propagated from
+    yoy_growth_values()/level_values()'s own None-for-insufficient-data contract)."""
+    if values is None:
+        return None
+    return all(v is not None and v > threshold for v in values)
 
 
 def interest_coverage(profit_before_tax: Optional[Series], interest: Optional[Series]) -> Optional[float]:
@@ -215,6 +259,63 @@ def valuation_flag(five_year_avg_ratio: Optional[float], current_ratio: Optional
     return five_year_avg_ratio > current_ratio
 
 
+def quality_of_turnover(other_income: Optional[Series], sales: Optional[Series]) -> Optional[float]:
+    """Latest common year's Other Income / (Sales + Other Income), as a percentage -- how much
+    of total revenue is non-operating (the user's own definition, 2026-10-02). None if either
+    series is missing, or they share no common period, or total revenue is zero."""
+    if other_income is None or sales is None:
+        return None
+    oi_periods, oi_values = other_income
+    sales_by_period = dict(zip(*sales))
+    for period, oi in zip(reversed(oi_periods), reversed(oi_values)):
+        s = sales_by_period.get(period)
+        if s is None or oi is None:
+            continue
+        total_revenue = s + oi
+        if total_revenue == 0:
+            return None
+        return (oi / total_revenue) * 100.0
+    return None
+
+
+def quality_of_turnover_flag(
+    qot_pct: Optional[float], threshold: float = QUALITY_OF_TURNOVER_THRESHOLD_PCT,
+) -> Optional[bool]:
+    if qot_pct is None:
+        return None
+    return qot_pct < threshold
+
+
+def _all_true(*flags: Optional[bool]) -> bool:
+    """True only if every flag is exactly True -- a None (insufficient data) or False both
+    count as "not fulfilled", matching the user's own framing for the 3 dashboard categories
+    ("No" if ANY condition is not fulfilled, 2026-10-02). Never returns None -- the dashboard
+    only has a Yes/No state, no third "unknown" bucket."""
+    return all(f is True for f in flags)
+
+
+def growth_category_flag(
+    book_value_growth_flag: Optional[bool], eps_growth_flag: Optional[bool],
+    roce_flag: Optional[bool], sales_growth_flag: Optional[bool],
+    promoter_holding_flag: Optional[bool],
+) -> bool:
+    return _all_true(book_value_growth_flag, eps_growth_flag, roce_flag, sales_growth_flag, promoter_holding_flag)
+
+
+def red_flag_category_flag(
+    quality_of_turnover_flag: Optional[bool], interest_coverage_flag: Optional[bool],
+) -> bool:
+    """Promoter Pledge is deliberately excluded -- confirmed unavailable on screener.in's free
+    tier (2026-10-01 and re-confirmed 2026-10-02). Moneycontrol has real pledge data but needs a
+    separate NSE-symbol -> Moneycontrol-code mapping across the full universe (no public API for
+    it) -- deferred as a follow-up, per the user's own choice (2026-10-02)."""
+    return _all_true(quality_of_turnover_flag, interest_coverage_flag)
+
+
+def value_category_flag(pb_flag: Optional[bool], ps_flag: Optional[bool], pcf_flag: Optional[bool]) -> bool:
+    return _all_true(pb_flag, ps_flag, pcf_flag)
+
+
 def _combine_totals(a: Optional[Series], b: Optional[Series]) -> Optional[Series]:
     """Sums two period-aligned series period-by-period (e.g. Equity Capital + Reserves = total
     book value) -- only periods present in BOTH inputs are kept, so a period missing from
@@ -255,10 +356,13 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     mapping for the valuation-ratio checks (the caller fetches these via yfinance; this module
     stays pure/I/O-free) and today's live current price.
 
-    Returns a flat dict of the 21 columns (9 flags + their 12 underlying numeric values --
-    interest coverage and the 3 promoter-holding-window fields don't have a separate "flag +
-    value" pair beyond what's already named). Every value is independently None-safe -- a
-    missing section for one metric never prevents the others from computing.
+    2026-10-02: Book Value/EPS/Sales growth and ROCE now require EVERY individual year in the
+    trailing window to clear the threshold (not just the overall CAGR/average) -- the CAGR/
+    average numeric fields are still computed and returned (useful for debugging/export) but no
+    longer determine their own flag. Adds Quality of Turnover (a real red-flag check) and three
+    category-aggregate flags (Growth/Red Flag/Value) -- the only 3 fields the dashboard
+    actually displays. Every value is independently None-safe -- a missing section for one
+    metric never prevents the others from computing.
     """
     balance_sheet = fetch_result.get("balance_sheet") or {}
     ratios = fetch_result.get("ratios") or {}
@@ -272,6 +376,7 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     net_profit = pl_extra.get("net_profit")
     interest = pl_extra.get("interest")
     pbt = pl_extra.get("profit_before_tax")
+    other_income = pl_extra.get("other_income")
     roce = ratios.get("roce_pct")
     cfo = cash_flow.get("cfo")
     promoter_pct = promoter_holding.get("promoter_pct")
@@ -281,6 +386,15 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     sales_cagr_10y = cagr(sales)
     roce_avg_10y = average(roce)
     coverage = interest_coverage(pbt, interest)
+
+    book_value_growth_flag = all_years_above_threshold(yoy_growth_values(book_value), GROWTH_THRESHOLD_PCT)
+    eps_growth_flag = all_years_above_threshold(yoy_growth_values(eps), GROWTH_THRESHOLD_PCT)
+    sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
+    roce_flag_value = all_years_above_threshold(level_values(roce), ROCE_THRESHOLD_PCT)
+    promoter_flag = promoter_holding_flag(promoter_pct)
+    interest_flag = interest_coverage_flag(coverage, interest)
+    qot_pct = quality_of_turnover(other_income, sales)
+    qot_flag = quality_of_turnover_flag(qot_pct)
 
     shares = shares_outstanding_by_year(net_profit, eps)
     book_value_per_share = per_share_by_year(book_value, shares)
@@ -302,26 +416,37 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     ps_current = _current_valuation_ratio(sales_per_share, current_price)
     pcf_current = _current_valuation_ratio(cfo_per_share, current_price)
 
+    pb_flag = valuation_flag(pb_5y_avg, pb_current)
+    ps_flag = valuation_flag(ps_5y_avg, ps_current)
+    pcf_flag = valuation_flag(pcf_5y_avg, pcf_current)
+
     return {
         "book_value_cagr_10y": book_value_cagr_10y,
-        "book_value_growth_flag": growth_flag(book_value_cagr_10y),
+        "book_value_growth_flag": book_value_growth_flag,
         "eps_cagr_10y": eps_cagr_10y,
-        "eps_growth_flag": growth_flag(eps_cagr_10y),
+        "eps_growth_flag": eps_growth_flag,
         "roce_avg_10y": roce_avg_10y,
-        "roce_flag": roce_flag(roce_avg_10y),
+        "roce_flag": roce_flag_value,
         "sales_cagr_10y": sales_cagr_10y,
-        "sales_growth_flag": growth_flag(sales_cagr_10y),
+        "sales_growth_flag": sales_growth_flag,
         "promoter_holding_change_3y": promoter_holding_change(promoter_pct),
-        "promoter_holding_flag": promoter_holding_flag(promoter_pct),
+        "promoter_holding_flag": promoter_flag,
         "interest_coverage": coverage,
-        "interest_coverage_flag": interest_coverage_flag(coverage, interest),
+        "interest_coverage_flag": interest_flag,
+        "quality_of_turnover_pct": qot_pct,
+        "quality_of_turnover_flag": qot_flag,
         "pb_current": pb_current,
         "pb_5y_avg": pb_5y_avg,
-        "pb_flag": valuation_flag(pb_5y_avg, pb_current),
+        "pb_flag": pb_flag,
         "ps_current": ps_current,
         "ps_5y_avg": ps_5y_avg,
-        "ps_flag": valuation_flag(ps_5y_avg, ps_current),
+        "ps_flag": ps_flag,
         "pcf_current": pcf_current,
         "pcf_5y_avg": pcf_5y_avg,
-        "pcf_flag": valuation_flag(pcf_5y_avg, pcf_current),
+        "pcf_flag": pcf_flag,
+        "growth_category_flag": growth_category_flag(
+            book_value_growth_flag, eps_growth_flag, roce_flag_value, sales_growth_flag, promoter_flag,
+        ),
+        "red_flag_category_flag": red_flag_category_flag(qot_flag, interest_flag),
+        "value_category_flag": value_category_flag(pb_flag, ps_flag, pcf_flag),
     }

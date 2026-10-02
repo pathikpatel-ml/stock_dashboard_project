@@ -138,6 +138,15 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     promoter_holding_flag       BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
+    -- 2026-10-02 additions: Quality of Turnover (Other Income / Total Revenue, a real red-flag
+    -- check) and 3 category-aggregate flags (Growth/Red Flag/Value) -- see
+    -- modules/turtle/quality_flags.py's module docstring for the full redesign: growth checks
+    -- now require EVERY individual year to clear the threshold, not just the overall CAGR/
+    -- average (those CAGR/average columns above are kept for debugging/export only). Promoter
+    -- Pledge is NOT included in red_flag_category_flag -- still unavailable on screener.in's
+    -- free tier; a Moneycontrol-based version is a deferred follow-up, not yet built.
+    quality_of_turnover_pct     DOUBLE PRECISION,
+    quality_of_turnover_flag    BOOLEAN,
     pb_current                  DOUBLE PRECISION,
     pb_5y_avg                   DOUBLE PRECISION,
     pb_flag                     BOOLEAN,
@@ -147,6 +156,9 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     pcf_current                 DOUBLE PRECISION,
     pcf_5y_avg                  DOUBLE PRECISION,
     pcf_flag                    BOOLEAN,
+    growth_category_flag        BOOLEAN,
+    red_flag_category_flag      BOOLEAN,
+    value_category_flag         BOOLEAN,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -253,6 +265,10 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     promoter_holding_flag       BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
+    -- 2026-10-02: Quality of Turnover + the 3 category-aggregate flags the dashboard actually
+    -- displays (Growth/Red Flag/Value) -- see turtle_fundamentals' own column comment above.
+    quality_of_turnover_pct     DOUBLE PRECISION,
+    quality_of_turnover_flag    BOOLEAN,
     pb_current                  DOUBLE PRECISION,
     pb_5y_avg                   DOUBLE PRECISION,
     pb_flag                     BOOLEAN,
@@ -262,6 +278,9 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     pcf_current                 DOUBLE PRECISION,
     pcf_5y_avg                  DOUBLE PRECISION,
     pcf_flag                    BOOLEAN,
+    growth_category_flag        BOOLEAN,
+    red_flag_category_flag      BOOLEAN,
+    value_category_flag         BOOLEAN,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
