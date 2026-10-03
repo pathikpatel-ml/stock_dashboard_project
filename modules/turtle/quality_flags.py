@@ -1,11 +1,18 @@
 """
 Pure functions for the Turtle Quant tab's fundamental quality/valuation flags.
 
-2026-10-02 redesign (per explicit user request): the growth checks (Book Value/EPS/Sales
-growth, ROE) no longer pass on an overall 10-year CAGR/average -- EVERY individual year in
-the trailing window must clear the threshold. Added Quality of Turnover (Other Income / Total
-Revenue < 10%) as a real, buildable red-flag condition. Added three category-aggregate flags
-(Growth / Red Flag / Value) that the dashboard displays instead of the 21+ individual metrics.
+2026-10-02 redesign: added Quality of Turnover (Other Income / Total Revenue < 10%) as a real,
+buildable red-flag condition. Added three category-aggregate flags (Growth / Red Flag / Value)
+that the dashboard displays instead of the 21+ individual metrics.
+
+Growth checks, CAGR/average-based (same day, tried stricter, then reverted): briefly required
+EVERY individual year in the trailing window to clear 10% (not just the overall CAGR/average),
+to catch lumpy multi-year trends a smooth average can hide. Confirmed live this was far too
+strict to be a usable screen -- only 3 of 2601 NSE stocks passed Growth_Category_Flag. Reverted
+per the user's own explicit call: Book Value/EPS/Sales growth now pass on their overall 10-year
+CAGR > 10%, and ROE passes on its 10-year average > 10%, same as every other averaged metric in
+this module (e.g. interest coverage, the P/B-P/S-P/CF 5-year averages). A single bad year (e.g.
+a COVID-year sales drop) no longer fails the whole metric by itself.
 
 Promoter PLEDGE %% (same day, later, then reverted): three different free sources were tried --
 NSE's own endpoint (caught serving stale data as current), Moneycontrol's per-symbol page (too
@@ -114,38 +121,6 @@ def average(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
     return sum(window) / len(window)
 
 
-def yoy_growth_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
-                       min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[List[float]]:
-    """Year-over-year %% growth for each consecutive pair in the trailing ``max_years + 1`` raw
-    annual values (same windowing as ``cagr()``) -- i.e. up to ``max_years`` growth figures, one
-    per year. None if fewer than ``min_years + 1`` raw values exist, or any base value in the
-    window is non-positive (a growth RATE is undefined from a zero/negative base -- same
-    reasoning as ``cagr()``'s start/end guard, applied per-year here instead of start/end only).
-    """
-    values = _values_only(series)
-    if len(values) < min_years + 1:
-        return None
-    window = values[-(max_years + 1):]
-    growth = []
-    for i in range(len(window) - 1):
-        base, nxt = window[i], window[i + 1]
-        if base is None or nxt is None or base <= 0:
-            return None
-        growth.append((nxt / base - 1.0) * 100.0)
-    return growth
-
-
-def level_values(series: Optional[Series], max_years: int = MAX_YEARS_FOR_GROWTH,
-                  min_years: int = MIN_YEARS_FOR_GROWTH) -> Optional[List[float]]:
-    """The trailing ``max_years`` raw annual values as-is (no growth computation) -- used for
-    ROE, where each year's own VALUE (not its growth) must clear the threshold. None if fewer
-    than ``min_years`` usable years exist."""
-    values = _values_only(series)
-    if len(values) < min_years:
-        return None
-    return values[-max_years:]
-
-
 def roe_by_year(net_profit: Optional[Series], book_value: Optional[Series]) -> Optional[Series]:
     """Derived ROE (%%) per year = Net Profit / (Equity Capital + Reserves) -- NOT screener.in's
     own "ROCE %%"/"ROE %%" row (see module docstring for why: that row is ROCE for non-financial
@@ -168,14 +143,13 @@ def roe_by_year(net_profit: Optional[Series], book_value: Optional[Series]) -> O
     return (periods, values) if periods else None
 
 
-def all_years_above_threshold(values: Optional[List[float]], threshold: float) -> Optional[bool]:
-    """True only if EVERY value in ``values`` exceeds ``threshold`` (2026-10-02 redesign: a
-    single weak year fails the whole metric, not just an overall average/CAGR). None if
-    ``values`` itself is None (insufficient underlying data -- propagated from
-    yoy_growth_values()/level_values()'s own None-for-insufficient-data contract)."""
-    if values is None:
+def growth_flag(cagr_or_avg_value: Optional[float], threshold: float) -> Optional[bool]:
+    """True if an overall CAGR (Book Value/EPS/Sales) or average (ROE) value exceeds
+    ``threshold``. None if the value itself couldn't be computed -- insufficient history, or
+    (CAGR specifically) a non-positive start/end year; see ``cagr()``."""
+    if cagr_or_avg_value is None:
         return None
-    return all(v is not None and v > threshold for v in values)
+    return cagr_or_avg_value > threshold
 
 
 def interest_coverage(profit_before_tax: Optional[Series], interest: Optional[Series]) -> Optional[float]:
@@ -414,10 +388,9 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     the valuation-ratio checks (the caller fetches these via yfinance; this module stays
     pure/I/O-free) and today's live current price.
 
-    2026-10-02: Book Value/EPS/Sales growth and ROE now require EVERY individual year in the
-    trailing window to clear the threshold (not just the overall CAGR/average) -- the CAGR/
-    average numeric fields are still computed and returned (useful for debugging/export) but no
-    longer determine their own flag. Adds Quality of Turnover (a real red-flag check) and three
+    2026-10-02: Book Value/EPS/Sales growth and ROE pass on their overall 10-year CAGR/average
+    clearing the threshold (see module docstring for why an EVERY-individual-year version was
+    tried and reverted the same day). Adds Quality of Turnover (a real red-flag check) and three
     category-aggregate flags (Growth/Red Flag/Value) -- the only 3 fields the dashboard
     actually displays. Every value is independently None-safe -- a missing section for one
     metric never prevents the others from computing.
@@ -450,10 +423,10 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     roe_avg_10y = average(roe)
     coverage = interest_coverage(pbt, interest)
 
-    book_value_growth_flag = all_years_above_threshold(yoy_growth_values(book_value), GROWTH_THRESHOLD_PCT)
-    eps_growth_flag = all_years_above_threshold(yoy_growth_values(eps), GROWTH_THRESHOLD_PCT)
-    sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
-    roe_flag_value = all_years_above_threshold(level_values(roe), ROE_THRESHOLD_PCT)
+    book_value_growth_flag = growth_flag(book_value_cagr_10y, GROWTH_THRESHOLD_PCT)
+    eps_growth_flag = growth_flag(eps_cagr_10y, GROWTH_THRESHOLD_PCT)
+    sales_growth_flag = growth_flag(sales_cagr_10y, GROWTH_THRESHOLD_PCT)
+    roe_flag_value = growth_flag(roe_avg_10y, ROE_THRESHOLD_PCT)
     promoter_flag = promoter_holding_flag(promoter_pct)
     interest_flag = interest_coverage_flag(coverage, interest)
     qot_pct = quality_of_turnover(other_income, sales)
