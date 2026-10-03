@@ -117,11 +117,6 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     sector                  TEXT,
     broad_industry          TEXT,
     industry                TEXT,
-    -- BSE scrip code (2026-10-02), e.g. "500325" for RELIANCE -- parsed from the same
-    -- already-fetched screener.in page. Used to join this symbol against screener.in's own
-    -- SCREENING query results for Promoter Pledge (see modules/turtle/screener_in_login.py),
-    -- which link each row by BSE code, not NSE symbol.
-    bse_code                TEXT,
     -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- 10-year CAGR/ROCE
     -- from screener.in's Balance Sheet/Ratios/Cash Flows/Profit & Loss history (same page,
     -- zero extra screener.in requests), plus one extra yfinance monthly-price fetch per symbol
@@ -144,21 +139,17 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
     promoter_holding_flag       BOOLEAN,
-    -- Promoter Pledge (2026-10-02) -- sourced from NSE's own corporate-pledgedata API (the
-    -- primary regulatory source), not screener.in (confirmed zero pledge data on its free
-    -- tier). Keyed by the exact NSE symbol already used everywhere -- see
-    -- modules/turtle/nse_shareholding.py.
-    promoter_pledge_pct         DOUBLE PRECISION,
-    promoter_pledge_flag        BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
     -- 2026-10-02 additions: Quality of Turnover (Other Income / Total Revenue, a real red-flag
     -- check) and 3 category-aggregate flags (Growth/Red Flag/Value) -- see
     -- modules/turtle/quality_flags.py's module docstring for the full redesign: growth checks
     -- now require EVERY individual year to clear the threshold, not just the overall CAGR/
-    -- average (those CAGR/average columns above are kept for debugging/export only). Promoter
-    -- Pledge is NOT included in red_flag_category_flag -- still unavailable on screener.in's
-    -- free tier; a Moneycontrol-based version is a deferred follow-up, not yet built.
+    -- average (those CAGR/average columns above are kept for debugging/export only). Red Flag
+    -- is back to its original 2 conditions (Quality of Turnover, Interest Coverage) -- Promoter
+    -- Pledge was tried via three different free sources in turn (NSE, Moneycontrol, screener.in)
+    -- and ultimately dropped entirely per the user's own final decision; see
+    -- modules/turtle/quality_flags.py's module docstring for the full history.
     quality_of_turnover_pct     DOUBLE PRECISION,
     quality_of_turnover_flag    BOOLEAN,
     pb_current                  DOUBLE PRECISION,
@@ -280,12 +271,6 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
     promoter_holding_flag       BOOLEAN,
-    -- Promoter Pledge (2026-10-02) -- sourced from NSE's own corporate-pledgedata API (the
-    -- primary regulatory source), not screener.in (confirmed zero pledge data on its free
-    -- tier). Keyed by the exact NSE symbol already used everywhere -- see
-    -- modules/turtle/nse_shareholding.py.
-    promoter_pledge_pct         DOUBLE PRECISION,
-    promoter_pledge_flag        BOOLEAN,
     interest_coverage           DOUBLE PRECISION,
     interest_coverage_flag      BOOLEAN,
     -- 2026-10-02: Quality of Turnover + the 3 category-aggregate flags the dashboard actually

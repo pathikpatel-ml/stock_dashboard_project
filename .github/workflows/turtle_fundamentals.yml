@@ -22,8 +22,6 @@ jobs:
     - name: Generate Turtle standalone fundamentals (screener.in)
       env:
         MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
-        SCREENER_IN_EMAIL: ${{ secrets.SCREENER_IN_EMAIL }}
-        SCREENER_IN_PASSWORD: ${{ secrets.SCREENER_IN_PASSWORD }}
         # 2026-10-02: unbuffered stdout -- a killed run previously showed ZERO log output for
         # its entire 3-hour lifetime because Python block-buffers stdout when it isn't a
         # terminal (exactly GitHub Actions' case), so a forced kill loses everything still

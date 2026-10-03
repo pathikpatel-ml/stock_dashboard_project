@@ -28,7 +28,6 @@ QUALITY_COLUMNS = [
     "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
     "ROE_Avg_10Y", "ROE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
     "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
-    "Promoter_Pledge_Pct", "Promoter_Pledge_Flag",
     "Interest_Coverage", "Interest_Coverage_Flag",
     "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
     "PB_Current", "PB_5Y_Avg", "PB_Flag",

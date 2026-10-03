@@ -58,9 +58,8 @@ _COLUMN_TOOLTIPS = {
         "in any metric, or missing data, makes this No."
     ),
     "Red Flag": (
-        "Yes only if ALL 3 hold: Promoter Pledge < 1% of promoter holding (sourced from NSE's "
-        "own regulatory pledge disclosure, not screener.in), Quality of Turnover (Other Income "
-        "/ Total Revenue) < 10%, and Interest Coverage > 5 (or zero debt)."
+        "Yes only if BOTH hold: Quality of Turnover (Other Income / Total Revenue) < 10%, "
+        "and Interest Coverage > 5 (or zero debt)."
     ),
     "Value": (
         "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Cash-Flow "

@@ -7,12 +7,14 @@ the trailing window must clear the threshold. Added Quality of Turnover (Other I
 Revenue < 10%) as a real, buildable red-flag condition. Added three category-aggregate flags
 (Growth / Red Flag / Value) that the dashboard displays instead of the 21+ individual metrics.
 
-Promoter PLEDGE % (same day, later): screener.in's free tier genuinely has no pledge data, but
-NSE itself -- the primary regulatory source -- publishes it directly via
-``modules/turtle/nse_shareholding.py``, keyed by the exact same NSE symbol already used
-everywhere in this app (no Moneycontrol-style code-mapping project needed after all). Red Flag
-now includes all 3 of the user's originally-requested conditions: Promoter Pledge, Quality of
-Turnover, Interest Coverage.
+Promoter PLEDGE %% (same day, later, then reverted): three different free sources were tried --
+NSE's own endpoint (caught serving stale data as current), Moneycontrol's per-symbol page (too
+slow/flaky at full-universe scale), and screener.in's own login-gated screening query (data was
+accurate, but fetching it on top of everything else pushed a production batch run into a yfinance
+reliability issue that cost 3 wasted full-universe runs in one day -- see
+modules/breakout/data_feed.py's hard-timeout fix). Per the user's own final decision (2026-10-02),
+Promoter Pledge is dropped entirely -- Red Flag is back to its original 2 conditions: Quality of
+Turnover and Interest Coverage.
 
 ROE instead of ROCE (same day, later still): screener.in's free "Ratios" history table only has
 ROCE% for non-financial companies and ONLY ROE% for banks/NBFCs (never both) -- using
@@ -27,7 +29,7 @@ is no longer used anywhere in this pipeline.
 
 Computed from screener.in's per-symbol annual history
 (modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/
-parse_cash_flow_history/parse_pl_history_extra) plus NSE's own promoter-holding/pledge data
+parse_cash_flow_history/parse_pl_history_extra) plus NSE's own promoter-holding data
 (modules/turtle/nse_shareholding.py) plus historical stock prices (for the three valuation-ratio
 checks).
 
@@ -51,7 +53,6 @@ QUALITY_FIELD_NAMES = [
     "book_value_cagr_10y", "book_value_growth_flag", "eps_cagr_10y", "eps_growth_flag",
     "roe_avg_10y", "roe_flag", "sales_cagr_10y", "sales_growth_flag",
     "promoter_holding_change_3y", "promoter_holding_flag",
-    "promoter_pledge_pct", "promoter_pledge_flag",
     "interest_coverage", "interest_coverage_flag",
     "quality_of_turnover_pct", "quality_of_turnover_flag",
     "pb_current", "pb_5y_avg", "pb_flag",
@@ -67,7 +68,6 @@ GROWTH_THRESHOLD_PCT = 10.0
 ROE_THRESHOLD_PCT = 10.0
 INTEREST_COVERAGE_THRESHOLD = 5.0
 QUALITY_OF_TURNOVER_THRESHOLD_PCT = 10.0
-PROMOTER_PLEDGE_THRESHOLD_PCT = 1.0
 PROMOTER_HOLDING_DECLINE_TOLERANCE_PCT = 5.0
 
 Series = Tuple[Optional[List[str]], List[float]]  # (periods, values), as the parsers return
@@ -252,19 +252,6 @@ def promoter_holding_change(promoter_pct: Optional[Series]) -> Optional[float]:
     return values[-1] - values[0]
 
 
-def promoter_pledge_flag(
-    pledge_pct: Optional[float], threshold: float = PROMOTER_PLEDGE_THRESHOLD_PCT,
-) -> Optional[bool]:
-    """True if promoter-pledge %% (of the promoter's OWN holding -- see
-    modules/turtle/nse_shareholding.py's module docstring for the exact definition and why it's
-    NOT the same as "%% of total shares") is below ``threshold``. None only if the pledge %%
-    itself couldn't be determined at all (a real NSE fetch failure) -- a genuine 0%% (no pledge
-    disclosure on file) is a normal input here, not a missing-data case."""
-    if pledge_pct is None:
-        return None
-    return pledge_pct < threshold
-
-
 def shares_outstanding_by_year(net_profit: Optional[Series], eps: Optional[Series]) -> Dict[str, float]:
     """Derives shares outstanding (in the SAME units as net_profit, i.e. crore-of-shares if
     net_profit is in Rs Crore) for each period, as ``net_profit / eps`` -- avoids needing to
@@ -374,16 +361,12 @@ def growth_category_flag(
 
 
 def red_flag_category_flag(
-    promoter_pledge_flag: Optional[bool], quality_of_turnover_flag: Optional[bool],
-    interest_coverage_flag: Optional[bool],
+    quality_of_turnover_flag: Optional[bool], interest_coverage_flag: Optional[bool],
 ) -> bool:
-    """All 3 of the user's originally-requested Red Flag conditions, now all genuinely buildable
-    (2026-10-02): Promoter Pledge was initially excluded -- screener.in's free tier has no pledge
-    data at all -- but NSE itself (the primary regulatory source) publishes it directly, keyed by
-    the same NSE symbol already used everywhere in this app (see
-    modules/turtle/nse_shareholding.py::fetch_promoter_pledge_pct). No separate
-    Moneycontrol-code mapping project was needed after all."""
-    return _all_true(promoter_pledge_flag, quality_of_turnover_flag, interest_coverage_flag)
+    """Red Flag's original 2 conditions (2026-10-02): Promoter Pledge was tried via three
+    different free sources in turn and ultimately dropped per the user's own final decision --
+    see the module docstring above for the full history."""
+    return _all_true(quality_of_turnover_flag, interest_coverage_flag)
 
 
 def value_category_flag(pb_flag: Optional[bool], ps_flag: Optional[bool], pcf_flag: Optional[bool]) -> bool:
@@ -426,7 +409,7 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     ``generate_turtle_fundamentals.py`` writes to ``turtle_fundamentals`` -- one call per
     symbol, given that symbol's raw ``standalone_fundamentals.fetch_profit_and_loss()`` result
     (which carries ``balance_sheet``/``cash_flow``/``pl_extra``/``promoter_holding`` -- see that
-    function's docstring), ``nse_promoter_holding``/``pledge_pct`` merged in by the caller
+    function's docstring), ``nse_promoter_holding`` merged in by the caller
     (see ``modules/turtle/nse_shareholding.py``), plus a period-label -> stock-price mapping for
     the valuation-ratio checks (the caller fetches these via yfinance; this module stays
     pure/I/O-free) and today's live current price.
@@ -460,13 +443,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     # source, not a secondary scrape. Falls back to screener.in's series only if the NSE fetch
     # itself failed for this symbol (see generate_turtle_fundamentals.py's fetch_one()).
     promoter_pct = fetch_result.get("nse_promoter_holding") or promoter_holding.get("promoter_pct")
-    # Pledge is NOT computed here -- it's filled in by a separate post-processing pass in
-    # generate_turtle_fundamentals.py (screener.in's own login-gated screening query covers the
-    # whole universe in ~55 paginated requests, far more efficient than a per-symbol fetch; see
-    # modules/turtle/screener_in_login.py). ``fetch_result`` simply won't have this key during
-    # the main per-symbol pass, so pledge_pct/flag/red_flag_category_flag all correctly compute
-    # as None/False here and get overwritten afterward once the real value is known.
-    pledge_pct = fetch_result.get("pledge_pct")
 
     book_value_cagr_10y = cagr(book_value)
     eps_cagr_10y = cagr(eps)
@@ -479,7 +455,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
     roe_flag_value = all_years_above_threshold(level_values(roe), ROE_THRESHOLD_PCT)
     promoter_flag = promoter_holding_flag(promoter_pct)
-    pledge_flag = promoter_pledge_flag(pledge_pct)
     interest_flag = interest_coverage_flag(coverage, interest)
     qot_pct = quality_of_turnover(other_income, sales)
     qot_flag = quality_of_turnover_flag(qot_pct)
@@ -519,8 +494,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "sales_growth_flag": sales_growth_flag,
         "promoter_holding_change_3y": promoter_holding_change(promoter_pct),
         "promoter_holding_flag": promoter_flag,
-        "promoter_pledge_pct": pledge_pct,
-        "promoter_pledge_flag": pledge_flag,
         "interest_coverage": coverage,
         "interest_coverage_flag": interest_flag,
         "quality_of_turnover_pct": qot_pct,
@@ -537,6 +510,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "growth_category_flag": growth_category_flag(
             book_value_growth_flag, eps_growth_flag, roe_flag_value, sales_growth_flag, promoter_flag,
         ),
-        "red_flag_category_flag": red_flag_category_flag(pledge_flag, qot_flag, interest_flag),
+        "red_flag_category_flag": red_flag_category_flag(qot_flag, interest_flag),
         "value_category_flag": value_category_flag(pb_flag, ps_flag, pcf_flag),
     }

@@ -98,7 +98,6 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     "roe_avg_10y": "ROE_Avg_10Y", "roe_flag": "ROE_Flag",
     "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
     "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
-    "promoter_pledge_pct": "Promoter_Pledge_Pct", "promoter_pledge_flag": "Promoter_Pledge_Flag",
     "interest_coverage": "Interest_Coverage", "interest_coverage_flag": "Interest_Coverage_Flag",
     "quality_of_turnover_pct": "Quality_Of_Turnover_Pct", "quality_of_turnover_flag": "Quality_Of_Turnover_Flag",
     "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",

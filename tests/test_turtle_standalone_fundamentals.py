@@ -602,15 +602,6 @@ def test_parse_pl_history_extra_missing_section_returns_none():
     assert sf.parse_pl_history_extra(NO_PL_SECTION_HTML) is None
 
 
-def test_parse_bse_code_hand_computed():
-    html = '<a>BSE:             500325           </a>'
-    assert sf.parse_bse_code(html) == "500325"
-
-
-def test_parse_bse_code_none_when_absent():
-    assert sf.parse_bse_code("<html><body>no bse code here</body></html>") is None
-
-
 def test_parse_promoter_holding_history_handles_button_label_and_percent():
     result = sf.parse_promoter_holding_history(PROMOTER_HOLDING_HTML)
     assert result["promoter_pct"] == (["Sep 2024", "Dec 2024", "Mar 2025"], [45.0, 45.5, 46.0])

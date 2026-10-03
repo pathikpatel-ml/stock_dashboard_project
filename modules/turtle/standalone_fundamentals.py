@@ -373,20 +373,6 @@ def parse_sector_classification(html: str) -> Optional[dict]:
     return result
 
 
-_BSE_CODE_RE = re.compile(r"BSE:\s*(\d{5,6})")
-
-
-def parse_bse_code(html: str) -> Optional[str]:
-    """Extract the company's BSE scrip code (e.g. "500325" for RELIANCE) from the "BSE: XXXXXX"
-    link in the page header -- present on the same already-fetched page used for every other
-    quality-flag field, zero extra network cost. 2026-10-02: needed to join this symbol against
-    screener.in's own SCREENING query results (modules/turtle/screener_in_login.py), which link
-    each row by BSE code, not NSE symbol. None if not found (not every company has this tag
-    rendered, or the page has no usable data at all)."""
-    m = _BSE_CODE_RE.search(html)
-    return m.group(1) if m else None
-
-
 def resolve_screener_slug(symbol: str, session: Optional[requests.Session] = None) -> Optional[str]:
     """Look up ``symbol``'s screener.in slug via their company-search API, for the cases where
     the NSE ticker doesn't match the slug 1:1 (renames etc. -- e.g. ZOMATO -> ETERNAL). Returns
@@ -488,7 +474,6 @@ def fetch_profit_and_loss(
                                 result["cash_flow"] = parse_cash_flow_history(resp.text)
                                 result["pl_extra"] = parse_pl_history_extra(resp.text)
                                 result["promoter_holding"] = parse_promoter_holding_history(resp.text)
-                                result["bse_code"] = parse_bse_code(resp.text)
                                 return result
                             break  # page loaded fine, just no usable data -- try next URL/candidate
                     except Exception:

@@ -16,10 +16,10 @@ This module ONLY covers promoter HOLDING now. An earlier version also covered pr
 via NSE's ``/api/corporate-pledgedata`` -- removed 2026-10-02 after it was caught returning
 stale data as if current (verified live: showed Suzlon at a historical 59.37%% pledge, via a
 CDN-cached snapshot, when the real current figure -- independently confirmed -- is 0%%, fully
-resolved). A Moneycontrol-based replacement was also tried and rejected (accurate data, but
-~50%% of requests hit a 20s timeout before succeeding on retry, making a full-universe run take
-an estimated ~12 hours). Promoter Pledge is now sourced from screener.in's own login-gated
-screening query instead -- see modules/turtle/screener_in_login.py.
+resolved). A Moneycontrol-based replacement and a screener.in login-gated screening query were
+also each tried in turn and ultimately dropped entirely per the user's own final decision
+(2026-10-02) -- Promoter Pledge is no longer computed anywhere in this pipeline; see
+modules/turtle/quality_flags.py's module docstring for the full history.
 """
 from __future__ import annotations
 

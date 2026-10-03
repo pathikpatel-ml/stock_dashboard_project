@@ -355,33 +355,14 @@ def test_growth_category_flag_false_when_any_is_none():
     assert qf.growth_category_flag(True, True, None, True, True) is False
 
 
-def test_red_flag_category_flag_true_when_all_three_pass():
-    assert qf.red_flag_category_flag(True, True, True) is True
+def test_red_flag_category_flag_true_when_both_pass():
+    assert qf.red_flag_category_flag(True, True) is True
 
 
-def test_red_flag_category_flag_false_when_any_fails_or_missing():
-    assert qf.red_flag_category_flag(False, True, True) is False
-    assert qf.red_flag_category_flag(True, False, True) is False
-    assert qf.red_flag_category_flag(True, True, False) is False
-    assert qf.red_flag_category_flag(None, True, True) is False
-
-
-# ---------------------------------------------------------------------------
-# promoter_pledge_flag (2026-10-02, sourced from NSE's own pledge disclosure --
-# modules/turtle/nse_shareholding.py)
-# ---------------------------------------------------------------------------
-def test_promoter_pledge_flag_boundary():
-    assert qf.promoter_pledge_flag(0.99) is True
-    assert qf.promoter_pledge_flag(1.0) is False
-    assert qf.promoter_pledge_flag(1.01) is False
-
-
-def test_promoter_pledge_flag_zero_pledge_passes():
-    assert qf.promoter_pledge_flag(0.0) is True
-
-
-def test_promoter_pledge_flag_none_passthrough():
-    assert qf.promoter_pledge_flag(None) is None
+def test_red_flag_category_flag_false_when_either_fails_or_missing():
+    assert qf.red_flag_category_flag(False, True) is False
+    assert qf.red_flag_category_flag(True, False) is False
+    assert qf.red_flag_category_flag(None, True) is False
 
 
 def test_value_category_flag_true_when_all_three_pass():
