@@ -24,8 +24,15 @@ from modules.turtle.compute import filter_by_index
 # individual values still flow through the full pipeline (turtle_fundamentals,
 # turtlequant_signals_latest) for debugging/export, just not displayed here anymore.
 # See modules/turtle/quality_flags.py for every formula.
+#
+# 2026-10-05: added Buy_Sell_Flag, a dashboard-only derived column (computed here, not in the
+# batch pipeline/DB -- it's a pure function of the 3 category flags already present, so there's
+# nothing to gain by persisting it) -- "Buy" only if all 3 category flags are Yes, else "Sell".
+# Placed immediately before Growth per explicit request, so it reads as the headline verdict
+# with the 3 underlying flags right after it for the "why".
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price",
+    "Buy_Sell_Flag",
     "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
@@ -36,6 +43,20 @@ _CATEGORY_DISPLAY_NAMES = {
     "Red_Flag_Category_Flag": "Red Flag",
     "Value_Category_Flag": "Value",
 }
+
+# Buy_Sell_Flag is already a "Buy"/"Sell" string (not a bool), so it's renamed separately from
+# the True/False -> Yes/No columns above.
+_EXTRA_DISPLAY_NAMES = {"Buy_Sell_Flag": "Buy/Sell"}
+
+# Checkbox filter options (2026-10-05): lets the user tick any combination of the 3 category
+# flags to narrow the table to only stocks where EVERY ticked flag is Yes -- an AND filter,
+# not a replacement for Buy_Sell_Flag's own all-3 condition (a user might want e.g. "show me
+# Growth=Yes stocks regardless of Value", which Buy/Sell alone can't express).
+FLAG_FILTER_OPTIONS = [
+    {"label": " Growth", "value": "Growth_Category_Flag"},
+    {"label": " Red Flag", "value": "Red_Flag_Category_Flag"},
+    {"label": " Value", "value": "Value_Category_Flag"},
+]
 
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
@@ -51,6 +72,10 @@ _COLUMN_TOOLTIPS = {
     ),
     "Industry": "More specific industry classification within the sector (Yahoo Finance).",
     "Current_Price": "Latest daily close price.",
+    "Buy/Sell": (
+        "Buy only if Growth, Red Flag, and Value are ALL Yes. Sell otherwise (including when "
+        "any of the 3 is No or couldn't be computed from missing data)."
+    ),
     "Growth": (
         "Yes only if ALL 5 hold: Book Value/EPS/Sales growth > 10% in EVERY individual year "
         "(not just the overall average), ROE > 10% in EVERY individual year, and promoter "
@@ -87,8 +112,9 @@ def _table(df):
     for cat_col in _CATEGORY_DISPLAY_NAMES:
         if cat_col in display_df.columns:
             display_df[cat_col] = display_df[cat_col].map({True: "Yes", False: "No"}).fillna("No")
-    display_df = display_df.rename(columns=_CATEGORY_DISPLAY_NAMES)
-    cols = [_CATEGORY_DISPLAY_NAMES.get(c, c) for c in cols]
+    all_display_names = {**_CATEGORY_DISPLAY_NAMES, **_EXTRA_DISPLAY_NAMES}
+    display_df = display_df.rename(columns=all_display_names)
+    cols = [all_display_names.get(c, c) for c in cols]
 
     return dash_table.DataTable(
         id="tq-signals-table",
@@ -120,6 +146,11 @@ def _table(df):
             {"if": {"filter_query": f'{{{col}}} = "No"', "column_id": col},
              "backgroundColor": "#f8d7da", "color": "#721c24"}
             for col in _CATEGORY_DISPLAY_NAMES.values()
+        ] + [
+            {"if": {"filter_query": '{Buy/Sell} = "Buy"', "column_id": "Buy/Sell"},
+             "backgroundColor": "#28a745", "color": "white", "fontWeight": "600"},
+            {"if": {"filter_query": '{Buy/Sell} = "Sell"', "column_id": "Buy/Sell"},
+             "backgroundColor": "#dc3545", "color": "white", "fontWeight": "600"},
         ],
     )
 
@@ -188,11 +219,13 @@ def register_turtlequant_callbacks(app):
         [Input("tq-indices-filter", "value"),
          Input("tq-sector-filter", "value"),
          Input("tq-stock-filter", "value"),
+         Input("tq-flag-filter", "value"),
          Input("tq-auto-refresh-interval", "n_intervals"),
          Input("tq-holdings-tags", "children")],  # re-render immediately on add/remove
         prevent_initial_call=False,
     )
-    def render_turtlequant(indices_value, sector_value, stock_value, _n_intervals, _holdings_tags):
+    def render_turtlequant(indices_value, sector_value, stock_value, flag_filter_values,
+                            _n_intervals, _holdings_tags):
         # Re-sync on every render, not just at process boot -- same reasoning as
         # modules/turtle/callbacks.py::render_turtle.
         data_manager.load_turtlequant_data_on_startup()
@@ -209,12 +242,36 @@ def register_turtlequant_callbacks(app):
                 _staleness_banner(loaded_date),
             )
 
+        # Buy only if Growth, Red Flag, and Value are ALL Yes -- missing/None treated as not
+        # fulfilled, same "missing data = No" convention as _all_true() in quality_flags.py.
+        # A whole column can be absent (e.g. an older local-fallback CSV without these fields),
+        # in which case pd.Series(False, index=df.index) gives a real all-False Series rather
+        # than the bare bool a plain df.get(col, False) would return (which .fillna() can't
+        # call).
+        def _flag_series(col):
+            # .eq(True) (not .fillna(False)) -- None/NaN compares unequal to True, giving a
+            # clean all-bool Series directly with no pandas dtype-downcast warning.
+            if col in df.columns:
+                return df[col].eq(True)
+            return pd.Series(False, index=df.index)
+
+        all_three_yes = (
+            _flag_series("Growth_Category_Flag")
+            & _flag_series("Red_Flag_Category_Flag")
+            & _flag_series("Value_Category_Flag")
+        )
+        df["Buy_Sell_Flag"] = all_three_yes.map({True: "Buy", False: "Sell"})
+
         categories_df = data_manager.nse_categories_df
         categories_map = (
             dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
             if not categories_df.empty else {}
         )
         df["Indices"] = df["Symbol"].map(categories_map)
+
+        for flag_col in (flag_filter_values or []):
+            if flag_col in df.columns:
+                df = df[df[flag_col] == True]  # noqa: E712 -- explicit True, not truthy-check (None/False both excluded)
 
         if indices_value == "My Holdings":
             user_id = _current_user_id()

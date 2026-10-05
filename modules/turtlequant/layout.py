@@ -12,6 +12,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 import data_manager
+from modules.turtlequant import callbacks
 
 INDEX_OPTIONS = ["All", "My Holdings", "NIFTY 50", "NIFTY 100", "NIFTY 200"]
 
@@ -63,6 +64,7 @@ def create_turtlequant_layout():
     return html.Div(className="section-container", children=[
         html.H3("⚡ Turtle Quant — Fundamental Quality Screen"),
         html.P(
+            "Buy/Sell = Buy only if Growth, Red Flag, and Value are ALL Yes, else Sell. "
             "Growth = Yes only if EVERY year's Book Value/EPS/Sales growth and ROE clear 10% "
             "(not just the overall average) and promoter holding hasn't declined. Red Flag = "
             "Yes only if Quality of Turnover < 10% and Interest Coverage > 5. Value = Yes only "
@@ -105,6 +107,16 @@ def create_turtlequant_layout():
                     value="All",
                     clearable=False,
                     style={"width": "560px"},
+                ),
+            ]),
+            html.Div(className="filter-group", children=[
+                html.Label("Filter by flag:", style={"fontWeight": "500", "fontSize": "13px"}),
+                dcc.Checklist(
+                    id="tq-flag-filter",
+                    options=callbacks.FLAG_FILTER_OPTIONS,
+                    value=[],
+                    inline=True,
+                    inputStyle={"marginRight": "4px", "marginLeft": "10px"},
                 ),
             ]),
         ]),
