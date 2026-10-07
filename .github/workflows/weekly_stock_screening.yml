@@ -2,8 +2,9 @@ name: Weekly Stock Screening
 
 on:
   schedule:
-    # Run every Sunday at 6:00 AM IST (00:30 UTC)
-    - cron: '30 0 * * 0'
+    # Run every Sunday at ~6:07 AM IST (00:37 UTC). 2026-10-07: moved off the round :30
+    # minute -- see daily_gtt_trigger.yml's schedule comment for why.
+    - cron: '37 0 * * 0'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

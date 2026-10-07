@@ -2,7 +2,10 @@ name: Generate Turtle Strategy Fundamentals (screener.in)
 
 on:
   schedule:
-    - cron: '0 2 * * 0'   # 02:00 UTC Sunday — after weekly_stock_screening (00:30 UTC Sun), weekly since TTM/annual figures don't change daily
+    # 02:07 UTC Sunday -- after weekly_stock_screening (00:37 UTC Sun), weekly since TTM/annual
+    # figures don't change daily. 2026-10-07: moved off the round :00 minute -- see
+    # daily_gtt_trigger.yml's schedule comment for why.
+    - cron: '7 2 * * 0'
   workflow_dispatch:
 
 jobs:

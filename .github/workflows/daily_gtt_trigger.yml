@@ -2,10 +2,13 @@ name: Daily GTT Creation (Pre-Market)
 
 on:
   schedule:
-    # 8:30 AM IST = 03:00 UTC, Monday to Friday
-    # NOTE: intentionally 30 min after generate_ma_data (02:30 UTC) to avoid
-    # GitHub dropping one when two workflows fire at the exact same second.
-    - cron: '0 3 * * 1-5'
+    # ~8:37 AM IST = 03:07 UTC, Monday to Friday -- intentionally ~30 min after
+    # pre_flight_reminder.yml (02:37 UTC). 2026-10-07: moved off the round :00 minute --
+    # GitHub Actions documents that scheduled workflows are delayed (sometimes by hours) or
+    # dropped entirely during high load, especially at round minutes/top-of-hour; confirmed
+    # live in this repo (turtle_live_prices.yml silently dropped 2 of its 3 daily :00/:00/:00
+    # scheduled runs for over a week). An odd minute avoids the worst of that congestion.
+    - cron: '7 3 * * 1-5'
   workflow_dispatch:   # allows manual trigger from GitHub Actions UI for testing
 
 jobs:

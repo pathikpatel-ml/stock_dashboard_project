@@ -2,8 +2,10 @@ name: GTT Pre-flight Reconnect Reminder
 
 on:
   schedule:
-    # 8:00 AM IST = 02:30 UTC, Monday to Friday (30 min before GTT job at 03:00 UTC)
-    - cron: '30 2 * * 1-5'
+    # ~8:07 AM IST = 02:37 UTC, Monday to Friday (~30 min before GTT job at 03:07 UTC).
+    # 2026-10-07: moved off the round :30 minute -- see daily_gtt_trigger.yml's schedule
+    # comment for why.
+    - cron: '37 2 * * 1-5'
   workflow_dispatch:  # allow manual trigger for testing
 
 jobs:

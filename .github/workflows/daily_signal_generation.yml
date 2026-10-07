@@ -2,7 +2,10 @@ name: Generate Daily V20 Signals from Dynamic Stock List
 
 on:
   schedule:
-    - cron: '0 2 * * *' # Runs at 2 AM UTC daily
+    # Runs ~2:13 AM UTC daily -- moved off the round :00 minute (2026-10-07) since GitHub
+    # Actions deprioritizes/drops scheduled runs at round minutes during high load; see
+    # daily_gtt_trigger.yml's schedule comment for the full reasoning.
+    - cron: '13 2 * * *'
   workflow_dispatch: # Allows manual triggering
 
 jobs:
