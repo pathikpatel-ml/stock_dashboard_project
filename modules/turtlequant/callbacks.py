@@ -155,7 +155,41 @@ def _table(df):
     )
 
 
-def _staleness_banner(loaded_date):
+def _format_age(age: pd.Timedelta) -> str:
+    total_minutes = age.total_seconds() / 60
+    if total_minutes < 60:
+        return f"{int(total_minutes)} min ago"
+    if age.days == 0:
+        return f"{age.total_seconds() / 3600:.1f} hours ago"
+    return f"{age.days}d {int(age.seconds // 3600)}h ago"
+
+
+def _staleness_banner(loaded_date, updated_at=None):
+    """2026-10-11: always-visible "last updated" signal (not just a warning-when-stale one),
+    so a cron delay/skip is visible on the dashboard itself -- see
+    modules/turtle/callbacks.py::_staleness_banner for the full reasoning (same bug, same fix,
+    just a weekly job here instead of daily, so the staleness thresholds are scaled up: this
+    table is only refreshed by turtlequant_signals.yml once a week).
+    """
+    if updated_at is not None and not pd.isna(updated_at):
+        now_utc = pd.Timestamp.now(tz="UTC")
+        age = now_utc - updated_at
+        age_hours = age.total_seconds() / 3600
+        ist = updated_at.tz_convert("Asia/Kolkata")
+        if age_hours < 24 * 8:       # within a week + a day of slack
+            bg, fg, border = "#e7f3ff", "#0c5488", "#b6e0fe"
+        elif age_hours < 24 * 10:
+            bg, fg, border = "#fff3cd", "#856404", "#ffe69c"
+        else:
+            bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
+        return html.Div(
+            f"🕐 Growth/Red Flag/Value last updated: {ist.strftime('%Y-%m-%d %H:%M')} IST "
+            f"({updated_at.strftime('%H:%M')} UTC) — {_format_age(age)} "
+            f"(this table refreshes weekly, Sunday).",
+            className="status-message",
+            style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0"},
+        )
+
     if not loaded_date:
         return None
     try:
@@ -232,6 +266,7 @@ def register_turtlequant_callbacks(app):
 
         df = data_manager.turtlequant_signals_df.copy()
         loaded_date = data_manager.LOADED_TURTLEQUANT_FILE_DATE
+        updated_at = data_manager.LOADED_TURTLEQUANT_UPDATED_AT
 
         if df.empty:
             return (
@@ -239,7 +274,7 @@ def register_turtlequant_callbacks(app):
                     "No Turtle Quant signals available.",
                     "Run generate_turtlequant_signals.py to populate turtlequant_signals_<date>.csv.",
                 ),
-                _staleness_banner(loaded_date),
+                _staleness_banner(loaded_date, updated_at),
             )
 
         # Buy only if Growth, Red Flag, and Value are ALL Yes -- missing/None treated as not
@@ -288,6 +323,6 @@ def register_turtlequant_callbacks(app):
             df = df[df["Symbol"] == stock_value]
 
         if df.empty:
-            return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date)
+            return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date, updated_at)
 
-        return _table(df), _staleness_banner(loaded_date)
+        return _table(df), _staleness_banner(loaded_date, updated_at)

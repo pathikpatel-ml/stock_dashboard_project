@@ -56,11 +56,17 @@ turtle_live_prices_df = pd.DataFrame()
 turtle_sector_pulse_df = pd.DataFrame()
 LOADED_TURTLE_FILE_DATE = None
 LOADED_TURTLE_SOURCE = None
+# The real "when did the batch job actually write this row" timestamp (2026-10-11) -- see
+# load_turtle_data_on_startup()'s comment for why LOADED_TURTLE_FILE_DATE alone can't answer
+# that once Postgres is the primary source. None when unavailable (CSV-fallback path, or no
+# usable updated_at column).
+LOADED_TURTLE_UPDATED_AT = None
 
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
 LOADED_TURTLEQUANT_SOURCE = None
+LOADED_TURTLEQUANT_UPDATED_AT = None
 
 # Postgres column name -> the app's own CamelCase/Title-Case column names (the exact reverse
 # of the rename each generate_*.py script applies before writing -- see e.g.
@@ -450,7 +456,7 @@ def load_turtle_data_on_startup():
     No PSU filtering — Turtle is a general quant screen, unlike V20's PSU exclusion.
     """
     global turtle_signals_df, nse_categories_df, turtle_live_prices_df, turtle_sector_pulse_df
-    global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE
+    global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE, LOADED_TURTLE_UPDATED_AT
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -461,12 +467,25 @@ def load_turtle_data_on_startup():
     if not turtle_signals_df.empty:
         LOADED_TURTLE_SOURCE = "postgres"
         LOADED_TURTLE_FILE_DATE = today_str
+        # BUG FIX (2026-10-11): the line above just records TODAY -- when the APP loaded this
+        # data -- not when generate_turtle_signals.py's batch job actually WROTE it. That made
+        # the staleness banner always read as "fresh" once Postgres became the primary source,
+        # even on days the cron job never fired (confirmed live: GitHub Actions silently
+        # delaying/dropping several of this repo's scheduled runs by hours). The real answer is
+        # each row's own ``updated_at`` -- present because fetch_table() selects every raw
+        # column and _TURTLE_SIGNALS_FROM_DB's rename map doesn't touch it, so it survives
+        # unrenamed.
+        LOADED_TURTLE_UPDATED_AT = (
+            pd.to_datetime(turtle_signals_df["updated_at"], errors="coerce", utc=True).max()
+            if "updated_at" in turtle_signals_df.columns else None
+        )
     else:
         turtle_signals_df, loaded_name, LOADED_TURTLE_SOURCE = _read_csv_with_candidates(
             today_filename=TURTLE_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
             filename_regex=r"turtle_signals_\d{8}\.csv",
         )
         LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+        LOADED_TURTLE_UPDATED_AT = None
 
     # All three are non-dated, overwritten-in-place files -- same Postgres-first,
     # CSV-github-raw-fallback reasoning (see _read_static_csv_with_github_fallback's docstring
@@ -499,7 +518,7 @@ def load_turtlequant_data_on_startup():
     membership file, no separate categories fetch needed.
     """
     global turtlequant_signals_df
-    global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE
+    global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE, LOADED_TURTLEQUANT_UPDATED_AT
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -507,12 +526,19 @@ def load_turtlequant_data_on_startup():
     if not turtlequant_signals_df.empty:
         LOADED_TURTLEQUANT_SOURCE = "postgres"
         LOADED_TURTLEQUANT_FILE_DATE = today_str
+        # See load_turtle_data_on_startup()'s matching comment -- same bug, same fix: the real
+        # freshness signal is each row's own updated_at, not "today".
+        LOADED_TURTLEQUANT_UPDATED_AT = (
+            pd.to_datetime(turtlequant_signals_df["updated_at"], errors="coerce", utc=True).max()
+            if "updated_at" in turtlequant_signals_df.columns else None
+        )
     else:
         turtlequant_signals_df, loaded_name, LOADED_TURTLEQUANT_SOURCE = _read_csv_with_candidates(
             today_filename=TURTLEQUANT_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
             filename_regex=r"turtlequant_signals_\d{8}\.csv",
         )
         LOADED_TURTLEQUANT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
+        LOADED_TURTLEQUANT_UPDATED_AT = None
 
     print(f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals (source={LOADED_TURTLEQUANT_SOURCE}).")
 

@@ -231,7 +231,42 @@ def _sector_pulse_table(df):
     ])
 
 
-def _staleness_banner(loaded_date):
+def _format_age(age: pd.Timedelta) -> str:
+    total_minutes = age.total_seconds() / 60
+    if total_minutes < 60:
+        return f"{int(total_minutes)} min ago"
+    if age.days == 0:
+        return f"{age.total_seconds() / 3600:.1f} hours ago"
+    return f"{age.days}d {int(age.seconds // 3600)}h ago"
+
+
+def _staleness_banner(loaded_date, updated_at=None):
+    """2026-10-11: always-visible signal (not just a warning-when-stale one) for when the
+    daily Signal/RS/ATH/Sector Pulse recompute last actually ran -- so a cron delay/skip (see
+    .github/workflows/turtle_signals.yml's schedule comment) is visible on the dashboard
+    itself, not something that needs asking someone to check GitHub Actions. Prefers the real
+    per-row ``updated_at`` (precise date+time) when available; falls back to the old
+    date-only, only-warns-when-stale behavior for the CSV-fallback path, which has no
+    row-level timestamp to show.
+    """
+    if updated_at is not None and not pd.isna(updated_at):
+        now_utc = pd.Timestamp.now(tz="UTC")
+        age = now_utc - updated_at
+        age_hours = age.total_seconds() / 3600
+        ist = updated_at.tz_convert("Asia/Kolkata")
+        if age_hours < 24:
+            bg, fg, border = "#e7f3ff", "#0c5488", "#b6e0fe"
+        elif age_hours < 72:
+            bg, fg, border = "#fff3cd", "#856404", "#ffe69c"
+        else:
+            bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
+        return html.Div(
+            f"🕐 Signal/RS/Sector Pulse last updated: {ist.strftime('%Y-%m-%d %H:%M')} IST "
+            f"({updated_at.strftime('%H:%M')} UTC) — {_format_age(age)}.",
+            className="status-message",
+            style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0"},
+        )
+
     if not loaded_date:
         return None
     try:
@@ -270,8 +305,8 @@ def _live_price_freshness_note(live_prices_df):
     )
 
 
-def _banners(loaded_date, live_prices_df):
-    parts = [b for b in (_staleness_banner(loaded_date), _live_price_freshness_note(live_prices_df)) if b]
+def _banners(loaded_date, live_prices_df, updated_at=None):
+    parts = [b for b in (_staleness_banner(loaded_date, updated_at), _live_price_freshness_note(live_prices_df)) if b]
     return html.Div(parts) if parts else None
 
 
@@ -356,10 +391,12 @@ def register_turtle_callbacks(app):
         if yesterday and "yesterday" in yesterday:
             df, _filename = data_manager.get_turtle_signals_by_offset(1)
             loaded_date = data_manager._extract_date_from_name(_filename or "", r"(\d{8})")
+            updated_at = None  # offset-day CSV read has no row-level timestamp to show
             live_prices_df = None  # the intraday cache only ever reflects "today"
         else:
             df = data_manager.turtle_signals_df.copy()
             loaded_date = data_manager.LOADED_TURTLE_FILE_DATE
+            updated_at = data_manager.LOADED_TURTLE_UPDATED_AT
             live_prices_df = data_manager.turtle_live_prices_df
 
         if df.empty:
@@ -369,7 +406,7 @@ def register_turtle_callbacks(app):
                     "Run generate_turtle_signals.py to populate turtle_signals_<date>.csv." if not yesterday
                     else "No prior-day turtle signals file was found.",
                 ),
-                _banners(loaded_date, live_prices_df),
+                _banners(loaded_date, live_prices_df, updated_at),
             )
 
         if live_prices_df is not None and not live_prices_df.empty:
@@ -425,6 +462,6 @@ def register_turtle_callbacks(app):
             df = df[df["RS_vs_Benchmark"] > 0]
 
         if df.empty:
-            return _empty_state("No stocks match the current filters."), _banners(loaded_date, live_prices_df)
+            return _empty_state("No stocks match the current filters."), _banners(loaded_date, live_prices_df, updated_at)
 
-        return _table(df), _banners(loaded_date, live_prices_df)
+        return _table(df), _banners(loaded_date, live_prices_df, updated_at)
