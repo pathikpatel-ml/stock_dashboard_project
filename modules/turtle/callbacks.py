@@ -305,8 +305,42 @@ def _live_price_freshness_note(live_prices_df):
     )
 
 
-def _banners(loaded_date, live_prices_df, updated_at=None):
-    parts = [b for b in (_staleness_banner(loaded_date, updated_at), _live_price_freshness_note(live_prices_df)) if b]
+def _fundamentals_freshness_note(fundamentals_updated_at):
+    """TTM_Net_Profit/TTM_Net_Sales (and the ATH_Profit_Flag/ATH_Sales_Flag they feed) are only
+    ever COPIED from turtle_fundamentals into this table, never recomputed by the daily job --
+    their real freshness is turtle_fundamentals' own weekly updated_at. Same always-visible,
+    color-by-age style as _staleness_banner (2026-10-12), scaled to a weekly (not daily)
+    cadence -- mirrors modules/turtlequant/callbacks.py::_staleness_banner's weekly thresholds,
+    since both ultimately read the exact same table.
+    """
+    if fundamentals_updated_at is None or pd.isna(fundamentals_updated_at):
+        return None
+    now_utc = pd.Timestamp.now(tz="UTC")
+    age = now_utc - fundamentals_updated_at
+    age_hours = age.total_seconds() / 3600
+    ist = fundamentals_updated_at.tz_convert("Asia/Kolkata")
+    if age_hours < 24 * 8:
+        bg, fg, border = "#e7f3ff", "#0c5488", "#b6e0fe"
+    elif age_hours < 24 * 10:
+        bg, fg, border = "#fff3cd", "#856404", "#ffe69c"
+    else:
+        bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
+    return html.Div(
+        f"📊 TTM Profit/Sales (and ATH_Profit_Flag/ATH_Sales_Flag) last updated: "
+        f"{ist.strftime('%Y-%m-%d %H:%M')} IST ({fundamentals_updated_at.strftime('%H:%M')} UTC) "
+        f"— {_format_age(age)} (this data refreshes weekly, Sunday).",
+        className="status-message",
+        style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0",
+               "fontSize": "12px"},
+    )
+
+
+def _banners(loaded_date, live_prices_df, updated_at=None, fundamentals_updated_at=None):
+    parts = [b for b in (
+        _staleness_banner(loaded_date, updated_at),
+        _live_price_freshness_note(live_prices_df),
+        _fundamentals_freshness_note(fundamentals_updated_at),
+    ) if b]
     return html.Div(parts) if parts else None
 
 
@@ -393,11 +427,13 @@ def register_turtle_callbacks(app):
             loaded_date = data_manager._extract_date_from_name(_filename or "", r"(\d{8})")
             updated_at = None  # offset-day CSV read has no row-level timestamp to show
             live_prices_df = None  # the intraday cache only ever reflects "today"
+            fundamentals_updated_at = data_manager.LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT
         else:
             df = data_manager.turtle_signals_df.copy()
             loaded_date = data_manager.LOADED_TURTLE_FILE_DATE
             updated_at = data_manager.LOADED_TURTLE_UPDATED_AT
             live_prices_df = data_manager.turtle_live_prices_df
+            fundamentals_updated_at = data_manager.LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT
 
         if df.empty:
             return (
@@ -406,7 +442,7 @@ def register_turtle_callbacks(app):
                     "Run generate_turtle_signals.py to populate turtle_signals_<date>.csv." if not yesterday
                     else "No prior-day turtle signals file was found.",
                 ),
-                _banners(loaded_date, live_prices_df, updated_at),
+                _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at),
             )
 
         if live_prices_df is not None and not live_prices_df.empty:
@@ -462,6 +498,9 @@ def register_turtle_callbacks(app):
             df = df[df["RS_vs_Benchmark"] > 0]
 
         if df.empty:
-            return _empty_state("No stocks match the current filters."), _banners(loaded_date, live_prices_df, updated_at)
+            return (
+                _empty_state("No stocks match the current filters."),
+                _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at),
+            )
 
-        return _table(df), _banners(loaded_date, live_prices_df, updated_at)
+        return _table(df), _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at)

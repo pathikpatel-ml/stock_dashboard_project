@@ -70,3 +70,24 @@ def fetch_table(table: str, order_by: Optional[str] = None, timeout: int = 15) -
         return pd.DataFrame(rows)
     except Exception:
         return pd.DataFrame()
+
+
+def fetch_max_value(table: str, column: str, timeout: int = 15):
+    """Cheap single-value lookup: the maximum value of ``column`` in ``table``, via
+    ``order=<column>.desc&limit=1`` -- fetches exactly one row/column, not the whole table.
+    Used for "when was this last written" freshness checks (e.g. ``updated_at`` on a table the
+    live app otherwise never needs to load in full) where pulling every row via ``fetch_table``
+    just to find one timestamp would be wasteful on every render. Never raises -- returns None
+    on any failure or if the table is empty, same never-raise contract as ``fetch_table``.
+    """
+    try:
+        params = {"select": column, "order": f"{column}.desc", "limit": "1"}
+        resp = requests.get(f"{_base_url()}/{table}", headers=_headers(), params=params, timeout=timeout)
+        if resp.status_code != 200:
+            return None
+        rows = resp.json()
+        if not rows:
+            return None
+        return rows[0].get(column)
+    except Exception:
+        return None

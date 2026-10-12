@@ -61,6 +61,11 @@ LOADED_TURTLE_SOURCE = None
 # that once Postgres is the primary source. None when unavailable (CSV-fallback path, or no
 # usable updated_at column).
 LOADED_TURTLE_UPDATED_AT = None
+# TTM_Net_Profit/TTM_Net_Sales (and the ATH_Profit_Flag/ATH_Sales_Flag they feed) are only
+# ever COPIED from turtle_fundamentals into turtle_signals_latest, never recomputed by the
+# daily job -- their real freshness is turtle_fundamentals' OWN weekly updated_at, which is
+# otherwise invisible from turtle_signals_latest alone (2026-10-12).
+LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT = None
 
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
@@ -501,6 +506,17 @@ def load_turtle_data_on_startup():
     turtle_sector_pulse_df = _from_postgres("turtle_sector_pulse", _SECTOR_PULSE_FROM_DB)
     if turtle_sector_pulse_df.empty:
         turtle_sector_pulse_df = _read_static_csv_with_github_fallback(TURTLE_SECTOR_PULSE_FILE)
+
+    # TTM_Net_Profit/TTM_Net_Sales freshness (2026-10-12) -- see the global's own comment above
+    # for why this can't be read off turtle_signals_df itself. One cheap single-value lookup,
+    # not a full table fetch -- this table is otherwise never loaded by the live app at all.
+    from database import market_data_reader as mdr
+    global LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT
+    raw_fundamentals_updated_at = mdr.fetch_max_value("turtle_fundamentals", "updated_at")
+    LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT = (
+        pd.to_datetime(raw_fundamentals_updated_at, errors="coerce", utc=True)
+        if raw_fundamentals_updated_at else None
+    )
 
     print(
         f"STARTUP: Turtle — {len(turtle_signals_df)} signals, "
