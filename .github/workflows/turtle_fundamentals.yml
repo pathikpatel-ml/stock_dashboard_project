@@ -11,7 +11,13 @@ on:
 jobs:
   generate-turtle-fundamentals:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    # 2026-10-12: raised from 240 to 360 (GitHub-hosted runners' own hard ceiling for a single
+    # job -- can't go higher without a self-hosted runner). Confirmed live: the hard-timeout
+    # fix in modules/turtle/http_utils.py (2026-10-11) stops individual requests from hanging
+    # forever, but screener.in/NSE still occasionally rate-limits/slows down for a stretch of
+    # ~100 consecutive symbols (45-80 min instead of the normal ~2.5 min) -- not a hang, just
+    # genuinely slow, so a longer ceiling is the honest fix rather than another retry.
+    timeout-minutes: 360
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
