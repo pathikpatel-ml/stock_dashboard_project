@@ -21,6 +21,12 @@ Some NSE tickers don't match their screener.in slug 1:1 (renames, etc. -- e.g. Z
 screener.in company is ETERNAL). ``resolve_screener_slug`` falls back to screener.in's own
 search API (``/api/company/search/?q=...``) to find the right slug when the direct URL has no
 usable Profit & Loss data.
+
+2026-10-11: every HTTP call here goes through ``modules.turtle.http_utils.get_with_hard_timeout``
+instead of a bare ``session.get(..., timeout=20)`` -- confirmed live that a request can get
+stuck in a slow-trickle state that never trips its own ``timeout=`` (which only bounds gaps
+between bytes, not total duration) and hang for hours. See that module's docstring for the
+full incident.
 """
 from __future__ import annotations
 
@@ -30,6 +36,8 @@ from typing import List, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
+
+from modules.turtle.http_utils import get_with_hard_timeout
 
 _HEADERS = {
     "User-Agent": (
@@ -47,10 +55,7 @@ def new_session() -> requests.Session:
     across a full-universe batch run."""
     session = requests.Session()
     session.headers.update(_HEADERS)
-    try:
-        session.get("https://www.screener.in", timeout=15)
-    except Exception:
-        pass  # cookie warm-up is best-effort
+    get_with_hard_timeout(session, "https://www.screener.in", timeout=15)  # cookie warm-up, best-effort
     return session
 
 
@@ -127,15 +132,12 @@ def fetch_ttm_net_profit(
     session = session or _new_session()
     try:
         for attempt in range(retries):
-            try:
-                resp = session.get(url, timeout=20)
-                if resp.status_code == 200 and resp.content:
-                    value = parse_ttm_net_profit(resp.text)
-                    if value is not None:
-                        return value
-                    return None  # page loaded fine, just no matching data -- don't retry
-            except Exception:
-                pass
+            resp = get_with_hard_timeout(session, url)
+            if resp is not None and resp.status_code == 200 and resp.content:
+                value = parse_ttm_net_profit(resp.text)
+                if value is not None:
+                    return value
+                return None  # page loaded fine, just no matching data -- don't retry
             time.sleep(pause * (attempt + 1))
         return None
     finally:
@@ -382,10 +384,10 @@ def resolve_screener_slug(symbol: str, session: Optional[requests.Session] = Non
     own_session = session is None
     session = session or _new_session()
     try:
-        resp = session.get(
-            "https://www.screener.in/api/company/search/", params={"q": symbol}, timeout=15
+        resp = get_with_hard_timeout(
+            session, "https://www.screener.in/api/company/search/", params={"q": symbol}, timeout=15
         )
-        if resp.status_code != 200:
+        if resp is None or resp.status_code != 200:
             return None
         results = resp.json()
         if not results:
@@ -461,23 +463,20 @@ def fetch_profit_and_loss(
                 f"https://www.screener.in/company/{candidate}/",
             ):
                 for attempt in range(retries):
-                    try:
-                        resp = session.get(url, timeout=20)
-                        if resp.status_code == 200 and resp.content:
-                            result = parse_profit_and_loss(resp.text)
-                            sector = parse_sector_classification(resp.text)
-                            if sector and best_sector is None:
-                                best_sector = sector
-                            if _has_usable_data(result):
-                                result.update(sector or best_sector or {})
-                                result["balance_sheet"] = parse_balance_sheet_history(resp.text)
-                                result["cash_flow"] = parse_cash_flow_history(resp.text)
-                                result["pl_extra"] = parse_pl_history_extra(resp.text)
-                                result["promoter_holding"] = parse_promoter_holding_history(resp.text)
-                                return result
-                            break  # page loaded fine, just no usable data -- try next URL/candidate
-                    except Exception:
-                        pass
+                    resp = get_with_hard_timeout(session, url)
+                    if resp is not None and resp.status_code == 200 and resp.content:
+                        result = parse_profit_and_loss(resp.text)
+                        sector = parse_sector_classification(resp.text)
+                        if sector and best_sector is None:
+                            best_sector = sector
+                        if _has_usable_data(result):
+                            result.update(sector or best_sector or {})
+                            result["balance_sheet"] = parse_balance_sheet_history(resp.text)
+                            result["cash_flow"] = parse_cash_flow_history(resp.text)
+                            result["pl_extra"] = parse_pl_history_extra(resp.text)
+                            result["promoter_holding"] = parse_promoter_holding_history(resp.text)
+                            return result
+                        break  # page loaded fine, just no usable data -- try next URL/candidate
                     time.sleep(pause * (attempt + 1))
         if best_sector:
             return {

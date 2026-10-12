@@ -20,6 +20,11 @@ resolved). A Moneycontrol-based replacement and a screener.in login-gated screen
 also each tried in turn and ultimately dropped entirely per the user's own final decision
 (2026-10-02) -- Promoter Pledge is no longer computed anywhere in this pipeline; see
 modules/turtle/quality_flags.py's module docstring for the full history.
+
+2026-10-11: every HTTP call here goes through ``modules.turtle.http_utils.get_with_hard_timeout``
+instead of a bare ``session.get(..., timeout=20)`` -- see that module's docstring for why
+(a request can get stuck in a slow-trickle state that never trips its own ``timeout=`` and
+hang for hours).
 """
 from __future__ import annotations
 
@@ -27,6 +32,8 @@ import time
 from typing import List, Optional, Tuple
 
 import requests
+
+from modules.turtle.http_utils import get_with_hard_timeout
 
 _HEADERS = {
     "User-Agent": (
@@ -52,10 +59,7 @@ def new_session() -> requests.Session:
     modules/turtle/standalone_fundamentals.py::new_session's exact shape."""
     session = requests.Session()
     session.headers.update(_HEADERS)
-    try:
-        session.get("https://www.nseindia.com", timeout=15)
-    except Exception:
-        pass  # cookie warm-up is best-effort
+    get_with_hard_timeout(session, "https://www.nseindia.com", timeout=15)  # cookie warm-up, best-effort
     return session
 
 
@@ -80,9 +84,9 @@ def fetch_promoter_holding_history(
     session = session or new_session()
     try:
         for attempt in range(retries):
-            try:
-                resp = session.get(url, timeout=20)
-                if resp.status_code == 200:
+            resp = get_with_hard_timeout(session, url)
+            if resp is not None and resp.status_code == 200:
+                try:
                     data = resp.json()
                     if not isinstance(data, list) or not data:
                         return None
@@ -99,8 +103,8 @@ def fetch_promoter_holding_history(
                         except (TypeError, ValueError):
                             continue
                     return (periods, values) if periods else None
-            except Exception:
-                pass
+                except Exception:
+                    pass
             time.sleep(pause * (attempt + 1))
         return None
     finally:
