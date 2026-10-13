@@ -2,13 +2,14 @@ name: Generate Turtle Quant Signals
 
 on:
   schedule:
-    # 02:37 UTC Sunday -- ~30 min after turtle_fundamentals.yml's weekly screener.in scrape
-    # (02:07 UTC Sunday -- see that workflow's own comment), so this run picks up that run's
-    # freshly-updated quality/valuation flags. 2026-10-02: the original weekly-candle technical
-    # signal system that motivated this exact timing was removed; kept the same relative slot
-    # since it still serves the (now sole) purpose of propagating turtle_fundamentals -> this
-    # table. 2026-10-07: moved off the round :30 minute -- see daily_gtt_trigger.yml's
-    # schedule comment for why.
+    # 02:37 UTC Sunday -- after turtle_fundamentals.yml's weekly screener.in scrape (2026-10-13:
+    # that workflow's own schedule moved to Saturday 19:30 UTC per the user's explicit request,
+    # so this is now a ~7hr gap rather than ~30min -- intentionally generous buffer, since that
+    # job has been observed taking anywhere from ~70min to its full 360min timeout). 2026-10-02:
+    # the original weekly-candle technical signal system that motivated this exact timing was
+    # removed; kept the same slot since it still serves the (now sole) purpose of propagating
+    # turtle_fundamentals -> this table. 2026-10-07: moved off the round :30 minute -- see
+    # daily_gtt_trigger.yml's schedule comment for why.
     - cron: '37 2 * * 0'
   workflow_dispatch:
 

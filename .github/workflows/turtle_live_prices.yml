@@ -2,14 +2,12 @@ name: Refresh Turtle Live Prices (Intraday)
 
 on:
   schedule:
-    # ~10:42, 12:42, 15:42 IST weekdays -- a few touches across market hours (9:15-15:30 IST).
-    # Separate from turtle_signals.yml's once-daily full ADD/HOLD/EXIT recompute after close.
-    # 2026-10-07: moved off the round :00 minute -- confirmed live this exact job was silently
-    # dropping 2 of its 3 scheduled daily runs for over a week (only ~1 of 3 actually fired on
-    # most days from late Sep onward) because GitHub deprioritizes/drops scheduled triggers at
-    # round minutes during high load; see daily_gtt_trigger.yml's schedule comment for the
-    # general reasoning.
-    - cron: '12 5,7,10 * * 1-5'
+    # 4:00 PM IST = 10:30 UTC, every day of the week (explicit fixed schedule set 2026-10-13
+    # per the user's own request, replacing the earlier 3x/day-weekdays-only cadence).
+    # NOTE: an exact round minute (:30) can see the occasional GitHub Actions scheduling delay
+    # under high load (see daily_gtt_trigger.yml's schedule comment for the general mechanism)
+    # -- kept here anyway since the user asked for this precise clock time explicitly.
+    - cron: '30 10 * * *'
   workflow_dispatch:
 
 jobs:

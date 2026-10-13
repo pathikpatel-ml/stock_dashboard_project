@@ -2,11 +2,12 @@ name: Generate Turtle Strategy Signals
 
 on:
   schedule:
-    # 10:52 UTC weekdays (~16:22 IST, after NSE close). 2026-10-07: moved off the round :45
-    # minute -- confirmed live this exact job's scheduled trigger was regularly delayed by
-    # 5-8+ hours (and once didn't fire at all for a full day); see daily_gtt_trigger.yml's
-    # schedule comment for why.
-    - cron: '52 10 * * 1-5'
+    # 6:00 PM IST = 12:30 UTC, every day of the week (explicit fixed schedule set 2026-10-13
+    # per the user's own request, replacing the earlier weekdays-only 10:52 UTC slot).
+    # NOTE: an exact round minute (:30) can see the occasional GitHub Actions scheduling delay
+    # under high load (see daily_gtt_trigger.yml's schedule comment for the general mechanism)
+    # -- kept here anyway since the user asked for this precise clock time explicitly.
+    - cron: '30 12 * * *'
   workflow_dispatch:
 
 jobs:

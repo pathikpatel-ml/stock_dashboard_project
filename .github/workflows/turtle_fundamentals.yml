@@ -2,10 +2,12 @@ name: Generate Turtle Strategy Fundamentals (screener.in)
 
 on:
   schedule:
-    # 02:07 UTC Sunday -- after weekly_stock_screening (00:37 UTC Sun), weekly since TTM/annual
-    # figures don't change daily. 2026-10-07: moved off the round :00 minute -- see
-    # daily_gtt_trigger.yml's schedule comment for why.
-    - cron: '7 2 * * 0'
+    # Sunday 1:00 AM IST = Saturday 19:30 UTC (explicit fixed schedule set 2026-10-13 per the
+    # user's own request). NOTE: an exact round minute (:30) can see the occasional GitHub
+    # Actions scheduling delay under high load (see daily_gtt_trigger.yml's schedule comment
+    # for the general mechanism) -- kept here anyway since the user asked for this precise
+    # clock time explicitly.
+    - cron: '30 19 * * 6'
   workflow_dispatch:
 
 jobs:
