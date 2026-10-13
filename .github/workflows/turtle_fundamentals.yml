@@ -2,24 +2,34 @@ name: Generate Turtle Strategy Fundamentals (screener.in)
 
 on:
   schedule:
-    # Sunday 1:00 AM IST = Saturday 19:30 UTC (explicit fixed schedule set 2026-10-13 per the
-    # user's own request). NOTE: an exact round minute (:30) can see the occasional GitHub
-    # Actions scheduling delay under high load (see daily_gtt_trigger.yml's schedule comment
-    # for the general mechanism) -- kept here anyway since the user asked for this precise
-    # clock time explicitly.
-    - cron: '30 19 * * 6'
+    # 1:00 AM IST = 19:30 UTC the PREVIOUS calendar day -- EVERY day now (2026-10-13), not just
+    # Sunday. Per the user's own request: a full-universe run was repeatedly unable to finish
+    # even inside a 6-hour window (screener.in slows down hard, not an outright hang, for
+    # stretches of symbols -- consistent with server-side throttling reacting to sustained
+    # request volume, worsening across repeated same-day attempts). generate_turtle_fundamentals.py
+    # now defaults to fetching only 1/7th of the universe per run (today's IST weekday's slice,
+    # see that script's own module docstring) -- small/fast enough to never trigger the
+    # throttling, while every symbol still refreshes roughly once a week overall.
+    # NOTE: an exact round minute (:30) can see the occasional GitHub Actions scheduling delay
+    # under high load (see daily_gtt_trigger.yml's schedule comment for the general mechanism)
+    # -- kept here anyway since the user asked for this precise clock time explicitly.
+    - cron: '30 19 * * *'
   workflow_dispatch:
+    inputs:
+      full_universe:
+        description: "Fetch every symbol in one run instead of just today's 1/7 slice"
+        type: boolean
+        default: false
 
 jobs:
   generate-turtle-fundamentals:
     runs-on: ubuntu-latest
-    # 2026-10-12: raised from 240 to 360 (GitHub-hosted runners' own hard ceiling for a single
-    # job -- can't go higher without a self-hosted runner). Confirmed live: the hard-timeout
-    # fix in modules/turtle/http_utils.py (2026-10-11) stops individual requests from hanging
-    # forever, but screener.in/NSE still occasionally rate-limits/slows down for a stretch of
-    # ~100 consecutive symbols (45-80 min instead of the normal ~2.5 min) -- not a hang, just
-    # genuinely slow, so a longer ceiling is the honest fix rather than another retry.
-    timeout-minutes: 360
+    # 2026-10-13: back down from 360 to 90 now that each run is only ~1/7 of the universe
+    # (~375 symbols, normally ~15min) instead of the full ~2,600 -- even a bad stretch of
+    # slow/throttled symbols (see schedule comment above) should comfortably fit in 90min at
+    # this much smaller scale. A manual --full-universe run (workflow_dispatch input) still
+    # uses this same ceiling; raise it by hand if ever running that mode and it's not enough.
+    timeout-minutes: 90
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -38,4 +48,9 @@ jobs:
         # terminal (exactly GitHub Actions' case), so a forced kill loses everything still
         # sitting in the buffer. This was actively hiding whether the job was truly hung or
         # just slow. -u makes every print() visible immediately, giving real diagnostic signal.
-      run: python -u generate_turtle_fundamentals.py --pause 0.5
+      run: |
+        ARGS="--pause 0.5"
+        if [ "${{ github.event.inputs.full_universe }}" = "true" ]; then
+          ARGS="$ARGS --full-universe"
+        fi
+        python -u generate_turtle_fundamentals.py $ARGS

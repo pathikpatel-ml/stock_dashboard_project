@@ -22,20 +22,39 @@ from this file over the universe CSV's Yahoo tag whenever screener.in has it.
 
 screener.in is a much smaller site than NSE/Yahoo and has no documented rate-limit policy, so
 this paces requests conservatively and checkpoints progress every CHECKPOINT_EVERY symbols to
-output/turtle_screener_fundamentals_checkpoint.csv -- a full-universe run (~2,300+ symbols) can
-take a while; --resume picks up where a prior (interrupted) run left off instead of re-fetching
-everything.
+output/turtle_screener_fundamentals_checkpoint.csv; --resume picks up where a prior
+(interrupted) run left off instead of re-fetching everything.
+
+2026-10-13 (per explicit user request): a full-universe run was repeatedly unable to finish
+even inside a 6-hour GitHub Actions window -- confirmed live that screener.in slows down hard
+(not an outright hang; that's separately guarded by modules/turtle/http_utils.py's hard
+timeout) for stretches of ~100 consecutive symbols, worsening across repeated same-day
+attempts -- consistent with server-side throttling reacting to sustained request volume, not a
+one-off fluke. Rather than one giant weekly burst, this now defaults to fetching only 1/7th of
+the universe per run, selected by the CURRENT IST WEEKDAY (``symbols[i] for i where
+i % 7 == today's_weekday``, Monday=0..Sunday=6) -- every symbol still gets refreshed roughly
+once a week, just spread across 7 small daily runs instead of one big one, each far too short
+to trigger the throttling. ``--day-of-week N`` overrides the auto-detected day (manual
+backfill/testing of a specific slice without waiting for that weekday); ``--full-universe``
+restores the old all-2,600+-symbols-in-one-run behavior (e.g. for an on-demand manual catch-up).
+If one day's slice doesn't fully complete, only that 1/7th stays stale until its next turn a
+week later -- Postgres upsert_dataframe() only touches rows actually fetched, so a partial day
+never wipes out the other 6/7 of the table.
 
 Usage
 -----
-    python generate_turtle_fundamentals.py                # full universe
-    python generate_turtle_fundamentals.py --limit 25      # quick subset (testing)
-    python generate_turtle_fundamentals.py --resume        # continue from the last checkpoint
+    python generate_turtle_fundamentals.py                     # today's 1/7 slice (auto-detected IST weekday)
+    python generate_turtle_fundamentals.py --day-of-week 2      # force Wednesday's slice (0=Mon..6=Sun)
+    python generate_turtle_fundamentals.py --full-universe      # old behavior: every symbol, one run
+    python generate_turtle_fundamentals.py --limit 25           # quick subset (testing), applied after slicing
+    python generate_turtle_fundamentals.py --resume             # continue from the last checkpoint
 """
 import argparse
 import calendar
 import os
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -154,6 +173,25 @@ def load_universe_symbols() -> list:
     return sorted(symbols.unique().tolist())
 
 
+def slice_for_day(symbols: list, day_of_week: int) -> list:
+    """1/7th of ``symbols`` (the full sorted universe), selected by position modulo 7 --
+    ``day_of_week`` 0=Monday .. 6=Sunday. Modulo (not contiguous ranges) so each weekday's
+    slice stays close to the same ~1/7 size even as the universe list grows/shrinks slightly
+    week to week (a contiguous-range split would let one insertion shift every later
+    boundary). A symbol can occasionally land on a different weekday than last week if the
+    universe itself changed (a new listing inserted earlier in the sorted order shifts every
+    later symbol's index by one) -- a rare, one-off reshuffle, not a permanent gap."""
+    return [s for i, s in enumerate(symbols) if i % 7 == day_of_week]
+
+
+def current_ist_weekday() -> int:
+    """0=Monday .. 6=Sunday, in IST -- the batch job's own cron fires at 1:00 AM IST (19:30 UTC
+    the PREVIOUS calendar day), so using IST (not UTC) wall-clock time here is what makes the
+    cron's "1:00 AM IST" label and this function's day-of-week selection agree with each other
+    without any manual offset math."""
+    return datetime.now(ZoneInfo("Asia/Kolkata")).weekday()
+
+
 def load_checkpoint() -> pd.DataFrame:
     if os.path.exists(CHECKPOINT_FILE):
         return pd.read_csv(CHECKPOINT_FILE)
@@ -235,9 +273,22 @@ def main():
                           "rate-limit policy -- default is conservative) (default: 0.5)")
     ap.add_argument("--retries", type=int, default=3, help="retries per symbol on network failure")
     ap.add_argument("--resume", action="store_true", help="skip symbols already in the checkpoint file")
+    ap.add_argument("--day-of-week", type=int, default=None, choices=range(7),
+                     help="0=Monday..6=Sunday -- force a specific day's 1/7 slice instead of "
+                          "auto-detecting today's IST weekday (manual backfill/testing)")
+    ap.add_argument("--full-universe", action="store_true",
+                     help="fetch every symbol in one run instead of just today's 1/7 slice "
+                          "(the old behavior -- for an on-demand manual catch-up)")
     args = ap.parse_args()
 
     symbols = load_universe_symbols()
+    if args.full_universe:
+        print(f"Full-universe mode: all {len(symbols)} symbols (--full-universe given).")
+    else:
+        day_of_week = args.day_of_week if args.day_of_week is not None else current_ist_weekday()
+        day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day_of_week]
+        symbols = slice_for_day(symbols, day_of_week)
+        print(f"{day_name}'s 1/7 slice: {len(symbols)} symbols (of the full universe).")
     if args.limit:
         symbols = symbols[: args.limit]
 
