@@ -8,22 +8,25 @@ on:
     # live: a real run took ~9 minutes with no stalls), so 7 runs comfortably fit in one day
     # with room to spare between them. Each cron entry below is matched to its own
     # --day-of-week value in the run step via ${{ github.event.schedule }} (the exact cron
-    # string that fired this particular run) -- see that step's case statement. IST slot ->
-    # UTC cron:
-    #   1:00 AM IST Sun -> 19:30 UTC Sat   (slice 0)
-    #   4:00 AM IST Sun -> 22:30 UTC Sat   (slice 1)
-    #   7:00 AM IST Sun -> 01:30 UTC Sun   (slice 2)
-    #  10:00 AM IST Sun -> 04:30 UTC Sun   (slice 3)
-    #   1:00 PM IST Sun -> 07:30 UTC Sun   (slice 4)
-    #   4:00 PM IST Sun -> 10:30 UTC Sun   (slice 5)
-    #   7:00 PM IST Sun -> 13:30 UTC Sun   (slice 6)
-    - cron: '30 19 * * 6'
-    - cron: '30 22 * * 6'
-    - cron: '30 1 * * 0'
-    - cron: '30 4 * * 0'
-    - cron: '30 7 * * 0'
-    - cron: '30 10 * * 0'
-    - cron: '30 13 * * 0'
+    # string that fired this particular run) -- see that step's case statement.
+    # 2026-10-14: moved every slot off the exact :30 round minute to :37 -- confirmed live
+    # that the two OTHER daily jobs on an exact :30 minute fully skipped entire days (not just
+    # delayed) at that slot; see daily_gtt_trigger.yml's schedule comment for the general
+    # mechanism. IST slot -> UTC cron (now ~7 min later than the originally-asked clock time):
+    #   ~1:07 AM IST Sun -> 19:37 UTC Sat   (slice 0)
+    #   ~4:07 AM IST Sun -> 22:37 UTC Sat   (slice 1)
+    #   ~7:07 AM IST Sun -> 01:37 UTC Sun   (slice 2)
+    #  ~10:07 AM IST Sun -> 04:37 UTC Sun   (slice 3)
+    #   ~1:07 PM IST Sun -> 07:37 UTC Sun   (slice 4)
+    #   ~4:07 PM IST Sun -> 10:37 UTC Sun   (slice 5)
+    #   ~7:07 PM IST Sun -> 13:37 UTC Sun   (slice 6)
+    - cron: '37 19 * * 6'
+    - cron: '37 22 * * 6'
+    - cron: '37 1 * * 0'
+    - cron: '37 4 * * 0'
+    - cron: '37 7 * * 0'
+    - cron: '37 10 * * 0'
+    - cron: '37 13 * * 0'
   workflow_dispatch:
     inputs:
       day_of_week:
@@ -76,13 +79,13 @@ jobs:
             0|1|2|3|4|5|6) DOW="${{ github.event.inputs.day_of_week }}" ;;
             *)
               case "${{ github.event.schedule }}" in
-                "30 19 * * 6") DOW=0 ;;
-                "30 22 * * 6") DOW=1 ;;
-                "30 1 * * 0")  DOW=2 ;;
-                "30 4 * * 0")  DOW=3 ;;
-                "30 7 * * 0")  DOW=4 ;;
-                "30 10 * * 0") DOW=5 ;;
-                "30 13 * * 0") DOW=6 ;;
+                "37 19 * * 6") DOW=0 ;;
+                "37 22 * * 6") DOW=1 ;;
+                "37 1 * * 0")  DOW=2 ;;
+                "37 4 * * 0")  DOW=3 ;;
+                "37 7 * * 0")  DOW=4 ;;
+                "37 10 * * 0") DOW=5 ;;
+                "37 13 * * 0") DOW=6 ;;
                 *) DOW="" ;;
               esac
               ;;

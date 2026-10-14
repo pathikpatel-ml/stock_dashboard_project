@@ -2,12 +2,12 @@ name: Refresh Turtle Live Prices (Intraday)
 
 on:
   schedule:
-    # 4:00 PM IST = 10:30 UTC, every day of the week (explicit fixed schedule set 2026-10-13
+    # ~4:07 PM IST = 10:37 UTC, every day of the week (explicit fixed schedule set 2026-10-13
     # per the user's own request, replacing the earlier 3x/day-weekdays-only cadence).
-    # NOTE: an exact round minute (:30) can see the occasional GitHub Actions scheduling delay
-    # under high load (see daily_gtt_trigger.yml's schedule comment for the general mechanism)
-    # -- kept here anyway since the user asked for this precise clock time explicitly.
-    - cron: '30 10 * * *'
+    # 2026-10-14: moved off the exact :30 round minute -- confirmed live this job FULLY SKIPPED
+    # its entire Oct 14 run (not just delayed) at the round-minute slot; see
+    # daily_gtt_trigger.yml's schedule comment for the general mechanism.
+    - cron: '37 10 * * *'
   workflow_dispatch:
 
 jobs:
