@@ -85,7 +85,11 @@ _COLUMN_TOOLTIPS = {
     ),
     "Red Flag": (
         "Yes only if BOTH hold: Quality of Turnover (Other Income / Total Revenue) < 10%, "
-        "and Interest Coverage > 5 (or zero debt)."
+        "and Interest Coverage > 5 (or zero debt). Always Yes for lending-model businesses "
+        "(banks, NBFCs, housing finance companies, financial institutions, microfinance -- "
+        "detected whenever screener.in publishes ROE but no ROCE for that company), since "
+        "Interest is the core cost of the business and Other Income is routinely core revenue "
+        "for these, so neither check applies."
     ),
     "Value": (
         "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Free-"

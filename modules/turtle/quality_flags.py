@@ -38,6 +38,35 @@ screener.in actually publishes for that company. (An earlier version derived ROE
 non-standard metric; this fallback achieves the same universal coverage while using each
 company's own standard ratio instead.)
 
+Red Flag forced to True (Yes) for lending-model businesses (2026-10-18, per explicit user
+request, following a live SQL audit this same session): Quality of Turnover (Other Income /
+Total Revenue < 10%%) and Interest Coverage ((PBT+Interest)/Interest > 5) are both built for a
+normal operating company, where "Other Income" is incidental/non-core and "Interest" is
+optional debt service. For a lending-model business, neither assumption holds -- "Other
+Income" routinely includes core fee/treasury income, and "Interest" is itself the core input
+cost of the business (borrowing to re-lend), not discretionary debt service. Confirmed live:
+every one of 15 real commercial banks checked (HDFCBANK, ICICIBANK, SBIN, KOTAKBANK, etc.)
+failed both conditions, and a full-universe query showed 100%% failure across banks, Housing
+Finance Companies, Financial Institutions and Microfinance Institutions -- while non-lending
+Financial Services sub-types (Asset Management Companies, General Insurance, Depositories/
+Exchanges, Stockbroking, etc.) mostly DO pass.
+
+Which businesses count as "lending-model" is detected DYNAMICALLY, not from a hardcoded
+industry-name list (an earlier version of this same change used a 6-name list and returned
+None/"N/A" instead of forcing True -- reverted per the user's own explicit correction): a
+company is treated as lending-model whenever screener.in's own "Ratios" table has an ROE row
+but no ROCE row for it -- the exact same signal ``compute_all`` below already uses to decide
+whether Growth's ROCE check falls back to ROE (see that history above). Confirmed live this
+has the SAME true/false result as the industry list for banks/HFCs/Financial Institutions/
+Microfinance, but ALSO correctly catches NBFCs (e.g. BAJFINANCE has ROE, no ROCE, same as
+HDFCBANK) -- which the industry list missed, leaving every NBFC permanently on Red
+Flag=No -> Buy/Sell=Sell even though the same structural mismatch applies to them. Red Flag is
+forced to True (not None/"N/A") for these -- the user's own reasoning: an unresolved "N/A"
+still read as a block in practice, and the whole point is these businesses should never be
+penalized by a check that doesn't apply to them, not merely left unscored. The two underlying
+flags (``quality_of_turnover_flag``/``interest_coverage_flag``) are still computed and stored
+as before, for debugging/export -- only the combined category flag is forced.
+
 Computed from screener.in's per-symbol annual history
 (modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/
 parse_cash_flow_history/parse_pl_history_extra) plus NSE's own promoter-holding data
@@ -363,10 +392,22 @@ def growth_category_flag(
 
 def red_flag_category_flag(
     quality_of_turnover_flag: Optional[bool], interest_coverage_flag: Optional[bool],
+    is_lending_model: bool = False,
 ) -> bool:
     """Red Flag's original 2 conditions (2026-10-02): Promoter Pledge was tried via three
     different free sources in turn and ultimately dropped per the user's own final decision --
-    see the module docstring above for the full history."""
+    see the module docstring above for the full history.
+
+    2026-10-18: forced to True for a lending-model business (``is_lending_model`` -- see module
+    docstring) -- the two checks don't structurally apply to these, so rather than letting a
+    real "No" permanently block Buy/Sell for every such stock, Red Flag is always Yes for them.
+    (An earlier version of this same day returned None/"N/A" instead of True, gated on a
+    hardcoded industry-name list -- reverted per the user's own explicit correction: None still
+    left out NBFCs, which the industry list never covered, and "always No -> always Sell" is
+    the exact failure this exists to fix, not just for a few named industries.)
+    """
+    if is_lending_model:
+        return True
     return _all_true(quality_of_turnover_flag, interest_coverage_flag)
 
 
@@ -443,6 +484,11 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     # module docstring for the full reasoning. Stored/displayed under the same "roce_*" field
     # names either way; which one was actually used isn't surfaced separately.
     roce = ratios.get("roce") or ratios.get("roe")
+    # Same ROCE-absent/ROE-present signal, reused to decide Red Flag's lending-model override
+    # below (see module docstring) -- a company with no ROCE row at all is, per screener.in's
+    # own classification, a lending-model business (bank/NBFC/HFC/etc.), for which Red Flag's
+    # two checks don't structurally apply.
+    is_lending_model = ratios.get("roce") is None and ratios.get("roe") is not None
     # Free Cash Flow (2026-10-18, replacing Operating Cash Flow) -- screener.in publishes this
     # as its own pre-computed row (Cash from Operating Activity minus CapEx already done for
     # us), confirmed live. See module docstring for why FCF, not OCF, for this check.
@@ -519,6 +565,6 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "growth_category_flag": growth_category_flag(
             book_value_growth_flag, eps_growth_flag, roce_flag_value, sales_growth_flag, promoter_flag,
         ),
-        "red_flag_category_flag": red_flag_category_flag(qot_flag, interest_flag),
+        "red_flag_category_flag": red_flag_category_flag(qot_flag, interest_flag, is_lending_model),
         "value_category_flag": value_category_flag(pb_flag, ps_flag, pfcf_flag),
     }

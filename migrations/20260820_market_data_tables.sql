@@ -208,6 +208,9 @@ CREATE TABLE IF NOT EXISTS turtle_signals_latest (
     signal_change        TEXT,  -- e.g. "EXIT -> HOLD", "HOLD -> ADD", "NEW", or NULL if unchanged
                                  -- (added 2026-09-01; see generate_turtle_signals.py's
                                  -- _fetch_previous_signals/_signal_change)
+    growth_category_flag     BOOLEAN,  -- 2026-10-18: copied from the shared turtle_fundamentals
+    red_flag_category_flag   BOOLEAN,  -- table (same source Turtle Quant reads), not recomputed
+    value_category_flag      BOOLEAN,  -- here -- see modules/turtle/quality_flags.py
     signal_date          DATE NOT NULL,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -234,6 +237,9 @@ CREATE TABLE IF NOT EXISTS turtle_signals_history (
     ath_sales_flag       BOOLEAN,
     signal               TEXT,
     signal_change        TEXT,  -- see turtle_signals_latest's column comment above
+    growth_category_flag     BOOLEAN,
+    red_flag_category_flag   BOOLEAN,
+    value_category_flag      BOOLEAN,
     signal_date          DATE NOT NULL,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (symbol, signal_date)   -- idempotent re-runs on the same day upsert, not duplicate

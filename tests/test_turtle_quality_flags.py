@@ -377,6 +377,19 @@ def test_red_flag_category_flag_false_when_either_fails_or_missing():
     assert qf.red_flag_category_flag(None, True) is False
 
 
+def test_red_flag_category_flag_true_for_lending_model_even_when_both_fail():
+    # A bank/NBFC would otherwise fail both conditions, but the check doesn't apply to it at
+    # all -- forced to True (Yes), not None, so it never permanently blocks Buy/Sell.
+    assert qf.red_flag_category_flag(False, False, is_lending_model=True) is True
+    assert qf.red_flag_category_flag(None, None, is_lending_model=True) is True
+
+
+def test_red_flag_category_flag_unaffected_when_not_lending_model():
+    assert qf.red_flag_category_flag(True, True, is_lending_model=False) is True
+    assert qf.red_flag_category_flag(False, True, is_lending_model=False) is False
+    assert qf.red_flag_category_flag(True, True) is True  # default is_lending_model=False
+
+
 def test_value_category_flag_true_when_all_three_pass():
     assert qf.value_category_flag(True, True, True) is True
 
