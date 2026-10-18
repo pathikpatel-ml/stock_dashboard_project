@@ -279,20 +279,33 @@ def test_valuation_ratio_by_year_hand_computed():
     assert result == {"Mar 2024": pytest.approx(2.0), "Mar 2025": pytest.approx(2.0)}
 
 
-def test_valuation_ratio_by_year_skips_negative_per_share():
-    # A negative basis (e.g. a loss-making year's Free Cash Flow, confirmed live on RELIANCE's
-    # own early-year FCF) makes the ratio meaningless -- skipped, not included as a negative
-    # number (2026-10-18).
+def test_valuation_ratio_by_year_includes_negative_per_share():
+    # 2026-10-18, revised same day per explicit user request: a negative basis (e.g. a
+    # loss-making year's Free Cash Flow) is INCLUDED as a negative ratio, not skipped -- an
+    # earlier version excluded it, which let the 5-year-average window reach arbitrarily far
+    # back in time past excluded years instead of reflecting the real last 5 calendar years.
     per_share = {"Mar 2023": -20.0, "Mar 2024": 500.0}
+    price = {"Mar 2023": 1000.0, "Mar 2024": 1000.0}
+    result = qf.valuation_ratio_by_year(per_share, price)
+    assert result == {"Mar 2023": pytest.approx(-50.0), "Mar 2024": pytest.approx(2.0)}
+
+
+def test_valuation_ratio_by_year_skips_exact_zero_per_share():
+    per_share = {"Mar 2023": 0.0, "Mar 2024": 500.0}
     price = {"Mar 2023": 1000.0, "Mar 2024": 1000.0}
     result = qf.valuation_ratio_by_year(per_share, price)
     assert result == {"Mar 2024": pytest.approx(2.0)}
 
 
-def test_current_valuation_ratio_none_for_negative_per_share():
-    # `not per_share` alone does NOT catch a negative value in Python -- this guards against
-    # that specific gap (2026-10-18).
+def test_current_valuation_ratio_includes_negative_per_share():
+    # Same revised reasoning as valuation_ratio_by_year above -- a negative "current" ratio
+    # is allowed through, not treated as missing data.
     per_share_by_period = {"Mar 2024": 500.0, "Mar 2025": -10.0}
+    assert qf._current_valuation_ratio(per_share_by_period, current_price=1000.0) == pytest.approx(-100.0)
+
+
+def test_current_valuation_ratio_none_for_exact_zero_per_share():
+    per_share_by_period = {"Mar 2024": 0.0}
     assert qf._current_valuation_ratio(per_share_by_period, current_price=1000.0) is None
 
 

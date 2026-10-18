@@ -289,13 +289,21 @@ def valuation_ratio_by_year(
     """(period -> price / per_share_value) -- e.g. Price-to-Book for that period, given that
     period's derived per-share book value and that period's actual (or nearest available)
     year-end stock price. Periods missing either side are skipped, as is any period where
-    ``per_share`` is zero OR NEGATIVE (2026-10-18 -- a negative basis, e.g. a loss-making
-    year's Free Cash Flow, confirmed live on RELIANCE's own early-year FCF, makes the ratio
-    meaningless: there's no sensible "cheap relative to negative cash flow" reading)."""
+    ``per_share`` is exactly zero (division undefined).
+
+    2026-10-18, revised same day per explicit user request: a NEGATIVE per-share value (e.g. a
+    loss-making year's Free Cash Flow) is NOT skipped -- it's included as a negative ratio.
+    An earlier version of this function excluded negative-basis years entirely, on the
+    reasoning that "cheap relative to negative cash flow" has no sensible reading -- but that
+    silently let the 5-year-average window (see compute_all) reach arbitrarily far BACK IN
+    TIME past excluded years to find enough positive ones, rather than reflecting the actual
+    last 5 calendar years. The user's own explicit call: keep the window strictly to the real
+    last 5 calendar years, and let a bad (negative-FCF) year count AGAINST the average as a
+    negative number, rather than being quietly dropped."""
     result = {}
     for period, per_share in per_share_by_period.items():
         price = price_by_period.get(period)
-        if price is None or per_share is None or per_share <= 0:
+        if price is None or per_share is None or per_share == 0:
             continue
         result[period] = price / per_share
     return result
@@ -387,15 +395,15 @@ def _combine_totals(a: Optional[Series], b: Optional[Series]) -> Optional[Series
 def _current_valuation_ratio(per_share_by_period: Dict[str, float], current_price: Optional[float]) -> Optional[float]:
     """current_price / the LATEST period's per-share value -- "current" valuation computed the
     same derivation-method way as every historical year, for a fair comparison against the
-    5-year average (see module docstring). None if that per-share value is zero OR NEGATIVE
-    (2026-10-18 -- ``not per_share`` alone does NOT catch a negative value in Python, only
-    zero/None; a negative basis makes the ratio meaningless, same reasoning as
-    valuation_ratio_by_year's guard)."""
+    5-year average (see module docstring). None only if that per-share value is exactly zero
+    (division undefined) -- a NEGATIVE value is allowed through and produces a negative ratio
+    (2026-10-18, per explicit user request, same reasoning as valuation_ratio_by_year's own
+    revised guard: a bad year counts against the comparison rather than being dropped)."""
     if not per_share_by_period or current_price is None:
         return None
     latest_period = list(per_share_by_period.keys())[-1]
     per_share = per_share_by_period[latest_period]
-    if per_share is None or per_share <= 0:
+    if per_share is None or per_share == 0:
         return None
     return current_price / per_share
 
