@@ -68,7 +68,7 @@ QUALITY_FIELD_NAMES = [
     "quality_of_turnover_pct", "quality_of_turnover_flag",
     "pb_current", "pb_5y_avg", "pb_flag",
     "ps_current", "ps_5y_avg", "ps_flag",
-    "pcf_current", "pcf_5y_avg", "pcf_flag",
+    "pfcf_current", "pfcf_5y_avg", "pfcf_flag",
     "growth_category_flag", "red_flag_category_flag", "value_category_flag",
 ]
 
@@ -288,11 +288,14 @@ def valuation_ratio_by_year(
 ) -> Dict[str, float]:
     """(period -> price / per_share_value) -- e.g. Price-to-Book for that period, given that
     period's derived per-share book value and that period's actual (or nearest available)
-    year-end stock price. Periods missing either side are skipped."""
+    year-end stock price. Periods missing either side are skipped, as is any period where
+    ``per_share`` is zero OR NEGATIVE (2026-10-18 -- a negative basis, e.g. a loss-making
+    year's Free Cash Flow, confirmed live on RELIANCE's own early-year FCF, makes the ratio
+    meaningless: there's no sensible "cheap relative to negative cash flow" reading)."""
     result = {}
     for period, per_share in per_share_by_period.items():
         price = price_by_period.get(period)
-        if price is None or per_share == 0:
+        if price is None or per_share is None or per_share <= 0:
             continue
         result[period] = price / per_share
     return result
@@ -359,8 +362,8 @@ def red_flag_category_flag(
     return _all_true(quality_of_turnover_flag, interest_coverage_flag)
 
 
-def value_category_flag(pb_flag: Optional[bool], ps_flag: Optional[bool], pcf_flag: Optional[bool]) -> bool:
-    return _all_true(pb_flag, ps_flag, pcf_flag)
+def value_category_flag(pb_flag: Optional[bool], ps_flag: Optional[bool], pfcf_flag: Optional[bool]) -> bool:
+    return _all_true(pb_flag, ps_flag, pfcf_flag)
 
 
 def _combine_totals(a: Optional[Series], b: Optional[Series]) -> Optional[Series]:
@@ -384,12 +387,15 @@ def _combine_totals(a: Optional[Series], b: Optional[Series]) -> Optional[Series
 def _current_valuation_ratio(per_share_by_period: Dict[str, float], current_price: Optional[float]) -> Optional[float]:
     """current_price / the LATEST period's per-share value -- "current" valuation computed the
     same derivation-method way as every historical year, for a fair comparison against the
-    5-year average (see module docstring)."""
+    5-year average (see module docstring). None if that per-share value is zero OR NEGATIVE
+    (2026-10-18 -- ``not per_share`` alone does NOT catch a negative value in Python, only
+    zero/None; a negative basis makes the ratio meaningless, same reasoning as
+    valuation_ratio_by_year's guard)."""
     if not per_share_by_period or current_price is None:
         return None
     latest_period = list(per_share_by_period.keys())[-1]
     per_share = per_share_by_period[latest_period]
-    if not per_share:
+    if per_share is None or per_share <= 0:
         return None
     return current_price / per_share
 
@@ -429,7 +435,10 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     # module docstring for the full reasoning. Stored/displayed under the same "roce_*" field
     # names either way; which one was actually used isn't surfaced separately.
     roce = ratios.get("roce") or ratios.get("roe")
-    cfo = cash_flow.get("cfo")
+    # Free Cash Flow (2026-10-18, replacing Operating Cash Flow) -- screener.in publishes this
+    # as its own pre-computed row (Cash from Operating Activity minus CapEx already done for
+    # us), confirmed live. See module docstring for why FCF, not OCF, for this check.
+    fcf = cash_flow.get("fcf")
     # NSE's own promoter-holding history (2026-10-02) is preferred over screener.in's -- longer
     # window (~5.5 years back to ~Dec 2021, vs screener.in's ~3) and the primary regulatory
     # source, not a secondary scrape. Falls back to screener.in's series only if the NSE fetch
@@ -454,26 +463,26 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     shares = shares_outstanding_by_year(net_profit, eps)
     book_value_per_share = per_share_by_year(book_value, shares)
     sales_per_share = per_share_by_year(sales, shares)
-    cfo_per_share = per_share_by_year(cfo, shares)
+    fcf_per_share = per_share_by_year(fcf, shares)
 
     pb_by_year = valuation_ratio_by_year(book_value_per_share, year_end_prices)
     ps_by_year = valuation_ratio_by_year(sales_per_share, year_end_prices)
-    pcf_by_year = valuation_ratio_by_year(cfo_per_share, year_end_prices)
+    pfcf_by_year = valuation_ratio_by_year(fcf_per_share, year_end_prices)
 
     pb_5y_avg = average((list(pb_by_year.keys()), list(pb_by_year.values())), max_years=5, min_years=3) \
         if pb_by_year else None
     ps_5y_avg = average((list(ps_by_year.keys()), list(ps_by_year.values())), max_years=5, min_years=3) \
         if ps_by_year else None
-    pcf_5y_avg = average((list(pcf_by_year.keys()), list(pcf_by_year.values())), max_years=5, min_years=3) \
-        if pcf_by_year else None
+    pfcf_5y_avg = average((list(pfcf_by_year.keys()), list(pfcf_by_year.values())), max_years=5, min_years=3) \
+        if pfcf_by_year else None
 
     pb_current = _current_valuation_ratio(book_value_per_share, current_price)
     ps_current = _current_valuation_ratio(sales_per_share, current_price)
-    pcf_current = _current_valuation_ratio(cfo_per_share, current_price)
+    pfcf_current = _current_valuation_ratio(fcf_per_share, current_price)
 
     pb_flag = valuation_flag(pb_5y_avg, pb_current)
     ps_flag = valuation_flag(ps_5y_avg, ps_current)
-    pcf_flag = valuation_flag(pcf_5y_avg, pcf_current)
+    pfcf_flag = valuation_flag(pfcf_5y_avg, pfcf_current)
 
     return {
         "book_value_cagr_10y": book_value_cagr_10y,
@@ -496,12 +505,12 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
         "ps_current": ps_current,
         "ps_5y_avg": ps_5y_avg,
         "ps_flag": ps_flag,
-        "pcf_current": pcf_current,
-        "pcf_5y_avg": pcf_5y_avg,
-        "pcf_flag": pcf_flag,
+        "pfcf_current": pfcf_current,
+        "pfcf_5y_avg": pfcf_5y_avg,
+        "pfcf_flag": pfcf_flag,
         "growth_category_flag": growth_category_flag(
             book_value_growth_flag, eps_growth_flag, roce_flag_value, sales_growth_flag, promoter_flag,
         ),
         "red_flag_category_flag": red_flag_category_flag(qot_flag, interest_flag),
-        "value_category_flag": value_category_flag(pb_flag, ps_flag, pcf_flag),
+        "value_category_flag": value_category_flag(pb_flag, ps_flag, pfcf_flag),
     }

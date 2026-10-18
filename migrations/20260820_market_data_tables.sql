@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- 10-year CAGR/ROCE
     -- from screener.in's Balance Sheet/Ratios/Cash Flows/Profit & Loss history (same page,
     -- zero extra screener.in requests), plus one extra yfinance monthly-price fetch per symbol
-    -- for the 3 valuation-ratio checks (5yr-avg P/B, P/S, P/CF vs current). See
+    -- for the 3 valuation-ratio checks (5yr-avg P/B, P/S, P/FCF vs current). See
     -- modules/turtle/quality_flags.py for every formula and documented assumption (ROCE as a
     -- 10-year average not a per-year minimum; zero-interest treated as an automatic pass on
     -- interest coverage; promoter holding scoped to the real ~3-year window screener.in's free
@@ -159,9 +159,9 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     ps_current                  DOUBLE PRECISION,
     ps_5y_avg                   DOUBLE PRECISION,
     ps_flag                     BOOLEAN,
-    pcf_current                 DOUBLE PRECISION,
-    pcf_5y_avg                  DOUBLE PRECISION,
-    pcf_flag                    BOOLEAN,
+    pfcf_current                DOUBLE PRECISION,
+    pfcf_5y_avg                 DOUBLE PRECISION,
+    pfcf_flag                   BOOLEAN,
     growth_category_flag        BOOLEAN,
     red_flag_category_flag      BOOLEAN,
     value_category_flag         BOOLEAN,
@@ -243,7 +243,7 @@ CREATE INDEX IF NOT EXISTS idx_turtle_signals_history_date ON turtle_signals_his
 
 -- ---------------------------------------------------------------
 -- 7b. Turtle Quant signals -- a pure fundamental quality/valuation screen (10yr book value/EPS/
---     sales growth, ROCE, promoter holding trend, interest coverage, P/B-P/S-P/CF vs. 5yr own
+--     sales growth, ROCE, promoter holding trend, interest coverage, P/B-P/S-P/FCF vs. 5yr own
 --     average). Added 2026-09-02 as a weekly RS/SuperTrend/ADX/RSI technical-signal system;
 --     that entire system (and its companion turtlequant_signals_history/
 --     turtlequant_signal_transitions tables) was REMOVED 2026-10-02 per explicit user request
@@ -284,9 +284,9 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     ps_current                  DOUBLE PRECISION,
     ps_5y_avg                   DOUBLE PRECISION,
     ps_flag                     BOOLEAN,
-    pcf_current                 DOUBLE PRECISION,
-    pcf_5y_avg                  DOUBLE PRECISION,
-    pcf_flag                    BOOLEAN,
+    pfcf_current                DOUBLE PRECISION,
+    pfcf_5y_avg                 DOUBLE PRECISION,
+    pfcf_flag                   BOOLEAN,
     growth_category_flag        BOOLEAN,
     red_flag_category_flag      BOOLEAN,
     value_category_flag         BOOLEAN,

@@ -529,6 +529,7 @@ CASH_FLOW_HTML = """
 <tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
 <tr><td>Cash from Operating Activity+</td><td>800</td><td>900</td><td>1000</td></tr>
 <tr><td>Net Cash Flow</td><td>50</td><td>60</td><td>70</td></tr>
+<tr><td>Free Cash Flow</td><td>-200</td><td>600</td><td>750</td></tr>
 </table>
 </section>
 </body></html>
@@ -611,6 +612,13 @@ def test_parse_balance_sheet_history_found_but_empty_degrades_gracefully():
 def test_parse_cash_flow_history_strips_plus_suffix():
     result = sf.parse_cash_flow_history(CASH_FLOW_HTML)
     assert result["cfo"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [800.0, 900.0, 1000.0])
+
+
+def test_parse_cash_flow_history_extracts_fcf():
+    # Free Cash Flow is its own pre-computed row on screener.in (confirmed live on RELIANCE)
+    # -- feeds the Price-to-Free-Cash-Flow check (2026-10-18, replacing an OCF-based "P/CF").
+    result = sf.parse_cash_flow_history(CASH_FLOW_HTML)
+    assert result["fcf"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [-200.0, 600.0, 750.0])
 
 
 def test_parse_ratios_history_extracts_roce_and_none_for_absent_roe():

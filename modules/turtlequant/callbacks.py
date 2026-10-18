@@ -88,8 +88,8 @@ _COLUMN_TOOLTIPS = {
         "and Interest Coverage > 5 (or zero debt)."
     ),
     "Value": (
-        "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Cash-Flow "
-        "are each cheaper than their own 5-year average -- i.e. the stock is cheap relative to "
+        "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Free-"
+        "Cash-Flow are each cheaper than their own 5-year average -- i.e. the stock is cheap relative to "
         "its own recent valuation history on all three measures."
     ),
 }

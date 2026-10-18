@@ -279,6 +279,23 @@ def test_valuation_ratio_by_year_hand_computed():
     assert result == {"Mar 2024": pytest.approx(2.0), "Mar 2025": pytest.approx(2.0)}
 
 
+def test_valuation_ratio_by_year_skips_negative_per_share():
+    # A negative basis (e.g. a loss-making year's Free Cash Flow, confirmed live on RELIANCE's
+    # own early-year FCF) makes the ratio meaningless -- skipped, not included as a negative
+    # number (2026-10-18).
+    per_share = {"Mar 2023": -20.0, "Mar 2024": 500.0}
+    price = {"Mar 2023": 1000.0, "Mar 2024": 1000.0}
+    result = qf.valuation_ratio_by_year(per_share, price)
+    assert result == {"Mar 2024": pytest.approx(2.0)}
+
+
+def test_current_valuation_ratio_none_for_negative_per_share():
+    # `not per_share` alone does NOT catch a negative value in Python -- this guards against
+    # that specific gap (2026-10-18).
+    per_share_by_period = {"Mar 2024": 500.0, "Mar 2025": -10.0}
+    assert qf._current_valuation_ratio(per_share_by_period, current_price=1000.0) is None
+
+
 def test_valuation_flag_cheaper_than_average_is_true():
     # current ratio (1.5) below 5yr avg (2.0) -> stock is cheaper than its own history -> True
     assert qf.valuation_flag(five_year_avg_ratio=2.0, current_ratio=1.5) is True

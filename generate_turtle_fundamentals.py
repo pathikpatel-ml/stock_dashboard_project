@@ -87,7 +87,7 @@ _QUALITY_COLUMNS = [
     "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
     "PB_Current", "PB_5Y_Avg", "PB_Flag",
     "PS_Current", "PS_5Y_Avg", "PS_Flag",
-    "PCF_Current", "PCF_5Y_Avg", "PCF_Flag",
+    "PFCF_Current", "PFCF_5Y_Avg", "PFCF_Flag",
     "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
@@ -114,7 +114,7 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Quality_Of_Turnover_Pct": "quality_of_turnover_pct", "Quality_Of_Turnover_Flag": "quality_of_turnover_flag",
     "PB_Current": "pb_current", "PB_5Y_Avg": "pb_5y_avg", "PB_Flag": "pb_flag",
     "PS_Current": "ps_current", "PS_5Y_Avg": "ps_5y_avg", "PS_Flag": "ps_flag",
-    "PCF_Current": "pcf_current", "PCF_5Y_Avg": "pcf_5y_avg", "PCF_Flag": "pcf_flag",
+    "PFCF_Current": "pfcf_current", "PFCF_5Y_Avg": "pfcf_5y_avg", "PFCF_Flag": "pfcf_flag",
     "Growth_Category_Flag": "growth_category_flag", "Red_Flag_Category_Flag": "red_flag_category_flag",
     "Value_Category_Flag": "value_category_flag",
 }

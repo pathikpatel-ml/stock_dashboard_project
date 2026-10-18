@@ -286,17 +286,23 @@ def parse_balance_sheet_history(html: str) -> Optional[dict]:
 
 
 def parse_cash_flow_history(html: str) -> Optional[dict]:
-    """Cash from Operating Activity annual history (Cr) from screener.in's "Cash Flows" table
-    -- feeds the Price-to-Cash-Flow valuation check. None if the section or row can't be found.
-    """
+    """Free Cash Flow annual history (Cr) from screener.in's "Cash Flows" table -- feeds the
+    Price-to-Free-Cash-Flow valuation check (2026-10-18, replacing an Operating-Cash-Flow-based
+    "P/CF" -- confirmed live the user wants the stricter FCF measure, which nets out CapEx,
+    for genuine multibagger screening). screener.in already publishes a pre-computed "Free
+    Cash Flow" row directly (confirmed live on RELIANCE) -- no need to separately parse CapEx
+    and subtract it ourselves. ``cfo`` (Cash from Operating Activity) is kept too since it's
+    cheap (same table, zero extra cost) and may be useful for debugging/export even though
+    nothing currently reads it. None if the section can't be found at all; either row missing
+    degrades to that key being None, not the whole dict."""
     soup = BeautifulSoup(html, "html.parser")
     table = _find_section_table(soup, "Cash Flows")
     if table is None:
         return None
-    cfo = _extract_annual_series(table, {"Cash from Operating Activity"})
-    if cfo is None:
-        return None
-    return {"cfo": cfo}
+    return {
+        "cfo": _extract_annual_series(table, {"Cash from Operating Activity"}),
+        "fcf": _extract_annual_series(table, {"Free Cash Flow"}),
+    }
 
 
 def parse_ratios_history(html: str) -> Optional[dict]:

@@ -32,7 +32,7 @@ QUALITY_COLUMNS = [
     "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
     "PB_Current", "PB_5Y_Avg", "PB_Flag",
     "PS_Current", "PS_5Y_Avg", "PS_Flag",
-    "PCF_Current", "PCF_5Y_Avg", "PCF_Flag",
+    "PFCF_Current", "PFCF_5Y_Avg", "PFCF_Flag",
     "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
