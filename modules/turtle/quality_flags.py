@@ -26,15 +26,17 @@ modules/breakout/data_feed.py's hard-timeout fix). Per the user's own final deci
 Promoter Pledge is dropped entirely -- Red Flag is back to its original 2 conditions: Quality of
 Turnover and Interest Coverage.
 
-ROCE instead of ROE (2026-10-18, per explicit user request -- reversing an earlier 2026-10-02
-decision): screener.in's free "Ratios" history table only has ROCE%% for non-financial
-companies and ONLY ROE%% for banks/NBFCs (never both, confirmed live again on HDFCBANK: no ROCE
-row at all) -- so switching to screener.in's own ROCE%% row (``parse_ratios_history``, label
-confirmed live as exactly "ROCE %%") means banks/NBFCs structurally have ``roce=None`` and
-therefore always fail this metric (and so the whole Growth category) on this metric -- an
-accepted, known gap, not a bug, since no free-tier source has both ratios for every company
-type. The ROE-by-derivation approach (``roe_by_year()`` = Net Profit / Book Value, worked
-uniformly for every company) that this replaces has been removed.
+ROCE for regular companies, ROE for banks/NBFCs (2026-10-18, per explicit user request --
+reversing an earlier 2026-10-02 decision): screener.in's free "Ratios" history table only has
+ROCE%% for non-financial companies and ONLY ROE%% for banks/NBFCs (never both, confirmed live
+on both RELIANCE and HDFCBANK). ``parse_ratios_history`` (modules/turtle/standalone_fundamentals.py)
+parses BOTH labels ("ROCE %%" and "ROE %%") and ``compute_all`` below prefers ROCE, falling back
+to ROE when a company has no ROCE row at all -- so every company type gets a real, year-by-year
+profitability check under the same ``roce_*`` field names, sourced from whichever ratio
+screener.in actually publishes for that company. (An earlier version derived ROE ourselves via
+``roe_by_year()`` = Net Profit / Book Value to work uniformly for every company with a
+non-standard metric; this fallback achieves the same universal coverage while using each
+company's own standard ratio instead.)
 
 Computed from screener.in's per-symbol annual history
 (modules/turtle/standalone_fundamentals.py's parse_balance_sheet_history/
@@ -422,9 +424,11 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     interest = pl_extra.get("interest")
     pbt = pl_extra.get("profit_before_tax")
     other_income = pl_extra.get("other_income")
-    # screener.in's own "Ratios" row (2026-10-18, per explicit user request) -- see module
-    # docstring for why this is None for every bank/NBFC (no ROCE row exists for them there).
-    roce = ratios.get("roce")
+    # screener.in's own "Ratios" row (2026-10-18, per explicit user request): ROCE for regular
+    # companies, falling back to ROE for banks/NBFCs (which have no ROCE row at all) -- see
+    # module docstring for the full reasoning. Stored/displayed under the same "roce_*" field
+    # names either way; which one was actually used isn't surfaced separately.
+    roce = ratios.get("roce") or ratios.get("roe")
     cfo = cash_flow.get("cfo")
     # NSE's own promoter-holding history (2026-10-02) is preferred over screener.in's -- longer
     # window (~5.5 years back to ~Dec 2021, vs screener.in's ~3) and the primary regulatory

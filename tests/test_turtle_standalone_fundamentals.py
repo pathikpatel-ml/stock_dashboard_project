@@ -613,19 +613,23 @@ def test_parse_cash_flow_history_strips_plus_suffix():
     assert result["cfo"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [800.0, 900.0, 1000.0])
 
 
-def test_parse_ratios_history_extracts_roce():
+def test_parse_ratios_history_extracts_roce_and_none_for_absent_roe():
     result = sf.parse_ratios_history(RATIOS_HTML)
-    assert result == {"roce": (["Mar 2023", "Mar 2024", "Mar 2025"], [12.0, 14.0, 9.0])}
+    assert result["roce"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [12.0, 14.0, 9.0])
+    assert result["roe"] is None
 
 
 def test_parse_ratios_history_missing_section_returns_none():
     assert sf.parse_ratios_history("<html><body>not a real page</body></html>") is None
 
 
-def test_parse_ratios_history_none_for_banks_no_roce_row():
+def test_parse_ratios_history_extracts_roe_for_banks_no_roce_row():
     # Banks/NBFCs show "ROE %" instead of "ROCE %" on screener.in's free tier -- confirmed
-    # live on HDFCBANK (no ROCE row at all). None here is the expected, accepted gap.
-    assert sf.parse_ratios_history(RATIOS_BANK_HTML) is None
+    # live on HDFCBANK (no ROCE row at all). compute_all() falls back to this roe series so
+    # banks still get a real profitability check (2026-10-18, per explicit user request).
+    result = sf.parse_ratios_history(RATIOS_BANK_HTML)
+    assert result["roce"] is None
+    assert result["roe"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [15.0, 16.0, 17.0])
 
 
 def test_parse_pl_history_extra_excludes_ttm_and_gets_all_rows():
