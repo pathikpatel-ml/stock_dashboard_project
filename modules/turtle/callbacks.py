@@ -28,27 +28,6 @@ _DISPLAY_COLUMNS = [
     "ATH_Profit_Flag", "ATH_Sales_Flag",
     "Above_MA212_Flag", "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Sector_Rank",
     "RS_vs_Benchmark", "RS_vs_Benchmark_Rank",
-    # 2026-10-18 (per explicit user request): the same 3 Growth/Red Flag/Value category flags
-    # already shown on the Turtle Quant tab -- copied from the shared turtle_fundamentals
-    # table, not recomputed here. See modules/turtle/quality_flags.py for every formula.
-    "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
-]
-
-# The 3 category columns get short display names on the table itself (mirrors
-# modules/turtlequant/callbacks.py's _CATEGORY_DISPLAY_NAMES exactly).
-_CATEGORY_DISPLAY_NAMES = {
-    "Growth_Category_Flag": "Growth",
-    "Red_Flag_Category_Flag": "Red Flag",
-    "Value_Category_Flag": "Value",
-}
-
-# Checkbox filter options (mirrors modules/turtlequant/callbacks.py::FLAG_FILTER_OPTIONS) --
-# lets the user tick any combination of the 3 category flags to narrow the table to only
-# stocks where EVERY ticked flag is Yes.
-FLAG_FILTER_OPTIONS = [
-    {"label": " Growth", "value": "Growth_Category_Flag"},
-    {"label": " Red Flag", "value": "Red_Flag_Category_Flag"},
-    {"label": " Value", "value": "Value_Category_Flag"},
 ]
 
 # Shown on hover over each column header (docs/TURTLE_STRATEGY_PLAN.md) so the table is
@@ -140,27 +119,6 @@ _COLUMN_TOOLTIPS = {
         "Outperformance = RS vs Sector > 0 **and** RS vs Benchmark > 0 (must beat both). "
         "ATH Sales is not part of this — display-only."
     ),
-    "Growth": (
-        "Yes only if ALL 5 hold: Book Value/EPS/Sales growth >= 10% in EVERY individual year "
-        "(not just the overall average), ROCE (or ROE for banks/NBFCs, whichever screener.in "
-        "publishes for that company) >= 10% in EVERY individual year, and promoter holding "
-        "hasn't decreased over screener.in's real ~3-year window. A single weak year in any "
-        "metric, or missing data, makes this No. From the shared turtle_fundamentals table "
-        "(same data Turtle Quant shows), refreshed weekly on Sunday."
-    ),
-    "Red Flag": (
-        "Yes only if BOTH hold: Quality of Turnover (Other Income / Total Revenue) < 10%, "
-        "and Interest Coverage > 5 (or zero debt). Always Yes for lending-model businesses "
-        "(banks, NBFCs, housing finance companies, financial institutions, microfinance -- "
-        "detected whenever screener.in publishes ROE but no ROCE for that company), since "
-        "Interest is the core cost of the business and Other Income is routinely core revenue "
-        "for these, so neither check applies."
-    ),
-    "Value": (
-        "Yes only if ALL 3 hold: current Price-to-Book, Price-to-Sales, and Price-to-Free-"
-        "Cash-Flow are each cheaper than their own 5-year average -- i.e. the stock is cheap "
-        "relative to its own recent valuation history on all three measures."
-    ),
 }
 
 
@@ -181,12 +139,6 @@ def _table(df):
         display_df["Current_Price"] = pd.to_numeric(
             display_df["Current_Price"], errors="coerce"
         ).round(0).astype("Int64")
-    for cat_col in _CATEGORY_DISPLAY_NAMES:
-        if cat_col in display_df.columns:
-            display_df[cat_col] = display_df[cat_col].map({True: "Yes", False: "No"}).fillna("No")
-    display_df = display_df.rename(columns=_CATEGORY_DISPLAY_NAMES)
-    cols = [_CATEGORY_DISPLAY_NAMES.get(c, c) for c in cols]
-
     return dash_table.DataTable(
         id="tt-signals-table",
         columns=[{"name": c.replace("_", " "), "id": c} for c in cols],
@@ -212,14 +164,6 @@ def _table(df):
             {"if": {"filter_query": '{Signal} = "ADD"'}, "backgroundColor": "#d4edda", "color": "#155724"},
             {"if": {"filter_query": '{Signal} = "HOLD"'}, "backgroundColor": "#fff3cd", "color": "#856404"},
             {"if": {"filter_query": '{Signal} = "EXIT"'}, "backgroundColor": "#f8d7da", "color": "#721c24"},
-        ] + [
-            {"if": {"filter_query": f'{{{col}}} = "Yes"', "column_id": col},
-             "backgroundColor": "#d4edda", "color": "#155724"}
-            for col in _CATEGORY_DISPLAY_NAMES.values()
-        ] + [
-            {"if": {"filter_query": f'{{{col}}} = "No"', "column_id": col},
-             "backgroundColor": "#f8d7da", "color": "#721c24"}
-            for col in _CATEGORY_DISPLAY_NAMES.values()
         ],
     )
 
@@ -462,14 +406,12 @@ def register_turtle_callbacks(app):
          Input("tt-ath-only-toggle", "value"),
          Input("tt-yesterday-toggle", "value"),
          Input("tt-extra-filters", "value"),
-         Input("tt-flag-filter", "value"),
          Input("tt-auto-refresh-interval", "n_intervals"),
          Input("tt-watchlist-tags", "children")],  # re-render immediately on add/remove, so
          # "Indices: My Watchlist" reflects the change without waiting for the next 5-min tick
         prevent_initial_call=False,
     )
-    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, extra_filters,
-                       flag_filter_values, _n_intervals, _watchlist_tags):
+    def render_turtle(indices_value, sector_value, stock_value, ath_only, yesterday, extra_filters, _n_intervals, _watchlist_tags):
         # Re-sync from disk/GitHub on every render, not just at process boot. Without this,
         # a long-lived running instance would only ever see whatever turtle_signals_<date>.csv
         # / turtle_live_prices.csv / nse_categories.csv existed when the process last started --
@@ -554,10 +496,6 @@ def register_turtle_callbacks(app):
             df = df[df["RS_vs_Sector"] > 0]
         if "rs_benchmark_positive" in extra_filters:
             df = df[df["RS_vs_Benchmark"] > 0]
-
-        for flag_col in (flag_filter_values or []):
-            if flag_col in df.columns:
-                df = df[df[flag_col] == True]  # noqa: E712 -- explicit True, not truthy-check (None/False both excluded)
 
         if df.empty:
             return (

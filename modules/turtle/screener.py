@@ -44,12 +44,6 @@ SIGNAL_COLUMNS = [
     "ATH_Price_Flag", "TTM_Net_Profit", "ATH_Profit_Flag", "Above_MA212_Flag",
     "RS_Peer_Group", "RS_vs_Sector", "RS_vs_Benchmark", "Outperformance_Flag",
     "TTM_Net_Sales", "ATH_Sales", "ATH_Sales_Flag", "Signal",
-    # 2026-10-18 (per explicit user request): the same 3 Growth/Red Flag/Value
-    # category-aggregate flags already shown on the Turtle Quant tab -- sourced from the SAME
-    # shared turtle_fundamentals table (see build_fundamentals_lookup's docstring), not
-    # recomputed here. Appended at the end since they're supplementary quality data, not part
-    # of Turtle Strategy's own ADD/HOLD/EXIT Signal computation.
-    "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
 
@@ -557,9 +551,6 @@ def run_pipeline(
             "ttm_net_sales": fundamentals.get("ttm_net_sales"),
             "max_annual_net_profit": fundamentals.get("max_annual_net_profit"),
             "max_annual_net_sales": fundamentals.get("max_annual_net_sales"),
-            "growth_category_flag": fundamentals.get("growth_category_flag"),
-            "red_flag_category_flag": fundamentals.get("red_flag_category_flag"),
-            "value_category_flag": fundamentals.get("value_category_flag"),
         })
 
         if verbose and i % 100 == 0:
@@ -635,9 +626,6 @@ def run_pipeline(
             "ATH_Sales": row["max_annual_net_sales"],
             "ATH_Sales_Flag": ath_sales,
             "Signal": signal,
-            "Growth_Category_Flag": row["growth_category_flag"],
-            "Red_Flag_Category_Flag": row["red_flag_category_flag"],
-            "Value_Category_Flag": row["value_category_flag"],
         })
 
     signals_df = pd.DataFrame(signals).reindex(columns=SIGNAL_COLUMNS)

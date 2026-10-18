@@ -12,7 +12,6 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 import data_manager
-from modules.turtle import callbacks
 
 # Fallback only -- used if nse_categories_df hasn't loaded yet (e.g. very first cold start).
 # The real option list is built dynamically from whatever index tags actually exist in
@@ -151,16 +150,6 @@ def create_turtle_layout():
                     ],
                     value=[],
                     style={"fontSize": "13px", "display": "flex", "flexDirection": "column", "gap": "2px"},
-                ),
-            ]),
-            html.Div(className="filter-group", children=[
-                html.Label("Filter by flag:", style={"fontWeight": "500", "fontSize": "13px"}),
-                dcc.Checklist(
-                    id="tt-flag-filter",
-                    options=callbacks.FLAG_FILTER_OPTIONS,
-                    value=[],
-                    inline=True,
-                    inputStyle={"marginRight": "4px", "marginLeft": "10px"},
                 ),
             ]),
         ]),
