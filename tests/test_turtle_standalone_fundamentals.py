@@ -534,6 +534,31 @@ CASH_FLOW_HTML = """
 </body></html>
 """
 
+RATIOS_HTML = """
+<html><body>
+<section>
+<h2>Ratios</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
+<tr><td>Debtor Days</td><td>5</td><td>6</td><td>7</td></tr>
+<tr><td>ROCE %</td><td>12%</td><td>14%</td><td>9%</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
+RATIOS_BANK_HTML = """
+<html><body>
+<section>
+<h2>Ratios</h2>
+<table>
+<tr><th></th><th>Mar 2023</th><th>Mar 2024</th><th>Mar 2025</th></tr>
+<tr><td>ROE %</td><td>15%</td><td>16%</td><td>17%</td></tr>
+</table>
+</section>
+</body></html>
+"""
+
 PL_EXTRA_HTML = """
 <html><body>
 <section>
@@ -586,6 +611,21 @@ def test_parse_balance_sheet_history_found_but_empty_degrades_gracefully():
 def test_parse_cash_flow_history_strips_plus_suffix():
     result = sf.parse_cash_flow_history(CASH_FLOW_HTML)
     assert result["cfo"] == (["Mar 2023", "Mar 2024", "Mar 2025"], [800.0, 900.0, 1000.0])
+
+
+def test_parse_ratios_history_extracts_roce():
+    result = sf.parse_ratios_history(RATIOS_HTML)
+    assert result == {"roce": (["Mar 2023", "Mar 2024", "Mar 2025"], [12.0, 14.0, 9.0])}
+
+
+def test_parse_ratios_history_missing_section_returns_none():
+    assert sf.parse_ratios_history("<html><body>not a real page</body></html>") is None
+
+
+def test_parse_ratios_history_none_for_banks_no_roce_row():
+    # Banks/NBFCs show "ROE %" instead of "ROCE %" on screener.in's free tier -- confirmed
+    # live on HDFCBANK (no ROCE row at all). None here is the expected, accepted gap.
+    assert sf.parse_ratios_history(RATIOS_BANK_HTML) is None
 
 
 def test_parse_pl_history_extra_excludes_ttm_and_gets_all_rows():

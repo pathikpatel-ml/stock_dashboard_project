@@ -130,11 +130,12 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     book_value_growth_flag     BOOLEAN,
     eps_cagr_10y                DOUBLE PRECISION,
     eps_growth_flag             BOOLEAN,
-    -- ROE (not screener.in's own ROCE/ROE row), derived from Net Profit / Book Value --
-    -- see modules/turtle/quality_flags.py::roe_by_year's docstring for why (screener.in's free
-    -- "Ratios" history has ROCE for non-financial companies, ROE for banks/NBFCs, never both).
-    roe_avg_10y                 DOUBLE PRECISION,
-    roe_flag                    BOOLEAN,
+    -- ROCE (screener.in's own "Ratios" row, 2026-10-18 -- replaced a derived-ROE approach per
+    -- explicit user request) -- see modules/turtle/quality_flags.py's module docstring for why
+    -- this is NULL for every bank/NBFC (screener.in's free tier only has ROCE for
+    -- non-financial companies; banks/NBFCs show ROE there instead, never both).
+    roce_avg_10y                DOUBLE PRECISION,
+    roce_flag                   BOOLEAN,
     sales_cagr_10y              DOUBLE PRECISION,
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,
@@ -144,12 +145,12 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals (
     -- 2026-10-02 additions: Quality of Turnover (Other Income / Total Revenue, a real red-flag
     -- check) and 3 category-aggregate flags (Growth/Red Flag/Value) -- see
     -- modules/turtle/quality_flags.py's module docstring for the full redesign: growth checks
-    -- now require EVERY individual year to clear the threshold, not just the overall CAGR/
-    -- average (those CAGR/average columns above are kept for debugging/export only). Red Flag
-    -- is back to its original 2 conditions (Quality of Turnover, Interest Coverage) -- Promoter
-    -- Pledge was tried via three different free sources in turn (NSE, Moneycontrol, screener.in)
-    -- and ultimately dropped entirely per the user's own final decision; see
-    -- modules/turtle/quality_flags.py's module docstring for the full history.
+    -- require EVERY individual year to clear the threshold (>=, inclusive), not just the
+    -- overall CAGR/average (those CAGR/average columns above are kept for debugging/export
+    -- only). Red Flag is back to its original 2 conditions (Quality of Turnover, Interest
+    -- Coverage) -- Promoter Pledge was tried via three different free sources in turn (NSE,
+    -- Moneycontrol, screener.in) and ultimately dropped entirely per the user's own final
+    -- decision; see modules/turtle/quality_flags.py's module docstring for the full history.
     quality_of_turnover_pct     DOUBLE PRECISION,
     quality_of_turnover_flag    BOOLEAN,
     pb_current                  DOUBLE PRECISION,
@@ -262,11 +263,11 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     book_value_growth_flag     BOOLEAN,
     eps_cagr_10y                DOUBLE PRECISION,
     eps_growth_flag             BOOLEAN,
-    -- ROE (not screener.in's own ROCE/ROE row), derived from Net Profit / Book Value --
-    -- see modules/turtle/quality_flags.py::roe_by_year's docstring for why (screener.in's free
-    -- "Ratios" history has ROCE for non-financial companies, ROE for banks/NBFCs, never both).
-    roe_avg_10y                 DOUBLE PRECISION,
-    roe_flag                    BOOLEAN,
+    -- ROCE (screener.in's own "Ratios" row, 2026-10-18) -- see
+    -- modules/turtle/quality_flags.py's module docstring for why this is NULL for every
+    -- bank/NBFC (screener.in's free tier only has ROCE for non-financial companies).
+    roce_avg_10y                DOUBLE PRECISION,
+    roce_flag                   BOOLEAN,
     sales_cagr_10y              DOUBLE PRECISION,
     sales_growth_flag           BOOLEAN,
     promoter_holding_change_3y  DOUBLE PRECISION,

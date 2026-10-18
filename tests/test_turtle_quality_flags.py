@@ -58,8 +58,8 @@ def test_cagr_none_when_start_value_not_positive():
 def test_cagr_none_when_end_value_not_positive():
     # Real production bug (2026-10-01): EPS swinging from positive 10 years ago to negative
     # (loss-making) today -- (negative/positive) ** (1/years) is a COMPLEX number in Python for
-    # a fractional exponent, which crashed growth_flag's "> threshold" comparison on a real
-    # company's live data. Must return None, not attempt the power operation at all.
+    # a fractional exponent, which crashed on a real company's live data. Must return None, not
+    # attempt the power operation at all.
     values = [10.0, 10.0, 10.0, 10.0, 10.0, -5.0]
     assert qf.cagr(_series(values)) is None
 
@@ -97,42 +97,62 @@ def test_average_none_for_none_series():
 
 
 # ---------------------------------------------------------------------------
-# roe_by_year (2026-10-02: derived ourselves, not screener.in's own ROCE/ROE row -- see
-# quality_flags.py's module docstring for why)
+# yoy_growth_values / level_values / all_years_above_threshold (2026-10-18, reinstated per
+# explicit user request after a brief CAGR/average-based interlude -- every individual year
+# must clear the threshold, boundary is >= per the user's own explicit clarification)
 # ---------------------------------------------------------------------------
-def test_roe_by_year_hand_computed():
-    net_profit = (["Mar 2024", "Mar 2025"], [1000.0, 1100.0])
-    book_value = (["Mar 2024", "Mar 2025"], [10000.0, 10000.0])
-    result = qf.roe_by_year(net_profit, book_value)
-    assert result == (["Mar 2024", "Mar 2025"], [10.0, 11.0])
+def test_yoy_growth_values_hand_computed():
+    # 100 -> 110 -> 121 -> 133.1 is exactly 10% YoY growth each year
+    values = [100.0, 110.0, 121.0, 133.1]
+    result = qf.yoy_growth_values(_series(values), min_years=1)
+    assert result == pytest.approx([10.0, 10.0, 10.0])
 
 
-def test_roe_by_year_skips_zero_or_missing_book_value():
-    net_profit = (["Mar 2024", "Mar 2025"], [1000.0, 1100.0])
-    book_value = (["Mar 2024"], [10000.0])  # Mar 2025 missing
-    result = qf.roe_by_year(net_profit, book_value)
-    assert result == (["Mar 2024"], [10.0])
+def test_yoy_growth_values_none_when_fewer_than_min_years_plus_one():
+    assert qf.yoy_growth_values(_series([100.0, 110.0]), min_years=5) is None
 
 
-def test_roe_by_year_none_when_either_input_missing():
-    assert qf.roe_by_year(None, (["Mar 2024"], [10000.0])) is None
-    assert qf.roe_by_year((["Mar 2024"], [1000.0]), None) is None
+def test_yoy_growth_values_none_when_any_base_non_positive():
+    values = [100.0, 0.0, 50.0, 1, 1, 1]
+    assert qf.yoy_growth_values(_series(values), min_years=1) is None
 
 
-def test_growth_flag_true_when_above_threshold():
-    assert qf.growth_flag(14.59, 10.0) is True
+def test_yoy_growth_values_uses_only_last_max_years_plus_one():
+    junk_early = [1.0, 1.0]  # would imply enormous growth if included
+    steady_10pct = [100.0 * (1.10 ** i) for i in range(6)]
+    result = qf.yoy_growth_values(_series(junk_early + steady_10pct), max_years=5, min_years=1)
+    assert result == pytest.approx([10.0] * 5)
 
 
-def test_growth_flag_false_at_exact_boundary():
-    assert qf.growth_flag(10.0, 10.0) is False
+def test_level_values_hand_computed():
+    values = [8.0, 12.0, 15.0]
+    assert qf.level_values(_series(values), min_years=1) == pytest.approx(values)
 
 
-def test_growth_flag_false_when_below_threshold():
-    assert qf.growth_flag(9.97, 10.0) is False
+def test_level_values_none_when_fewer_than_min_years():
+    assert qf.level_values(_series([10.0, 10.0]), min_years=5) is None
 
 
-def test_growth_flag_none_when_value_none():
-    assert qf.growth_flag(None, 10.0) is None
+def test_all_years_above_threshold_true_when_every_year_passes():
+    assert qf.all_years_above_threshold([11.0, 15.0, 20.0], 10.0) is True
+
+
+def test_all_years_above_threshold_false_when_one_year_fails():
+    # A single weak year fails the whole metric, even if every other year is strongly above.
+    assert qf.all_years_above_threshold([25.0, 25.0, 9.9, 25.0], 10.0) is False
+
+
+def test_all_years_above_threshold_true_at_exact_boundary():
+    # Inclusive (>=), per the user's own explicit clarification 2026-10-18.
+    assert qf.all_years_above_threshold([10.0, 20.0], 10.0) is True
+
+
+def test_all_years_above_threshold_false_just_below_boundary():
+    assert qf.all_years_above_threshold([9.999, 20.0], 10.0) is False
+
+
+def test_all_years_above_threshold_none_when_values_none():
+    assert qf.all_years_above_threshold(None, 10.0) is None
 
 
 # ---------------------------------------------------------------------------

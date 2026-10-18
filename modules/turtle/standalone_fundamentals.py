@@ -299,6 +299,25 @@ def parse_cash_flow_history(html: str) -> Optional[dict]:
     return {"cfo": cfo}
 
 
+def parse_ratios_history(html: str) -> Optional[dict]:
+    """ROCE %% annual history from screener.in's "Ratios" table -- feeds the Turtle Quant
+    Growth category's ROCE check (2026-10-18, replacing a derived-ROE approach). Row label
+    confirmed live as exactly ``"ROCE %%"`` (e.g. RELIANCE's Ratios table). None if the section
+    or row can't be found -- notably, this row is ONLY present for non-financial companies;
+    banks/NBFCs show ``"ROE %%"`` there instead (confirmed live on HDFCBANK: no ROCE row at
+    all), so this is a real, accepted gap -- those companies will have ``roce=None`` and
+    therefore fail the Growth category on this metric, with no free-tier screener.in
+    workaround available."""
+    soup = BeautifulSoup(html, "html.parser")
+    table = _find_section_table(soup, "Ratios")
+    if table is None:
+        return None
+    roce = _extract_annual_series(table, {"ROCE %"})
+    if roce is None:
+        return None
+    return {"roce": roce}
+
+
 def parse_pl_history_extra(html: str) -> Optional[dict]:
     """EPS / Interest / Profit-before-tax / Sales annual history from the SAME Profit & Loss
     table ``parse_profit_and_loss`` already reads -- a separate function (not merged into that
@@ -475,6 +494,7 @@ def fetch_profit_and_loss(
                             result["cash_flow"] = parse_cash_flow_history(resp.text)
                             result["pl_extra"] = parse_pl_history_extra(resp.text)
                             result["promoter_holding"] = parse_promoter_holding_history(resp.text)
+                            result["ratios"] = parse_ratios_history(resp.text)
                             return result
                         break  # page loaded fine, just no usable data -- try next URL/candidate
                     time.sleep(pause * (attempt + 1))

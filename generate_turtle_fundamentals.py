@@ -81,7 +81,7 @@ CHECKPOINT_FILE = os.path.join(REPO_BASE_PATH, "output", "turtle_screener_fundam
 # monthly-price fetch per symbol for the valuation-ratio checks (see _year_end_prices below).
 _QUALITY_COLUMNS = [
     "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
-    "ROE_Avg_10Y", "ROE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
+    "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
     "Promoter_Holding_Change_3Y", "Promoter_Holding_Flag",
     "Interest_Coverage", "Interest_Coverage_Flag",
     "Quality_Of_Turnover_Pct", "Quality_Of_Turnover_Flag",
@@ -107,7 +107,7 @@ _FUNDAMENTALS_DB_COLUMNS = {
     "Broad_Industry": "broad_industry", "Industry": "industry",
     "Book_Value_CAGR_10Y": "book_value_cagr_10y", "Book_Value_Growth_Flag": "book_value_growth_flag",
     "EPS_CAGR_10Y": "eps_cagr_10y", "EPS_Growth_Flag": "eps_growth_flag",
-    "ROE_Avg_10Y": "roe_avg_10y", "ROE_Flag": "roe_flag",
+    "ROCE_Avg_10Y": "roce_avg_10y", "ROCE_Flag": "roce_flag",
     "Sales_CAGR_10Y": "sales_cagr_10y", "Sales_Growth_Flag": "sales_growth_flag",
     "Promoter_Holding_Change_3Y": "promoter_holding_change_3y", "Promoter_Holding_Flag": "promoter_holding_flag",
     "Interest_Coverage": "interest_coverage", "Interest_Coverage_Flag": "interest_coverage_flag",
