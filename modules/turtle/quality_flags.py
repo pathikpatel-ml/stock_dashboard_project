@@ -5,17 +5,27 @@ Pure functions for the Turtle Quant tab's fundamental quality/valuation flags.
 buildable red-flag condition. Added three category-aggregate flags (Growth / Red Flag / Value)
 that the dashboard displays instead of the 21+ individual metrics.
 
-Growth checks, every-individual-year-based (2026-10-02, briefly reverted to CAGR/average on
-2026-10-11, then reinstated per the user's own explicit request on 2026-10-18): Book Value/EPS/
-Sales/ROCE growth each require EVERY individual year in the trailing (up to 10-year) window to
-clear 10% -- not just the overall CAGR/average -- so a single lumpy year (e.g. a COVID-year
-sales drop) fails the whole metric, even if the long-term trend looks fine. The CAGR/average
-numeric fields are still computed and returned (useful for debugging/export) but no longer
-determine their own flag. Confirmed live the first time this was tried that it's a very strict
-screen (only 3 of 2601 NSE stocks passed) -- the user re-requested it anyway on 2026-10-18,
-explicitly swapping ROE for ROCE at the same time (see below), so expect a similarly small
-pass-rate; that's accepted as intentional, not a bug. The boundary is ``>=`` (inclusive), not
-``>``, per the user's own explicit clarification.
+Growth checks -- mixed strictness (2026-10-19, per explicit user request, the latest step in a
+longer back-and-forth): Book Value and EPS use **10-year CAGR > 10%** (strict ``>``, not
+``>=``); Sales, ROCE, and Promoter Holding stay on the stricter **every individual year >= 10%**
+rule ("balance remain same", the user's own words). History: every-individual-year for all of
+Book Value/EPS/Sales/ROCE (2026-10-02) -> briefly reverted to CAGR/average for all of them
+(2026-10-11) -> reinstated every-year for all of them, confirmed live as a VERY strict screen
+(only 2 of 2,624 stocks passed after the full-universe resync on 2026-10-19) -> split per this
+latest request: Book Value/EPS loosened back to CAGR (since the all-every-year version left
+almost nothing to find), Sales/ROCE/Promoter kept strict. The CAGR/average numeric fields
+(``book_value_cagr_10y``, ``eps_cagr_10y``, etc.) are always computed and returned regardless of
+which rule currently drives the flag, for debugging/export and so a formula change here never
+needs a new column.
+
+**Known limitation, flagged to the user 2026-10-19**: a 10-year CAGR/average > 10% threshold is
+a LOW bar for "wonderful business" screening -- it mostly filters out shrinking/stagnant
+companies, not for identifying hyper-compounders. A stock that returns 100x-300x over 10 years
+needs a sustained ~58-72% CAGR for that whole decade (100^(1/10)-1 ≈ 58.5%, 300^(1/10)-1 ≈
+72.4%) -- real-world 100x+ compounders almost always took 15-20+ years at high-double-digit
+CAGR, not exactly 10 years. This 10% threshold will surface many more "steady, growing"
+companies, not specifically ones capable of 100x-300x in a decade; raising the threshold itself
+(not just switching every-year vs CAGR) would be the actual lever for that, if ever wanted.
 
 Promoter PLEDGE %% (tried, then reverted): three different free sources were tried -- NSE's own
 endpoint (caught serving stale data as current), Moneycontrol's per-symbol page (too slow/flaky
@@ -505,8 +515,13 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     roce_avg_10y = average(roce)
     coverage = interest_coverage(pbt, interest)
 
-    book_value_growth_flag = all_years_above_threshold(yoy_growth_values(book_value), GROWTH_THRESHOLD_PCT)
-    eps_growth_flag = all_years_above_threshold(yoy_growth_values(eps), GROWTH_THRESHOLD_PCT)
+    # 2026-10-19 (per explicit user request): Book Value and EPS switched from "every individual
+    # year >= 10%" to "10-year CAGR > 10%" -- the every-year rule was screening out virtually the
+    # entire universe (2 of 2,624 stocks). Sales Growth, ROCE, and Promoter Holding are
+    # deliberately left on the stricter every-year rule ("balance remain same", the user's own
+    # words). See module docstring for the full back-and-forth history on this formula.
+    book_value_growth_flag = book_value_cagr_10y is not None and book_value_cagr_10y > GROWTH_THRESHOLD_PCT
+    eps_growth_flag = eps_cagr_10y is not None and eps_cagr_10y > GROWTH_THRESHOLD_PCT
     sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
     roce_flag_value = all_years_above_threshold(level_values(roce), ROCE_THRESHOLD_PCT)
     promoter_flag = promoter_holding_flag(promoter_pct)
