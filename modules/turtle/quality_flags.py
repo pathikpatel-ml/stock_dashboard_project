@@ -5,27 +5,34 @@ Pure functions for the Turtle Quant tab's fundamental quality/valuation flags.
 buildable red-flag condition. Added three category-aggregate flags (Growth / Red Flag / Value)
 that the dashboard displays instead of the 21+ individual metrics.
 
-Growth checks -- mixed strictness (2026-10-19, per explicit user request, the latest step in a
-longer back-and-forth): Book Value and EPS use **10-year CAGR > 10%** (strict ``>``, not
-``>=``); Sales, ROCE, and Promoter Holding stay on the stricter **every individual year >= 10%**
-rule ("balance remain same", the user's own words). History: every-individual-year for all of
-Book Value/EPS/Sales/ROCE (2026-10-02) -> briefly reverted to CAGR/average for all of them
-(2026-10-11) -> reinstated every-year for all of them, confirmed live as a VERY strict screen
-(only 2 of 2,624 stocks passed after the full-universe resync on 2026-10-19) -> split per this
-latest request: Book Value/EPS loosened back to CAGR (since the all-every-year version left
-almost nothing to find), Sales/ROCE/Promoter kept strict. The CAGR/average numeric fields
-(``book_value_cagr_10y``, ``eps_cagr_10y``, etc.) are always computed and returned regardless of
-which rule currently drives the flag, for debugging/export and so a formula change here never
-needs a new column.
+Growth checks -- current state (2026-10-20, per explicit user request, the latest step in a
+longer back-and-forth): Book Value, EPS, AND Sales all use **10-year CAGR > 15%** (strict ``>``,
+not ``>=``; GROWTH_THRESHOLD_PCT). ROCE uses **every individual year >= 15%** (ROCE_THRESHOLD_PCT)
+for companies with a real ROCE row; for lending-model businesses with no ROCE row at all (banks/
+NBFCs/HFCs/etc.), the ROE fallback uses a DIFFERENT, lower bar: **every individual year >= 10%**
+(ROE_THRESHOLD_PCT) -- a deliberate split, not a typo: the user's own explicit instruction was
+"roce each years >= 15 ... where roe use consider roe each year >= 10". Promoter Holding is
+unchanged (decline tolerance, not a growth-rate threshold).
 
-**Known limitation, flagged to the user 2026-10-19**: a 10-year CAGR/average > 10% threshold is
-a LOW bar for "wonderful business" screening -- it mostly filters out shrinking/stagnant
-companies, not for identifying hyper-compounders. A stock that returns 100x-300x over 10 years
-needs a sustained ~58-72% CAGR for that whole decade (100^(1/10)-1 ≈ 58.5%, 300^(1/10)-1 ≈
-72.4%) -- real-world 100x+ compounders almost always took 15-20+ years at high-double-digit
-CAGR, not exactly 10 years. This 10% threshold will surface many more "steady, growing"
-companies, not specifically ones capable of 100x-300x in a decade; raising the threshold itself
-(not just switching every-year vs CAGR) would be the actual lever for that, if ever wanted.
+Full history: every-individual-year for all of Book Value/EPS/Sales/ROCE, 10%% threshold
+(2026-10-02) -> briefly reverted to CAGR/average for all of them (2026-10-11) -> reinstated
+every-year for all of them, confirmed live as a VERY strict screen (only 2 of 2,624 stocks
+passed after the full-universe resync on 2026-10-19) -> Book Value/EPS loosened to CAGR, still
+at 10%%, Sales/ROCE/Promoter kept strict (2026-10-19, 21 of 2,624 passed) -> this latest change
+(2026-10-20): Sales also moved to CAGR (joining Book Value/EPS), ALL THREE CAGR thresholds
+raised 10%%->15%%, ROCE's every-year threshold also raised 10%%->15%%, but the ROE fallback
+threshold deliberately held at 10%% (lower than ROCE, per the user's explicit split) rather than
+also rising to 15%%. The CAGR/average numeric fields (``book_value_cagr_10y``, ``eps_cagr_10y``,
+etc.) are always computed and returned regardless of which rule currently drives the flag, for
+debugging/export and so a formula change here never needs a new column.
+
+**Known limitation, flagged to the user 2026-10-19 (still true at the 15%% threshold)**: even a
+15%% CAGR bar is well short of what a genuine 100x-300x-in-10-years compounder needs (~58-72%%
+sustained CAGR -- 100^(1/10)-1 ≈ 58.5%%, 300^(1/10)-1 ≈ 72.4%%). Raising from 10%% to 15%% is a
+real tightening, not just leniency-tuning, but it's still screening for "good, consistently
+growing businesses" (closer to the real Coffee Can Investing bar -- Saurabh Mukherjea's
+published criteria are literally Sales every-year >=10%% + ROCE every-year >=15%%, no Book
+Value/EPS/Promoter checks at all), not specifically for rare hyper-compounders.
 
 Promoter PLEDGE %% (tried, then reverted): three different free sources were tried -- NSE's own
 endpoint (caught serving stale data as current), Moneycontrol's per-symbol page (too slow/flaky
@@ -114,8 +121,11 @@ QUALITY_FIELD_NAMES = [
 MAX_YEARS_FOR_GROWTH = 10
 MIN_YEARS_FOR_GROWTH = 5  # fewer usable annual columns than this -> None, not a shaky number
 
-GROWTH_THRESHOLD_PCT = 10.0
-ROCE_THRESHOLD_PCT = 10.0
+GROWTH_THRESHOLD_PCT = 15.0  # Book Value/EPS/Sales 10yr CAGR threshold (2026-10-20: 10->15)
+ROCE_THRESHOLD_PCT = 15.0  # real ROCE, every year (2026-10-20: 10->15)
+ROE_THRESHOLD_PCT = 10.0  # ROE fallback for lending-model businesses, every year -- kept at the
+# OLD 10% bar (not raised to 15% with ROCE), per the user's own explicit split request
+# 2026-10-20: "roce each years >= 15 ... where roe use consider roe each year >= 10".
 INTEREST_COVERAGE_THRESHOLD = 5.0
 QUALITY_OF_TURNOVER_THRESHOLD_PCT = 10.0
 PROMOTER_HOLDING_DECLINE_TOLERANCE_PCT = 5.0
@@ -492,13 +502,15 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     # screener.in's own "Ratios" row (2026-10-18, per explicit user request): ROCE for regular
     # companies, falling back to ROE for banks/NBFCs (which have no ROCE row at all) -- see
     # module docstring for the full reasoning. Stored/displayed under the same "roce_*" field
-    # names either way; which one was actually used isn't surfaced separately.
+    # names either way; which one was actually used isn't surfaced separately in the output, but
+    # IS tracked internally (``has_roce``) so the two can use different thresholds (2026-10-20).
+    has_roce = ratios.get("roce") is not None
     roce = ratios.get("roce") or ratios.get("roe")
     # Same ROCE-absent/ROE-present signal, reused to decide Red Flag's lending-model override
     # below (see module docstring) -- a company with no ROCE row at all is, per screener.in's
     # own classification, a lending-model business (bank/NBFC/HFC/etc.), for which Red Flag's
     # two checks don't structurally apply.
-    is_lending_model = ratios.get("roce") is None and ratios.get("roe") is not None
+    is_lending_model = (not has_roce) and ratios.get("roe") is not None
     # Free Cash Flow (2026-10-18, replacing Operating Cash Flow) -- screener.in publishes this
     # as its own pre-computed row (Cash from Operating Activity minus CapEx already done for
     # us), confirmed live. See module docstring for why FCF, not OCF, for this check.
@@ -515,15 +527,17 @@ def compute_all(fetch_result: dict, year_end_prices: Dict[str, float], current_p
     roce_avg_10y = average(roce)
     coverage = interest_coverage(pbt, interest)
 
-    # 2026-10-19 (per explicit user request): Book Value and EPS switched from "every individual
-    # year >= 10%" to "10-year CAGR > 10%" -- the every-year rule was screening out virtually the
-    # entire universe (2 of 2,624 stocks). Sales Growth, ROCE, and Promoter Holding are
-    # deliberately left on the stricter every-year rule ("balance remain same", the user's own
-    # words). See module docstring for the full back-and-forth history on this formula.
+    # 2026-10-20 (per explicit user request, the latest step -- see module docstring for the
+    # full history): Book Value, EPS, AND Sales Growth are now all 10-year CAGR > 15% (Sales
+    # moved off the every-year rule too, joining Book Value/EPS). ROCE stays on the stricter
+    # every-individual-year rule but its own threshold rose 10% -> 15%; the ROE fallback (for
+    # lending-model businesses with no ROCE row) is deliberately kept at the OLD 10% bar, every
+    # year -- a different, lower threshold than real ROCE, per the user's own explicit split.
     book_value_growth_flag = book_value_cagr_10y is not None and book_value_cagr_10y > GROWTH_THRESHOLD_PCT
     eps_growth_flag = eps_cagr_10y is not None and eps_cagr_10y > GROWTH_THRESHOLD_PCT
-    sales_growth_flag = all_years_above_threshold(yoy_growth_values(sales), GROWTH_THRESHOLD_PCT)
-    roce_flag_value = all_years_above_threshold(level_values(roce), ROCE_THRESHOLD_PCT)
+    sales_growth_flag = sales_cagr_10y is not None and sales_cagr_10y > GROWTH_THRESHOLD_PCT
+    roce_threshold = ROCE_THRESHOLD_PCT if has_roce else ROE_THRESHOLD_PCT
+    roce_flag_value = all_years_above_threshold(level_values(roce), roce_threshold)
     promoter_flag = promoter_holding_flag(promoter_pct)
     interest_flag = interest_coverage_flag(coverage, interest)
     qot_pct = quality_of_turnover(other_income, sales)

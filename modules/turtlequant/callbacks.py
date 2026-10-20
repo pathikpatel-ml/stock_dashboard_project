@@ -77,11 +77,11 @@ _COLUMN_TOOLTIPS = {
         "any of the 3 is No or couldn't be computed from missing data)."
     ),
     "Growth": (
-        "Yes only if ALL 5 hold: Book Value/EPS/Sales growth >= 10% in EVERY individual year "
-        "(not just the overall average), ROCE (or ROE for banks/NBFCs, whichever screener.in "
-        "publishes for that company) >= 10% in EVERY individual year, and promoter holding "
-        "hasn't decreased over screener.in's real ~3-year window. A single weak year in any "
-        "metric, or missing data, makes this No."
+        "Yes only if ALL 5 hold: Book Value/EPS/Sales 10-year CAGR each > 15%, ROCE >= 15% in "
+        "EVERY individual year (or ROE >= 10% in every year for banks/NBFCs, whichever "
+        "screener.in publishes for that company -- a deliberately lower bar than real ROCE), "
+        "and promoter holding hasn't decreased over screener.in's real ~3-year window. Missing "
+        "data on any one check makes this No."
     ),
     "Red Flag": (
         "Yes only if BOTH hold: Quality of Turnover (Other Income / Total Revenue) < 10%, "

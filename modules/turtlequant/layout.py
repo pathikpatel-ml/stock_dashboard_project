@@ -65,8 +65,9 @@ def create_turtlequant_layout():
         html.H3("⚡ Turtle Quant — Fundamental Quality Screen"),
         html.P(
             "Buy/Sell = Buy only if Growth, Red Flag, and Value are ALL Yes, else Sell. "
-            "Growth = Yes only if EVERY year's Book Value/EPS/Sales growth and ROCE clear 10% "
-            "(not just the overall average) and promoter holding hasn't declined. Red Flag = "
+            "Growth = Yes only if Book Value/EPS/Sales 10-year CAGR each clear 15%, ROCE clears "
+            "15% EVERY year (ROE clears 10% every year for banks/NBFCs), and promoter holding "
+            "hasn't declined. Red Flag = "
             "Yes only if Quality of Turnover < 10% and Interest Coverage > 5 -- always Yes for "
             "lending-model businesses (banks, NBFCs, HFCs, financial institutions, "
             "microfinance), where these checks don't apply. Value = Yes only if current P/B, "
