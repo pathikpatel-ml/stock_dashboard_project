@@ -173,6 +173,82 @@ def load_universe_symbols() -> list:
     return sorted(symbols.unique().tolist())
 
 
+UNIVERSE_SNAPSHOT_TABLE = "turtle_fundamentals_universe_snapshot"
+
+
+def _read_universe_snapshot() -> list:
+    """This week's frozen universe snapshot (written by day_of_week==0's own run, see
+    _write_universe_snapshot) -- empty list if none exists yet (e.g. a standalone
+    workflow_dispatch run with no slice-0 run earlier this cycle, or before this table
+    existed). Never raises."""
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = mdw.fetch_dataframe(conn, UNIVERSE_SNAPSHOT_TABLE)
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: Postgres read of {UNIVERSE_SNAPSHOT_TABLE} failed: {exc}")
+        return []
+    if df.empty or "symbol" not in df.columns:
+        return []
+    return sorted(df["symbol"].astype(str).str.upper().str.strip().unique().tolist())
+
+
+def _write_universe_snapshot(symbols: list) -> None:
+    """Freeze this week's universe for the REST of the 7-slice Sunday sequence to read, instead
+    of each of the 7 separate GitHub Actions runs independently re-querying the live
+    nse_universe table at its own trigger time (2026-10-26, confirmed live: nse_universe gets
+    refreshed by the separate weekly_stock_screening.yml job -- scheduled at 00:37 UTC Sunday,
+    but GitHub Actions' own documented scheduling delays let it actually land as late as 09:32
+    UTC that same day, right in the MIDDLE of this job's 7-slice sequence. slice_for_day's
+    index%7 split silently shifts for every symbol whenever the universe list is reordered, so
+    slices that ran before vs after that mid-sequence refresh disagreed on who owned which
+    symbol -- 426 symbols, 16%% of the universe, fell through the resulting gap and went a full
+    week unrefreshed, with the GitHub Actions runs themselves reporting nothing but success).
+    Freezing the list once (at the week's first slice) and having every other slice reuse that
+    SAME list makes the whole week's split immune to this race, regardless of how late the
+    universe-refresh job actually fires relative to any of the 7 slices -- shifting the fixed
+    buffer earlier/later wouldn't reliably help given GitHub Actions' own delays are
+    unpredictable (confirmed repeatedly this project). Trade-off, accepted deliberately: a
+    symbol that's brand new to nse_universe this week won't be picked up by turtle_fundamentals
+    until NEXT Sunday's slice-0 refresh, not this same week -- a minor, honest cost for
+    eliminating a correctness bug that silently dropped 16%% of the universe. Never raises -- a
+    failed snapshot write just means later slices fall back to the live table (see
+    _read_universe_snapshot), same behavior as before this fix existed.
+    """
+    try:
+        conn = mdw.get_connection()
+        try:
+            df = pd.DataFrame({"symbol": symbols})
+            mdw.replace_table_contents(conn, UNIVERSE_SNAPSHOT_TABLE, df)
+        finally:
+            conn.close()
+    except Exception as exc:
+        print(f"WARNING: failed to write {UNIVERSE_SNAPSHOT_TABLE} snapshot: {exc}")
+
+
+def load_universe_symbols_for_slicing(day_of_week: int) -> list:
+    """The universe list THIS run should slice from -- day_of_week 0 (the week's first slice)
+    reads the live nse_universe table and freezes a snapshot for every other slice that Sunday
+    to read instead (see _write_universe_snapshot's docstring for the race this prevents).
+    Falls back to the live table if no snapshot exists yet (e.g. a standalone workflow_dispatch
+    test run, or the very first run before this table existed) -- same behavior as before this
+    fix, just for that one fallback case."""
+    if day_of_week == 0:
+        symbols = load_universe_symbols()
+        _write_universe_snapshot(symbols)
+        return symbols
+    symbols = _read_universe_snapshot()
+    if symbols:
+        return symbols
+    print(
+        f"WARNING: no {UNIVERSE_SNAPSHOT_TABLE} snapshot found -- falling back to live "
+        "nse_universe (expected only for a standalone/manual run, not the normal Sunday sequence)."
+    )
+    return load_universe_symbols()
+
+
 def slice_for_day(symbols: list, day_of_week: int) -> list:
     """1/7th of ``symbols`` (the full sorted universe), selected by position modulo 7 --
     ``day_of_week`` 0=Monday .. 6=Sunday. Modulo (not contiguous ranges) so each weekday's
@@ -281,12 +357,13 @@ def main():
                           "(the old behavior -- for an on-demand manual catch-up)")
     args = ap.parse_args()
 
-    symbols = load_universe_symbols()
     if args.full_universe:
+        symbols = load_universe_symbols()
         print(f"Full-universe mode: all {len(symbols)} symbols (--full-universe given).")
     else:
         day_of_week = args.day_of_week if args.day_of_week is not None else current_ist_weekday()
         day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][day_of_week]
+        symbols = load_universe_symbols_for_slicing(day_of_week)
         symbols = slice_for_day(symbols, day_of_week)
         print(f"{day_name}'s 1/7 slice: {len(symbols)} symbols (of the full universe).")
     if args.limit:

@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS nse_universe (
     updated_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- turtle_fundamentals_universe_snapshot: a frozen copy of nse_universe's symbol list, written
+-- once by the week's FIRST turtle_fundamentals Sunday slice (day_of_week 0) and read by the
+-- other 6 slices instead of each re-querying the live (possibly mid-refresh) nse_universe table
+-- -- see generate_turtle_fundamentals.py::_write_universe_snapshot's docstring for the race
+-- this prevents (2026-10-26: nse_universe getting refreshed mid-sequence by the separate
+-- weekly_stock_screening.yml job silently dropped 426 symbols, 16% of the universe, from that
+-- week's fundamentals refresh). Truncated and rewritten every week, never grows unbounded.
+CREATE TABLE IF NOT EXISTS turtle_fundamentals_universe_snapshot (
+    symbol             TEXT PRIMARY KEY,
+    snapshot_taken_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ---------------------------------------------------------------
 -- 2. Market trend analysis (was Master_company_market_trend_analysis.csv)
 --    -- rolling. Same shape as nse_universe minus the MA/price/passes
@@ -375,7 +387,8 @@ GRANT SELECT, INSERT, UPDATE ON
     turtle_signals_latest,
     turtle_signals_history,
     turtlequant_signals_latest,
-    v20_signals_latest
+    v20_signals_latest,
+    turtle_fundamentals_universe_snapshot
 TO market_data_writer;
 
 -- v20_signals_latest alone also needs DELETE: it's written with REPLACE semantics (delete all
@@ -393,6 +406,11 @@ GRANT DELETE ON turtle_signals_latest TO market_data_writer;
 -- same as v20_signals_latest) since a sector (screener.in Sector or curated NSE index) can
 -- legitimately have zero members on a later run -- see generate_turtle_signals.py's write call.
 GRANT DELETE ON turtle_sector_pulse TO market_data_writer;
+
+-- turtle_fundamentals_universe_snapshot (2026-10-26): written with REPLACE semantics
+-- (delete-all + bulk insert, same as v20_signals_latest/turtle_sector_pulse) -- truncated and
+-- rewritten fresh each week by the Sunday sequence's first slice, see the table's own comment.
+GRANT DELETE ON turtle_fundamentals_universe_snapshot TO market_data_writer;
 
 GRANT USAGE, SELECT ON
     turtle_signals_history_id_seq
