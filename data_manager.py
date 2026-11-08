@@ -67,6 +67,17 @@ LOADED_TURTLE_UPDATED_AT = None
 # otherwise invisible from turtle_signals_latest alone (2026-10-12).
 LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT = None
 
+# "N of M stocks caught up to the latest run" counts for each of the 3 Turtle Strategy
+# freshness banners (2026-11-08, per explicit user request) -- see
+# database/market_data_reader.py::fetch_freshness_counts' docstring for the "fresh = within
+# 24h of this table's own max timestamp" definition. None when unavailable.
+LOADED_TURTLE_SIGNAL_FRESH_COUNT = None
+LOADED_TURTLE_SIGNAL_TOTAL_COUNT = None
+LOADED_TURTLE_PRICE_FRESH_COUNT = None
+LOADED_TURTLE_PRICE_TOTAL_COUNT = None
+LOADED_TURTLE_FUNDAMENTALS_FRESH_COUNT = None
+LOADED_TURTLE_FUNDAMENTALS_TOTAL_COUNT = None
+
 # --- Turtle Quant cache state ---
 turtlequant_signals_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
@@ -123,6 +134,22 @@ _V20_FROM_DB = {
     "sell_date": "Sell_Date", "sell_price_high": "Sell_Price_High",
     "sequence_gain_percent": "Sequence_Gain_Percent", "days_in_sequence": "Days_in_Sequence",
 }
+
+
+def _freshness_counts_from_series(timestamps):
+    """(fresh_count, total_count) from an already-loaded column of timestamps -- same "within
+    24h of the column's own max" definition as database/market_data_reader.py::
+    fetch_freshness_counts, just applied to a DataFrame already in memory instead of a fresh
+    Postgres pull, for tables the app loads in full anyway (turtle_signals_latest,
+    turtle_live_prices) so a second round-trip would be wasted. (None, None) if empty/no
+    usable timestamps."""
+    ts = pd.to_datetime(timestamps, errors="coerce", utc=True)
+    total = int(ts.notna().sum())
+    if total == 0:
+        return (None, None)
+    cutoff = ts.max() - pd.Timedelta(hours=24)
+    fresh = int((ts >= cutoff).sum())
+    return (fresh, total)
 
 
 def _from_postgres(table, rename_map, parse_dates=None, order_by=None):
@@ -462,6 +489,9 @@ def load_turtle_data_on_startup():
     """
     global turtle_signals_df, nse_categories_df, turtle_live_prices_df, turtle_sector_pulse_df
     global LOADED_TURTLE_FILE_DATE, LOADED_TURTLE_SOURCE, LOADED_TURTLE_UPDATED_AT
+    global LOADED_TURTLE_SIGNAL_FRESH_COUNT, LOADED_TURTLE_SIGNAL_TOTAL_COUNT
+    global LOADED_TURTLE_PRICE_FRESH_COUNT, LOADED_TURTLE_PRICE_TOTAL_COUNT
+    global LOADED_TURTLE_FUNDAMENTALS_FRESH_COUNT, LOADED_TURTLE_FUNDAMENTALS_TOTAL_COUNT
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -484,6 +514,10 @@ def load_turtle_data_on_startup():
             pd.to_datetime(turtle_signals_df["updated_at"], errors="coerce", utc=True).max()
             if "updated_at" in turtle_signals_df.columns else None
         )
+        LOADED_TURTLE_SIGNAL_FRESH_COUNT, LOADED_TURTLE_SIGNAL_TOTAL_COUNT = (
+            _freshness_counts_from_series(turtle_signals_df["updated_at"])
+            if "updated_at" in turtle_signals_df.columns else (None, None)
+        )
     else:
         turtle_signals_df, loaded_name, LOADED_TURTLE_SOURCE = _read_csv_with_candidates(
             today_filename=TURTLE_SIGNALS_FILENAME_TEMPLATE.format(date_str=today_str),
@@ -491,6 +525,7 @@ def load_turtle_data_on_startup():
         )
         LOADED_TURTLE_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
         LOADED_TURTLE_UPDATED_AT = None
+        LOADED_TURTLE_SIGNAL_FRESH_COUNT, LOADED_TURTLE_SIGNAL_TOTAL_COUNT = (None, None)
 
     # All three are non-dated, overwritten-in-place files -- same Postgres-first,
     # CSV-github-raw-fallback reasoning (see _read_static_csv_with_github_fallback's docstring
@@ -502,6 +537,10 @@ def load_turtle_data_on_startup():
     turtle_live_prices_df = _from_postgres("turtle_live_prices", _LIVE_PRICES_FROM_DB)
     if turtle_live_prices_df.empty:
         turtle_live_prices_df = _read_static_csv_with_github_fallback(TURTLE_LIVE_PRICES_FILE)
+    LOADED_TURTLE_PRICE_FRESH_COUNT, LOADED_TURTLE_PRICE_TOTAL_COUNT = (
+        _freshness_counts_from_series(turtle_live_prices_df["Price_As_Of"])
+        if "Price_As_Of" in turtle_live_prices_df.columns else (None, None)
+    )
 
     turtle_sector_pulse_df = _from_postgres("turtle_sector_pulse", _SECTOR_PULSE_FROM_DB)
     if turtle_sector_pulse_df.empty:
@@ -516,6 +555,9 @@ def load_turtle_data_on_startup():
     LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT = (
         pd.to_datetime(raw_fundamentals_updated_at, errors="coerce", utc=True)
         if raw_fundamentals_updated_at else None
+    )
+    LOADED_TURTLE_FUNDAMENTALS_FRESH_COUNT, LOADED_TURTLE_FUNDAMENTALS_TOTAL_COUNT = (
+        mdr.fetch_freshness_counts("turtle_fundamentals", "updated_at")
     )
 
     print(

@@ -113,3 +113,66 @@ def test_fetch_table_passes_order_param(monkeypatch):
 
     mdr.fetch_table("some_table", order_by="symbol.asc")
     assert seen["order"] == "symbol.asc"
+
+
+# --- fetch_freshness_counts (2026-11-08) -- "N of M stocks caught up to the latest run" for
+# the Turtle Strategy tab's freshness banners.
+
+def test_fetch_freshness_counts_separates_fresh_from_stale(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
+
+    # Max timestamp is 2026-11-08T08:00:00Z; one row is within 24h of it (fresh), one is a
+    # week old (stale, last week's leftover).
+    rows = [
+        {"updated_at": "2026-11-08T08:00:00Z"},
+        {"updated_at": "2026-11-07T23:00:00Z"},
+        {"updated_at": "2026-11-01T18:30:00Z"},
+    ]
+
+    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, rows))
+
+    fresh, total = mdr.fetch_freshness_counts("turtle_fundamentals")
+    assert fresh == 2
+    assert total == 3
+
+
+def test_fetch_freshness_counts_all_fresh_when_everything_just_ran(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
+
+    rows = [{"updated_at": "2026-11-08T08:00:00Z"}, {"updated_at": "2026-11-08T07:00:00Z"}]
+    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, rows))
+
+    fresh, total = mdr.fetch_freshness_counts("turtle_signals_latest")
+    assert (fresh, total) == (2, 2)
+
+
+def test_fetch_freshness_counts_returns_none_none_on_empty_table(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
+
+    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, []))
+
+    assert mdr.fetch_freshness_counts("some_table") == (None, None)
+
+
+def test_fetch_freshness_counts_returns_none_none_on_http_error(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
+
+    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(500, None))
+
+    assert mdr.fetch_freshness_counts("some_table") == (None, None)
+
+
+def test_fetch_freshness_counts_returns_none_none_on_connection_exception(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
+
+    def fake_get(*a, **k):
+        raise ConnectionError("simulated")
+
+    monkeypatch.setattr(mdr.requests, "get", fake_get)
+
+    assert mdr.fetch_freshness_counts("some_table") == (None, None)
