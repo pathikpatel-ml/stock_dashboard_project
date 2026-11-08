@@ -2,9 +2,13 @@ name: Weekly Stock Screening
 
 on:
   schedule:
-    # Run every Sunday at ~6:07 AM IST (00:37 UTC). 2026-10-07: moved off the round :30
-    # minute -- see daily_gtt_trigger.yml's schedule comment for why.
-    - cron: '37 0 * * 0'
+    # 2026-11-08 (per explicit user request): moved from Sunday to Monday. Run every Monday
+    # at ~6:07 AM IST (00:37 UTC) -- NOT the literal 6:00 AM asked for, deliberately kept off
+    # the round :00/:30 minute: confirmed live elsewhere in this project that GitHub Actions
+    # can fully SKIP an entire day's run (not just delay it) at an exact round-minute slot --
+    # see daily_gtt_trigger.yml's schedule comment for the original incident. cron
+    # day-of-week 1 = Monday.
+    - cron: '37 0 * * 1'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

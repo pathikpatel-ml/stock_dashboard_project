@@ -66,6 +66,9 @@ LOADED_TURTLE_UPDATED_AT = None
 # daily job -- their real freshness is turtle_fundamentals' OWN weekly updated_at, which is
 # otherwise invisible from turtle_signals_latest alone (2026-10-12).
 LOADED_TURTLE_FUNDAMENTALS_UPDATED_AT = None
+# weekly_stock_screening.yml's own last-write time for nse_universe/nse_categories -- feeds
+# the Turtle Strategy tab's 4th freshness banner (2026-11-08, per explicit user request).
+LOADED_TURTLE_UNIVERSE_UPDATED_AT = None
 
 # The real universe size (nse_universe's own row count) and each batch job's own "N updated,
 # left: reasons" summary (turtle_job_status, job_name -> {updated_count, reason_breakdown,
@@ -526,8 +529,13 @@ def load_turtle_data_on_startup():
         if raw_fundamentals_updated_at else None
     )
 
-    global LOADED_TURTLE_UNIVERSE_TOTAL, LOADED_TURTLE_JOB_STATUS
+    global LOADED_TURTLE_UNIVERSE_TOTAL, LOADED_TURTLE_UNIVERSE_UPDATED_AT, LOADED_TURTLE_JOB_STATUS
     LOADED_TURTLE_UNIVERSE_TOTAL = mdr.fetch_row_count("nse_universe")
+    raw_universe_updated_at = mdr.fetch_max_value("nse_universe", "updated_at")
+    LOADED_TURTLE_UNIVERSE_UPDATED_AT = (
+        pd.to_datetime(raw_universe_updated_at, errors="coerce", utc=True)
+        if raw_universe_updated_at else None
+    )
     job_status_df = mdr.fetch_table("turtle_job_status")
     if not job_status_df.empty:
         from modules.turtle import job_status as js

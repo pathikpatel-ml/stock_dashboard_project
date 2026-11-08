@@ -247,6 +247,7 @@ _SCHEDULE_TEXT = {
     "signal": "scheduled ~6:07 PM IST",
     "price": "scheduled ~4:07 PM IST",
     "fundamentals": "scheduled Sunday, 7 slots ~1:07 AM-7:07 PM IST",
+    "universe": "scheduled Monday ~6:07 AM IST",
 }
 
 # Human-readable labels for each batch job's own rejection-reason keys (see
@@ -398,8 +399,41 @@ def _fundamentals_freshness_note(fundamentals_updated_at, universe_total=None, j
     )
 
 
+def _universe_freshness_note(universe_updated_at, universe_total=None, job_status=None):
+    """weekly_stock_screening.yml rebuilds nse_universe (the stock list itself) and
+    nse_categories (NIFTY 50/100/200 + sectoral index membership, e.g. Sector Pulse's own
+    counts) -- both Signal/Price/TTM ultimately depend on this list being current, so its own
+    freshness is worth a banner too (2026-11-08, per explicit user request). Same
+    always-visible, color-by-age style as the others, scaled to this job's weekly cadence.
+    "left: reasons" here means which specific NSE sectoral indices failed to fetch this run
+    (e.g. "1 NIFTY MEDIA"), not failed stocks -- this job either refreshes the whole universe
+    list in one shot or doesn't, there's no per-stock partial-failure concept the way the
+    screener.in-backed jobs have.
+    """
+    if universe_updated_at is None or pd.isna(universe_updated_at):
+        return None
+    now_utc = pd.Timestamp.now(tz="UTC")
+    age = now_utc - universe_updated_at
+    age_hours = age.total_seconds() / 3600
+    ist = universe_updated_at.tz_convert("Asia/Kolkata")
+    if age_hours < 24 * 8:
+        bg, fg, border = "#e7f3ff", "#0c5488", "#b6e0fe"
+    elif age_hours < 24 * 10:
+        bg, fg, border = "#fff3cd", "#856404", "#ffe69c"
+    else:
+        bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
+    return html.Div(
+        f"🌐 Universe (stock list + NIFTY index membership) (weekly, {_SCHEDULE_TEXT['universe']}) "
+        f"last updated: {ist.strftime('%Y-%m-%d %H:%M')} IST ({universe_updated_at.strftime('%H:%M')} UTC) "
+        f"— {_format_age(age)}{_job_status_suffix(universe_total, job_status)}.",
+        className="status-message",
+        style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0",
+               "fontSize": "12px"},
+    )
+
+
 def _banners(loaded_date, live_prices_df, updated_at=None, fundamentals_updated_at=None,
-              universe_total=None, job_statuses=None):
+              universe_total=None, job_statuses=None, universe_updated_at=None):
     job_statuses = job_statuses or {}
     parts = [b for b in (
         _staleness_banner(loaded_date, updated_at, universe_total, job_statuses.get("signal")),
@@ -407,6 +441,7 @@ def _banners(loaded_date, live_prices_df, updated_at=None, fundamentals_updated_
         _fundamentals_freshness_note(
             fundamentals_updated_at, universe_total, job_statuses.get("fundamentals"),
         ),
+        _universe_freshness_note(universe_updated_at, universe_total, job_statuses.get("universe")),
     ) if b]
     return html.Div(parts) if parts else None
 
@@ -494,6 +529,7 @@ def register_turtle_callbacks(app):
         # own freshness, not whichever day's signals happen to be on screen right now.
         universe_total = data_manager.LOADED_TURTLE_UNIVERSE_TOTAL
         job_statuses = data_manager.LOADED_TURTLE_JOB_STATUS
+        universe_updated_at = data_manager.LOADED_TURTLE_UNIVERSE_UPDATED_AT
 
         if yesterday and "yesterday" in yesterday:
             df, _filename = data_manager.get_turtle_signals_by_offset(1)
@@ -516,7 +552,7 @@ def register_turtle_callbacks(app):
                     else "No prior-day turtle signals file was found.",
                 ),
                 _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                         universe_total, job_statuses),
+                         universe_total, job_statuses, universe_updated_at),
             )
 
         if live_prices_df is not None and not live_prices_df.empty:
@@ -575,8 +611,8 @@ def register_turtle_callbacks(app):
             return (
                 _empty_state("No stocks match the current filters."),
                 _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                         universe_total, job_statuses),
+                         universe_total, job_statuses, universe_updated_at),
             )
 
         return _table(df), _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                                     universe_total, job_statuses)
+                                     universe_total, job_statuses, universe_updated_at)

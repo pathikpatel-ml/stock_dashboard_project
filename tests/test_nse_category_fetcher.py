@@ -135,8 +135,12 @@ def test_refresh_nifty_membership_merges_into_existing_file(tmp_path, monkeypatc
     monkeypatch.setattr(ncf, "fetch_index_constituents", fake_fetch)
     monkeypatch.setattr(ncf, "_new_session", lambda: _FakeSession())
 
-    refreshed = ncf.refresh_nifty_membership(path, index_names=["NIFTY 50", "NIFTY 100", "NIFTY 200"])
+    refreshed, fetched_names, failed_names = ncf.refresh_nifty_membership(
+        path, index_names=["NIFTY 50", "NIFTY 100", "NIFTY 200"]
+    )
     assert refreshed is True
+    assert fetched_names == ["NIFTY 100", "NIFTY 50"]
+    assert failed_names == ["NIFTY 200"]
 
     result = ncf.load_categories_map_from_csv(path)
     assert set(result["ADANIENT"]) == {"NIFTY 50", "NIFTY 100", "NIFTY PHARMA"}
@@ -156,8 +160,10 @@ def test_refresh_nifty_membership_drops_stale_sectoral_tags_too(tmp_path, monkey
     monkeypatch.setattr(ncf, "fetch_index_constituents", fake_fetch)
     monkeypatch.setattr(ncf, "_new_session", lambda: _FakeSession())
 
-    refreshed = ncf.refresh_nifty_membership(path, index_names=["NIFTY MEDIA"])
+    refreshed, fetched_names, failed_names = ncf.refresh_nifty_membership(path, index_names=["NIFTY MEDIA"])
     assert refreshed is True
+    assert fetched_names == ["NIFTY MEDIA"]
+    assert failed_names == []
 
     result = ncf.load_categories_map_from_csv(path)
     assert "NIFTY MEDIA" not in result.get("STOCKX", [])
@@ -182,7 +188,9 @@ def test_refresh_nifty_membership_leaves_file_untouched_on_total_failure(tmp_pat
     monkeypatch.setattr(ncf, "fetch_index_constituents", lambda *a, **k: None)
     monkeypatch.setattr(ncf, "_new_session", lambda: _FakeSession())
 
-    refreshed = ncf.refresh_nifty_membership(path)
+    refreshed, fetched_names, failed_names = ncf.refresh_nifty_membership(path)
     assert refreshed is False
+    assert fetched_names == []
+    assert failed_names == sorted(ncf.INDEX_URLS)
     after = open(path, "rb").read()
     assert before == after

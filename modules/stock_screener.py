@@ -834,14 +834,24 @@ def add_nse_categories_to_stocks(df):
     any thematic tags like "NIFTY PHARMA") is left untouched.
     """
     from modules.nse_category_fetcher import refresh_nifty_membership
+    from modules.turtle import job_status
 
     categories_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nse_categories.csv")
     try:
-        refreshed = refresh_nifty_membership(categories_path)
+        refreshed, fetched_names, failed_names = refresh_nifty_membership(categories_path)
         if refreshed:
-            print("Refreshed NIFTY 50/100/200 membership in nse_categories.csv")
+            print(f"Refreshed NIFTY index membership in nse_categories.csv "
+                  f"({len(fetched_names)} indices, {len(failed_names)} failed)")
         else:
             print("WARNING: Could not fetch any NSE index list; nse_categories.csv left unchanged")
+        # 2026-11-08 (per explicit user request): the dashboard's Universe freshness banner
+        # reads this for its "N of M stocks" + "left: reason breakdown" lines -- updated_count
+        # is the universe size this run actually wrote (always the whole universe in one
+        # shot, no partial-stock concept for this job), reason_breakdown names which specific
+        # sectoral indices failed to fetch this run, if any.
+        job_status.write_job_status(
+            "universe", len(df), {name: 1 for name in failed_names},
+        )
     except Exception as e:
         print(f"Error refreshing NSE categories: {e}")
     return df

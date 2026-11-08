@@ -179,10 +179,17 @@ def save_nse_categories_to_csv(categories_map: Dict[str, List[str]], output_path
     pd.DataFrame(rows, columns=["Symbol", "NSE_Categories"]).to_csv(output_path, index=False)
 
 
-def refresh_nifty_membership(output_path: str, index_names: Iterable[str] = tuple(INDEX_URLS)) -> bool:
-    """Fetch the given indices and merge them into ``output_path``. Returns True iff at least
-    one index was successfully refreshed (the file is still written/merged in that case);
-    returns False (and leaves the existing file untouched) if every fetch failed.
+def refresh_nifty_membership(
+    output_path: str, index_names: Iterable[str] = tuple(INDEX_URLS),
+) -> "tuple[bool, list, list]":
+    """Fetch the given indices and merge them into ``output_path``.
+
+    Returns ``(success, fetched_names, failed_names)`` -- ``success`` is True iff at least one
+    index was successfully refreshed (the file is still written/merged in that case); False
+    (and the existing file left untouched) only if every fetch failed. ``fetched_names``/
+    ``failed_names`` (2026-11-08, per explicit user request) let the caller report exactly
+    which indices didn't come through this run, for the dashboard's own freshness banner --
+    previously this only returned the bare success bool, discarding that detail.
     """
     session = _new_session()
     try:
@@ -194,8 +201,10 @@ def refresh_nifty_membership(output_path: str, index_names: Iterable[str] = tupl
     finally:
         session.close()
 
+    failed_names = sorted(set(index_names) - set(fetched))
+
     if not fetched:
-        return False
+        return (False, [], failed_names)
 
     existing_map = load_categories_map_from_csv(output_path)
     new_map = build_categories_map(fetched)
@@ -208,4 +217,4 @@ def refresh_nifty_membership(output_path: str, index_names: Iterable[str] = tupl
     # wipe its existing membership.
     merged_map = merge_categories_maps(existing_map, new_map, replace_tags=set(fetched))
     save_nse_categories_to_csv(merged_map, output_path)
-    return True
+    return (True, sorted(fetched), failed_names)
