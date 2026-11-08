@@ -535,7 +535,7 @@ def load_turtle_data_on_startup():
             row["job_name"]: {
                 "updated_count": row.get("updated_count"),
                 "reason_breakdown": js.parse_reason_breakdown(row.get("reason_breakdown")),
-                "run_at": pd.to_datetime(row.get("run_at"), errors="coerce", utc=True),
+                "run_at": pd.to_datetime(row.get("updated_at"), errors="coerce", utc=True),
             }
             for _, row in job_status_df.iterrows()
         }

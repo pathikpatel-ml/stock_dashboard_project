@@ -423,7 +423,7 @@ CREATE TABLE IF NOT EXISTS turtle_job_status (
     job_name          TEXT PRIMARY KEY,
     updated_count     INTEGER NOT NULL,
     reason_breakdown  TEXT,
-    run_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- turtle_fundamentals_universe_snapshot (2026-10-26): written with REPLACE semantics
