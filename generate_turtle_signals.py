@@ -31,6 +31,7 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
+from modules.turtle import job_status
 from modules.turtle import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -221,10 +222,15 @@ def main():
     # insufficient_monthly_data), stocks with no usable price data at all (no_monthly_data), or
     # transient network failures (fetch_error) -- each implies a different fix (or no fix at
     # all, for recently-listed names that just need to age past the 12-month guard).
+    reason_counts = {}
     if not out["rejections"].empty and "reason" in out["rejections"].columns:
         reason_buckets = out["rejections"]["reason"].str.split(":").str[0]  # fetch_error:<exc> -> fetch_error
-        for reason, count in reason_buckets.value_counts().items():
+        reason_counts = reason_buckets.value_counts().to_dict()
+        for reason, count in reason_counts.items():
             print(f"  {reason:<28}: {count:>4}")
+    # 2026-11-08 (per explicit user request): the dashboard's Signal/RS/Sector Pulse banner
+    # reads this for its "N of M stocks" + "left: reason breakdown" lines.
+    job_status.write_job_status("signal", len(signals), reason_counts)
 
     # 2026-09-23: a stock rejected specifically for insufficient_monthly_data (not yet 12
     # months of listed price history -- see MIN_MONTHLY_ROWS_FOR_ATH) must actually disappear

@@ -14,9 +14,10 @@ from database import market_data_reader as mdr
 
 
 class _FakeResponse:
-    def __init__(self, status_code, payload):
+    def __init__(self, status_code, payload, headers=None):
         self.status_code = status_code
         self._payload = payload
+        self.headers = headers or {}
 
     def json(self):
         return self._payload
@@ -115,58 +116,36 @@ def test_fetch_table_passes_order_param(monkeypatch):
     assert seen["order"] == "symbol.asc"
 
 
-# --- fetch_freshness_counts (2026-11-08) -- "N of M stocks caught up to the latest run" for
-# the Turtle Strategy tab's freshness banners.
+# --- fetch_row_count (2026-11-08) -- cheap total-row-count via PostgREST's Content-Range
+# header, no row data pulled.
 
-def test_fetch_freshness_counts_separates_fresh_from_stale(monkeypatch):
+def test_fetch_row_count_parses_content_range(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
 
-    # Max timestamp is 2026-11-08T08:00:00Z; one row is within 24h of it (fresh), one is a
-    # week old (stale, last week's leftover).
-    rows = [
-        {"updated_at": "2026-11-08T08:00:00Z"},
-        {"updated_at": "2026-11-07T23:00:00Z"},
-        {"updated_at": "2026-11-01T18:30:00Z"},
-    ]
+    def fake_get(url, headers=None, params=None, timeout=None):
+        assert headers["Prefer"] == "count=exact"
+        return _FakeResponse(200, [{"symbol": "TCS"}], headers={"Content-Range": "0-0/2655"})
 
-    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, rows))
-
-    fresh, total = mdr.fetch_freshness_counts("turtle_fundamentals")
-    assert fresh == 2
-    assert total == 3
+    monkeypatch.setattr(mdr.requests, "get", fake_get)
+    assert mdr.fetch_row_count("nse_universe") == 2655
 
 
-def test_fetch_freshness_counts_all_fresh_when_everything_just_ran(monkeypatch):
+def test_fetch_row_count_returns_none_on_missing_content_range(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
-
-    rows = [{"updated_at": "2026-11-08T08:00:00Z"}, {"updated_at": "2026-11-08T07:00:00Z"}]
-    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, rows))
-
-    fresh, total = mdr.fetch_freshness_counts("turtle_signals_latest")
-    assert (fresh, total) == (2, 2)
+    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, [], headers={}))
+    assert mdr.fetch_row_count("nse_universe") is None
 
 
-def test_fetch_freshness_counts_returns_none_none_on_empty_table(monkeypatch):
+def test_fetch_row_count_returns_none_on_http_error(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
-
-    monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(200, []))
-
-    assert mdr.fetch_freshness_counts("some_table") == (None, None)
-
-
-def test_fetch_freshness_counts_returns_none_none_on_http_error(monkeypatch):
-    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
-    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
-
     monkeypatch.setattr(mdr.requests, "get", lambda *a, **k: _FakeResponse(500, None))
+    assert mdr.fetch_row_count("nse_universe") is None
 
-    assert mdr.fetch_freshness_counts("some_table") == (None, None)
 
-
-def test_fetch_freshness_counts_returns_none_none_on_connection_exception(monkeypatch):
+def test_fetch_row_count_returns_none_on_connection_exception(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "fake-key")
 
@@ -174,5 +153,4 @@ def test_fetch_freshness_counts_returns_none_none_on_connection_exception(monkey
         raise ConnectionError("simulated")
 
     monkeypatch.setattr(mdr.requests, "get", fake_get)
-
-    assert mdr.fetch_freshness_counts("some_table") == (None, None)
+    assert mdr.fetch_row_count("nse_universe") is None

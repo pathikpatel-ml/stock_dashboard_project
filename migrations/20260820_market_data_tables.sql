@@ -388,7 +388,8 @@ GRANT SELECT, INSERT, UPDATE ON
     turtle_signals_history,
     turtlequant_signals_latest,
     v20_signals_latest,
-    turtle_fundamentals_universe_snapshot
+    turtle_fundamentals_universe_snapshot,
+    turtle_job_status
 TO market_data_writer;
 
 -- v20_signals_latest alone also needs DELETE: it's written with REPLACE semantics (delete all
@@ -406,6 +407,24 @@ GRANT DELETE ON turtle_signals_latest TO market_data_writer;
 -- same as v20_signals_latest) since a sector (screener.in Sector or curated NSE index) can
 -- legitimately have zero members on a later run -- see generate_turtle_signals.py's write call.
 GRANT DELETE ON turtle_sector_pulse TO market_data_writer;
+
+-- turtle_job_status (2026-11-08, per explicit user request): one row per Turtle Strategy
+-- batch job (symbol = 'signal' | 'price' | 'fundamentals'), holding that job's own "how many
+-- of the universe got updated, and why not the rest" summary -- the dashboard's 3 freshness
+-- banners read this for their "N of M stocks" + "left: reason breakdown" lines, instead of
+-- re-deriving a weaker version from each table's own row count (which conflates "legitimately
+-- excluded" with "not yet processed" differently per table). reason_breakdown is a small
+-- human-readable summary string (e.g. "insufficient_monthly_data=11, fetch_error=350"), not a
+-- per-symbol list -- see each generate_turtle_*.py script's own write call for exactly what it
+-- means for that job. For 'fundamentals' (the weekly 7-slice job), updated_count/
+-- reason_breakdown ACCUMULATE across the week's 7 slices (reset at the week's first slice,
+-- day_of_week 0) rather than reflecting just the latest slice alone.
+CREATE TABLE IF NOT EXISTS turtle_job_status (
+    job_name          TEXT PRIMARY KEY,
+    updated_count     INTEGER NOT NULL,
+    reason_breakdown  TEXT,
+    run_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- turtle_fundamentals_universe_snapshot (2026-10-26): written with REPLACE semantics
 -- (delete-all + bulk insert, same as v20_signals_latest/turtle_sector_pulse) -- truncated and

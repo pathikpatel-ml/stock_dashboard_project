@@ -93,49 +93,24 @@ def fetch_max_value(table: str, column: str, timeout: int = 15):
         return None
 
 
-def fetch_freshness_counts(table: str, timestamp_column: str = "updated_at", timeout: int = 15):
-    """(fresh_count, total_count) for ``table``'s freshness banners (2026-11-08) -- "fresh"
-    means ``timestamp_column`` falls within 24h of the table's own current max value, i.e. it
-    was touched by the run that most recently wrote ANYTHING to this table, not some earlier
-    run's leftovers. Self-referential on purpose (never hardcodes a batch job's cron schedule
-    into app code): a real run -- daily or one slice of the weekly 7-slice sequence -- always
-    completes within a day, while a PREVIOUS week's/day's untouched rows sit at least several
-    days further back, so the 24h cutoff cleanly separates "caught up by the latest run" from
-    "still waiting on it" regardless of which table or cadence this is called for. Confirmed
-    live, 2026-11-08: correctly separated 1,133 freshly-reprocessed turtle_fundamentals rows
-    from 1,502 still showing the prior week's data, mid-way through that week's 7-slice run.
-
-    Only pulls ``timestamp_column`` (via ``select=``), not every row's full data -- paginates
-    the same way ``fetch_table`` does. Never raises -- returns (None, None) on any failure, so
-    callers degrade to "no count available" rather than a broken render.
+def fetch_row_count(table: str, timeout: int = 15) -> Optional[int]:
+    """Cheap total-row-count lookup via PostgREST's ``Prefer: count=exact`` header, reading
+    the count back out of the response's ``Content-Range`` header (``0-0/2655`` -> 2655) --
+    never pulls any actual row data. Used for the Turtle Strategy tab's "N of <universe total>
+    stocks" freshness-banner lines (2026-11-08), where the universe size (nse_universe) is
+    needed but none of its actual columns are. Never raises -- returns None on any failure.
     """
     try:
-        params = {"select": timestamp_column}
-        rows = []
-        offset = 0
-        while True:
-            headers = dict(_headers())
-            headers["Range-Unit"] = "items"
-            headers["Range"] = f"{offset}-{offset + _PAGE_SIZE - 1}"
-            resp = requests.get(f"{_base_url()}/{table}", headers=headers, params=params, timeout=timeout)
-            if resp.status_code not in (200, 206):
-                resp.raise_for_status()
-            page = resp.json()
-            rows.extend(page)
-            if len(page) < _PAGE_SIZE:
-                break
-            offset += _PAGE_SIZE
-
-        if not rows:
-            return (None, None)
-        timestamps = pd.to_datetime(
-            pd.Series([r.get(timestamp_column) for r in rows]), errors="coerce", utc=True
-        )
-        total = int(timestamps.notna().sum())
-        if total == 0:
-            return (0, len(rows))
-        cutoff = timestamps.max() - pd.Timedelta(hours=24)
-        fresh = int((timestamps >= cutoff).sum())
-        return (fresh, len(rows))
+        headers = dict(_headers())
+        headers["Prefer"] = "count=exact"
+        params = {"select": "*", "limit": "1"}
+        resp = requests.get(f"{_base_url()}/{table}", headers=headers, params=params, timeout=timeout)
+        if resp.status_code not in (200, 206):
+            return None
+        content_range = resp.headers.get("Content-Range", "")
+        total = content_range.split("/")[-1]
+        return int(total) if total.isdigit() else None
     except Exception:
-        return (None, None)
+        return None
+
+

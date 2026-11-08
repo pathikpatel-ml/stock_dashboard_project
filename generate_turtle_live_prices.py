@@ -40,6 +40,7 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
+from modules.turtle import job_status
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 UNIVERSE_FILE = os.path.join(REPO_BASE_PATH, "NSE_EQ_All_Stocks_Analysis.csv")
@@ -232,6 +233,19 @@ def main():
                 deleted = mdw.delete_by_symbols(conn, "turtle_live_prices", orphans)
                 print(f"DB: turtle_live_prices deleted {deleted} orphan rows "
                       f"(no longer in nse_universe): {orphans}")
+
+            # 2026-11-08 (per explicit user request): "left" universe symbols split into two
+            # real reasons -- never_fetched (no cache entry at all, ever -- see the 13-symbol
+            # case investigated live that day) vs stale_fetch_failed_this_run (has a cached
+            # price from a past run, just not refreshed by THIS one, per refresh_live_prices'
+            # own "keep last known-good value" contract).
+            universe_set = set(symbols)
+            not_updated = universe_set - updated_symbols
+            reason_counts = {
+                "never_fetched": sum(1 for s in not_updated if s not in updated_cache),
+                "stale_fetch_failed_this_run": sum(1 for s in not_updated if s in updated_cache),
+            }
+            job_status.write_job_status("price", len(updated_symbols), reason_counts)
         finally:
             conn.close()
     except Exception as exc:

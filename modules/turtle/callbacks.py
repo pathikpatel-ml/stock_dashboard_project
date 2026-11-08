@@ -240,26 +240,67 @@ def _format_age(age: pd.Timedelta) -> str:
     return f"{age.days}d {int(age.seconds // 3600)}h ago"
 
 
-def _count_suffix(fresh_count, total_count) -> str:
-    """" — N of M stocks" suffix for a freshness banner (2026-11-08, per explicit user
-    request) -- "fresh" means caught up to the latest run of that table's own batch job, not
-    still showing an older run's leftovers; see database/market_data_reader.py::
-    fetch_freshness_counts' docstring for the exact "within 24h of the table's own max
-    timestamp" definition. Empty string (not a partial/garbled sentence) if either count is
-    unavailable -- matches every other piece of this banner's own missing-data convention."""
-    if fresh_count is None or total_count is None:
+# Hardcoded schedule descriptions (2026-11-08, per explicit user request) -- these are static
+# facts about each workflow's own cron (see each .github/workflows/turtle_*.yml's own schedule
+# comment for the authoritative source), not something worth a live query for.
+_SCHEDULE_TEXT = {
+    "signal": "scheduled ~6:07 PM IST",
+    "price": "scheduled ~4:07 PM IST",
+    "fundamentals": "scheduled Sunday, 7 slots ~1:07 AM-7:07 PM IST",
+}
+
+# Human-readable labels for each batch job's own rejection-reason keys (see
+# modules/turtle/job_status.py and each generate_turtle_*.py script's own write call for where
+# these come from) -- falls back to the raw key, with underscores turned to spaces, for any
+# reason not listed here, so a future new reason never renders as a blank.
+_REASON_LABELS = {
+    "fetch_error": "fetch error",
+    "no_monthly_data": "no price history available",
+    "insufficient_monthly_data": "under 12 months listed",
+    "never_fetched": "never successfully priced",
+    "stale_fetch_failed_this_run": "price fetch failed this run (kept last known price)",
+    "no_ttm_data": "no TTM data available",
+}
+
+
+def _reason_breakdown_text(reason_breakdown: dict) -> str:
+    """"left: 386 fetch error, 11 under 12 months listed" -- empty string if there's nothing
+    to report (either no job_status row yet, or every universe stock was actually updated)."""
+    if not reason_breakdown:
         return ""
-    return f" — {fresh_count:,} of {total_count:,} stocks"
+    parts = [
+        f"{count:,} {_REASON_LABELS.get(reason, reason.replace('_', ' '))}"
+        for reason, count in sorted(reason_breakdown.items(), key=lambda kv: -kv[1])
+        if count
+    ]
+    return f"; left: {', '.join(parts)}" if parts else ""
 
 
-def _staleness_banner(loaded_date, updated_at=None, fresh_count=None, total_count=None):
+def _job_status_suffix(universe_total, job_status: dict) -> str:
+    """Combines the "N of <universe total> stocks" count with the "left: reasons" clause into
+    one suffix, both sourced from turtle_job_status (2026-11-08, per explicit user request) --
+    compares each job against the TRUE universe size (not a table's own, differently-scoped
+    row count) and says why the rest weren't updated. Empty string if turtle_job_status has no
+    row for this job yet (e.g. before the first run since this feature shipped)."""
+    if not job_status:
+        return ""
+    updated_count = job_status.get("updated_count")
+    if updated_count is None or universe_total is None:
+        return ""
+    return f" — {updated_count:,} of {universe_total:,} stocks updated" + _reason_breakdown_text(
+        job_status.get("reason_breakdown") or {}
+    )
+
+
+def _staleness_banner(loaded_date, updated_at=None, universe_total=None, job_status=None):
     """2026-10-11: always-visible signal (not just a warning-when-stale one) for when the
     daily Signal/RS/ATH/Sector Pulse recompute last actually ran -- so a cron delay/skip (see
     .github/workflows/turtle_signals.yml's schedule comment) is visible on the dashboard
     itself, not something that needs asking someone to check GitHub Actions. Prefers the real
     per-row ``updated_at`` (precise date+time) when available; falls back to the old
     date-only, only-warns-when-stale behavior for the CSV-fallback path, which has no
-    row-level timestamp to show.
+    row-level timestamp to show. 2026-11-08: also shows the schedule itself, and the real
+    "N of <universe> stocks updated, left: reasons" breakdown from turtle_job_status.
     """
     if updated_at is not None and not pd.isna(updated_at):
         now_utc = pd.Timestamp.now(tz="UTC")
@@ -273,9 +314,9 @@ def _staleness_banner(loaded_date, updated_at=None, fresh_count=None, total_coun
         else:
             bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
         return html.Div(
-            f"🕐 Signal/RS/Sector Pulse (daily) last updated: {ist.strftime('%Y-%m-%d %H:%M')} IST "
-            f"({updated_at.strftime('%H:%M')} UTC) — {_format_age(age)}"
-            f"{_count_suffix(fresh_count, total_count)}.",
+            f"🕐 Signal/RS/Sector Pulse (daily, {_SCHEDULE_TEXT['signal']}) last updated: "
+            f"{ist.strftime('%Y-%m-%d %H:%M')} IST ({updated_at.strftime('%H:%M')} UTC) — {_format_age(age)}"
+            f"{_job_status_suffix(universe_total, job_status)}.",
             className="status-message",
             style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0"},
         )
@@ -296,10 +337,12 @@ def _staleness_banner(loaded_date, updated_at=None, fresh_count=None, total_coun
     return None
 
 
-def _live_price_freshness_note(live_prices_df, fresh_count=None, total_count=None):
+def _live_price_freshness_note(live_prices_df, universe_total=None, job_status=None):
     """generate_turtle_live_prices.py refreshes Current_Price several times a day,
     independent of the once-daily ADD/HOLD/EXIT recompute -- surface when that last
-    happened so it isn't confused with the (once-daily) staleness banner above.
+    happened so it isn't confused with the (once-daily) staleness banner above. 2026-11-08:
+    also shows the schedule itself, and the real "N of <universe> stocks updated, left:
+    reasons" breakdown from turtle_job_status.
     """
     if live_prices_df is None or live_prices_df.empty or "Price_As_Of" not in live_prices_df.columns:
         return None
@@ -310,8 +353,9 @@ def _live_price_freshness_note(live_prices_df, fresh_count=None, total_count=Non
     if pd.isna(latest):
         return None
     return html.Div(
-        f"💹 Prices (intraday) refreshed — last update {latest.strftime('%Y-%m-%d %H:%M UTC')}"
-        f"{_count_suffix(fresh_count, total_count)} "
+        f"💹 Prices (intraday, {_SCHEDULE_TEXT['price']}) refreshed — "
+        f"last update {latest.strftime('%Y-%m-%d %H:%M UTC')}"
+        f"{_job_status_suffix(universe_total, job_status)} "
         f"(ADD/HOLD/EXIT signals still recompute once daily).",
         className="status-message", style={"backgroundColor": "#e7f3ff", "color": "#0c5488",
                                            "border": "1px solid #b6e0fe", "margin": "8px 0",
@@ -319,13 +363,17 @@ def _live_price_freshness_note(live_prices_df, fresh_count=None, total_count=Non
     )
 
 
-def _fundamentals_freshness_note(fundamentals_updated_at, fresh_count=None, total_count=None):
+def _fundamentals_freshness_note(fundamentals_updated_at, universe_total=None, job_status=None):
     """TTM_Net_Profit/TTM_Net_Sales (and the ATH_Profit_Flag/ATH_Sales_Flag they feed) are only
     ever COPIED from turtle_fundamentals into this table, never recomputed by the daily job --
     their real freshness is turtle_fundamentals' own weekly updated_at. Same always-visible,
     color-by-age style as _staleness_banner (2026-10-12), scaled to a weekly (not daily)
     cadence -- mirrors modules/turtlequant/callbacks.py::_staleness_banner's weekly thresholds,
-    since both ultimately read the exact same table.
+    since both ultimately read the exact same table. 2026-11-08: also shows the schedule
+    itself, and the real "N of <universe> stocks updated, left: reasons" breakdown from
+    turtle_job_status -- for this job specifically, ``job_status``'s own updated_count/
+    reason_breakdown ACCUMULATE across the week's 7 slices (see modules/turtle/job_status.py),
+    so this reflects the WHOLE week's progress so far, not just the latest slice alone.
     """
     if fundamentals_updated_at is None or pd.isna(fundamentals_updated_at):
         return None
@@ -340,10 +388,10 @@ def _fundamentals_freshness_note(fundamentals_updated_at, fresh_count=None, tota
     else:
         bg, fg, border = "#f8d7da", "#721c24", "#f5c6cb"
     return html.Div(
-        f"📊 TTM Profit/Sales (and ATH_Profit_Flag/ATH_Sales_Flag) (weekly) last updated: "
+        f"📊 TTM Profit/Sales (and ATH_Profit_Flag/ATH_Sales_Flag) (weekly, "
+        f"{_SCHEDULE_TEXT['fundamentals']}) last updated: "
         f"{ist.strftime('%Y-%m-%d %H:%M')} IST ({fundamentals_updated_at.strftime('%H:%M')} UTC) "
-        f"— {_format_age(age)}{_count_suffix(fresh_count, total_count)} "
-        f"(this data refreshes weekly, Sunday).",
+        f"— {_format_age(age)}{_job_status_suffix(universe_total, job_status)}.",
         className="status-message",
         style={"backgroundColor": bg, "color": fg, "border": f"1px solid {border}", "margin": "8px 0",
                "fontSize": "12px"},
@@ -351,11 +399,14 @@ def _fundamentals_freshness_note(fundamentals_updated_at, fresh_count=None, tota
 
 
 def _banners(loaded_date, live_prices_df, updated_at=None, fundamentals_updated_at=None,
-              signal_counts=(None, None), price_counts=(None, None), fundamentals_counts=(None, None)):
+              universe_total=None, job_statuses=None):
+    job_statuses = job_statuses or {}
     parts = [b for b in (
-        _staleness_banner(loaded_date, updated_at, *signal_counts),
-        _live_price_freshness_note(live_prices_df, *price_counts),
-        _fundamentals_freshness_note(fundamentals_updated_at, *fundamentals_counts),
+        _staleness_banner(loaded_date, updated_at, universe_total, job_statuses.get("signal")),
+        _live_price_freshness_note(live_prices_df, universe_total, job_statuses.get("price")),
+        _fundamentals_freshness_note(
+            fundamentals_updated_at, universe_total, job_statuses.get("fundamentals"),
+        ),
     ) if b]
     return html.Div(parts) if parts else None
 
@@ -438,14 +489,11 @@ def register_turtle_callbacks(app):
         # repeatedly instead of once.
         data_manager.load_turtle_data_on_startup()
 
-        # " — N of M stocks" counts (2026-11-08) -- always from the live globals regardless of
-        # the Yesterday toggle, since they describe each DATA SOURCE's own freshness, not
-        # whichever day's signals happen to be on screen right now.
-        signal_counts = (data_manager.LOADED_TURTLE_SIGNAL_FRESH_COUNT, data_manager.LOADED_TURTLE_SIGNAL_TOTAL_COUNT)
-        price_counts = (data_manager.LOADED_TURTLE_PRICE_FRESH_COUNT, data_manager.LOADED_TURTLE_PRICE_TOTAL_COUNT)
-        fundamentals_counts = (
-            data_manager.LOADED_TURTLE_FUNDAMENTALS_FRESH_COUNT, data_manager.LOADED_TURTLE_FUNDAMENTALS_TOTAL_COUNT,
-        )
+        # "N of <universe> stocks updated, left: reasons" (2026-11-08) -- always from the live
+        # globals regardless of the Yesterday toggle, since they describe each DATA SOURCE's
+        # own freshness, not whichever day's signals happen to be on screen right now.
+        universe_total = data_manager.LOADED_TURTLE_UNIVERSE_TOTAL
+        job_statuses = data_manager.LOADED_TURTLE_JOB_STATUS
 
         if yesterday and "yesterday" in yesterday:
             df, _filename = data_manager.get_turtle_signals_by_offset(1)
@@ -468,7 +516,7 @@ def register_turtle_callbacks(app):
                     else "No prior-day turtle signals file was found.",
                 ),
                 _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                         signal_counts, price_counts, fundamentals_counts),
+                         universe_total, job_statuses),
             )
 
         if live_prices_df is not None and not live_prices_df.empty:
@@ -527,8 +575,8 @@ def register_turtle_callbacks(app):
             return (
                 _empty_state("No stocks match the current filters."),
                 _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                         signal_counts, price_counts, fundamentals_counts),
+                         universe_total, job_statuses),
             )
 
         return _table(df), _banners(loaded_date, live_prices_df, updated_at, fundamentals_updated_at,
-                                     signal_counts, price_counts, fundamentals_counts)
+                                     universe_total, job_statuses)

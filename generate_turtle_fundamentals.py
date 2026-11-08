@@ -66,6 +66,7 @@ except ImportError:
 
 from database import market_data_writer as mdw
 from modules.breakout import data_feed
+from modules.turtle import job_status
 from modules.turtle import nse_shareholding as nse_sh
 from modules.turtle import quality_flags as qf
 from modules.turtle import standalone_fundamentals as sf
@@ -357,6 +358,7 @@ def main():
                           "(the old behavior -- for an on-demand manual catch-up)")
     args = ap.parse_args()
 
+    day_of_week = None
     if args.full_universe:
         symbols = load_universe_symbols()
         print(f"Full-universe mode: all {len(symbols)} symbols (--full-universe given).")
@@ -425,6 +427,16 @@ def main():
             print(f"DB: turtle_fundamentals upserted {n} rows")
         finally:
             conn.close()
+
+        # 2026-11-08 (per explicit user request): the dashboard's TTM Profit/Sales banner
+        # reads this for its "N of M stocks" + "left: reason breakdown" lines. Accumulates
+        # across the week's 7 slices (reset only at day_of_week 0, the week's first slice, or
+        # for a --full-universe catch-up run, which is inherently a fresh, complete total on
+        # its own) -- see modules/turtle/job_status.py's docstring for why.
+        job_status.accumulate_job_status(
+            "fundamentals", reset=(args.full_universe or day_of_week == 0),
+            updated_count_delta=ok_count, reason_counts_delta={"no_ttm_data": fail_count},
+        )
     except Exception as exc:
         print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
 
