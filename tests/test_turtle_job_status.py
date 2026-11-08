@@ -99,18 +99,22 @@ def test_write_job_status_coerces_numpy_like_counts(monkeypatch):
 # ---------------------------------------------------------------------------
 # accumulate_job_status -- read-modify-write (fundamentals, the weekly 7-slice job)
 # ---------------------------------------------------------------------------
-def test_accumulate_job_status_reset_starts_fresh(monkeypatch):
+def test_accumulate_job_status_explicit_reset_starts_fresh_even_with_existing_row(monkeypatch):
+    """reset=True (e.g. --full-universe) must discard any existing row, not accumulate onto
+    it -- it's a standalone, complete total on its own."""
     captured = {}
     monkeypatch.setattr(js.mdw, "get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(
+        js.mdw, "fetch_dataframe",
+        lambda conn, table: pd.DataFrame([{
+            "job_name": "fundamentals", "updated_count": 1000,
+            "reason_breakdown": '{"no_ttm_data": 50}', "updated_at": pd.Timestamp.now(tz="UTC"),
+        }]),
+    )
     monkeypatch.setattr(
         js.mdw, "upsert_dataframe",
         lambda conn, table, df, conflict_columns: captured.setdefault("row", df.iloc[0].to_dict()),
     )
-    # fetch_dataframe must NOT be consulted at all on a reset -- any prior-week leftovers
-    # would otherwise leak into this week's fresh total.
-    monkeypatch.setattr(js.mdw, "fetch_dataframe", lambda *a, **k: (_ for _ in ()).throw(
-        AssertionError("reset=True must not read the existing row")
-    ))
 
     js.accumulate_job_status("fundamentals", reset=True, updated_count_delta=375,
                               reason_counts_delta={"no_ttm_data": 20})
@@ -119,14 +123,14 @@ def test_accumulate_job_status_reset_starts_fresh(monkeypatch):
     assert js.parse_reason_breakdown(captured["row"]["reason_breakdown"]) == {"no_ttm_data": 20}
 
 
-def test_accumulate_job_status_adds_onto_existing_total(monkeypatch):
+def test_accumulate_job_status_explicit_no_reset_adds_onto_existing_total(monkeypatch):
     captured = {}
     monkeypatch.setattr(js.mdw, "get_connection", lambda: _FakeConn())
     monkeypatch.setattr(
         js.mdw, "fetch_dataframe",
         lambda conn, table: pd.DataFrame([{
             "job_name": "fundamentals", "updated_count": 1000,
-            "reason_breakdown": '{"no_ttm_data": 50}',
+            "reason_breakdown": '{"no_ttm_data": 50}', "updated_at": pd.Timestamp.now(tz="UTC"),
         }]),
     )
     monkeypatch.setattr(
@@ -165,3 +169,74 @@ def test_accumulate_job_status_never_raises_on_db_failure(monkeypatch):
     monkeypatch.setattr(js.mdw, "get_connection", boom)
     js.accumulate_job_status("fundamentals", reset=True, updated_count_delta=10,
                               reason_counts_delta={})  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# accumulate_job_status -- reset=None auto-detection (2026-11-08 fix: keyed off real elapsed
+# time, not which day_of_week slice happened to run first -- see the function's own docstring
+# for the real incident this replaced)
+# ---------------------------------------------------------------------------
+def test_accumulate_job_status_auto_detect_no_existing_row_resets(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(js.mdw, "get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(js.mdw, "fetch_dataframe", lambda conn, table: pd.DataFrame())
+    monkeypatch.setattr(
+        js.mdw, "upsert_dataframe",
+        lambda conn, table, df, conflict_columns: captured.setdefault("row", df.iloc[0].to_dict()),
+    )
+
+    js.accumulate_job_status("fundamentals", reset=None, updated_count_delta=375,
+                              reason_counts_delta={"no_ttm_data": 20})
+
+    assert captured["row"]["updated_count"] == 375
+
+
+def test_accumulate_job_status_auto_detect_recent_row_accumulates(monkeypatch):
+    """The exact scenario that was broken: a slice completed a few minutes ago (same week's
+    run, still in progress) -- the next slice must ADD onto it, not reset, regardless of
+    which day_of_week label it carries."""
+    captured = {}
+    monkeypatch.setattr(js.mdw, "get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(
+        js.mdw, "fetch_dataframe",
+        lambda conn, table: pd.DataFrame([{
+            "job_name": "fundamentals", "updated_count": 365,
+            "reason_breakdown": '{"no_ttm_data": 12}',
+            "updated_at": pd.Timestamp.now(tz="UTC") - pd.Timedelta(minutes=41),
+        }]),
+    )
+    monkeypatch.setattr(
+        js.mdw, "upsert_dataframe",
+        lambda conn, table, df, conflict_columns: captured.setdefault("row", df.iloc[0].to_dict()),
+    )
+
+    js.accumulate_job_status("fundamentals", reset=None, updated_count_delta=367,
+                              reason_counts_delta={"no_ttm_data": 13})
+
+    assert captured["row"]["updated_count"] == 732
+    assert js.parse_reason_breakdown(captured["row"]["reason_breakdown"]) == {"no_ttm_data": 25}
+
+
+def test_accumulate_job_status_auto_detect_stale_row_resets(monkeypatch):
+    """A row older than STALE_AFTER_DAYS is last week's leftover -- must reset, not
+    accumulate onto it."""
+    captured = {}
+    monkeypatch.setattr(js.mdw, "get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(
+        js.mdw, "fetch_dataframe",
+        lambda conn, table: pd.DataFrame([{
+            "job_name": "fundamentals", "updated_count": 2600,
+            "reason_breakdown": '{"no_ttm_data": 100}',
+            "updated_at": pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=js.STALE_AFTER_DAYS + 1),
+        }]),
+    )
+    monkeypatch.setattr(
+        js.mdw, "upsert_dataframe",
+        lambda conn, table, df, conflict_columns: captured.setdefault("row", df.iloc[0].to_dict()),
+    )
+
+    js.accumulate_job_status("fundamentals", reset=None, updated_count_delta=375,
+                              reason_counts_delta={"no_ttm_data": 20})
+
+    assert captured["row"]["updated_count"] == 375
+    assert js.parse_reason_breakdown(captured["row"]["reason_breakdown"]) == {"no_ttm_data": 20}

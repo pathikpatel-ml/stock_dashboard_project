@@ -430,11 +430,14 @@ def main():
 
         # 2026-11-08 (per explicit user request): the dashboard's TTM Profit/Sales banner
         # reads this for its "N of M stocks" + "left: reason breakdown" lines. Accumulates
-        # across the week's 7 slices (reset only at day_of_week 0, the week's first slice, or
-        # for a --full-universe catch-up run, which is inherently a fresh, complete total on
-        # its own) -- see modules/turtle/job_status.py's docstring for why.
+        # across the week's 7 slices -- reset=True forced for --full-universe (inherently a
+        # fresh, complete total on its own); reset=None otherwise, letting
+        # accumulate_job_status auto-detect a new week from the stored row's own age rather
+        # than assuming day_of_week 0 always runs first (see that function's docstring for the
+        # real incident this replaced -- a manual out-of-order catch-up run silently discarded
+        # an already-accumulated total).
         job_status.accumulate_job_status(
-            "fundamentals", reset=(args.full_universe or day_of_week == 0),
+            "fundamentals", reset=(True if args.full_universe else None),
             updated_count_delta=ok_count, reason_counts_delta={"no_ttm_data": fail_count},
         )
     except Exception as exc:
