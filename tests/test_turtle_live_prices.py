@@ -73,6 +73,27 @@ def test_load_universe_symbols_missing_file_raises(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# find_orphan_symbols (2026-11-08) -- symbols in the cache no longer in the universe at all
+# ---------------------------------------------------------------------------
+def test_find_orphan_symbols_detects_delisted_stock():
+    assert tlp.find_orphan_symbols(["RELIANCE", "DELISTED1"], ["RELIANCE", "TCS"]) == ["DELISTED1"]
+
+
+def test_find_orphan_symbols_none_when_everything_still_in_universe():
+    assert tlp.find_orphan_symbols(["RELIANCE", "TCS"], ["RELIANCE", "TCS", "INFY"]) == []
+
+
+def test_find_orphan_symbols_sorted_and_deduped():
+    cached = ["ZOMBIE", "RELIANCE", "ZOMBIE"]
+    assert tlp.find_orphan_symbols(cached, ["RELIANCE"]) == ["ZOMBIE"]
+
+
+def test_find_orphan_symbols_empty_cache_or_universe():
+    assert tlp.find_orphan_symbols([], ["RELIANCE"]) == []
+    assert tlp.find_orphan_symbols(["RELIANCE"], []) == ["RELIANCE"]
+
+
+# ---------------------------------------------------------------------------
 # fetch_batch_prices
 # ---------------------------------------------------------------------------
 def test_fetch_batch_prices_multi_ticker():
@@ -222,6 +243,51 @@ def test_main_leaves_existing_file_untouched_on_total_failure(tmp_path, monkeypa
 
     assert live_prices_path.read_bytes() == before
     assert "leaving existing cache untouched" in capsys.readouterr().out
+
+
+def test_main_deletes_orphans_after_successful_upsert(tmp_path, monkeypatch):
+    """End-to-end: a symbol present in the DB cache but no longer in nse_universe must be
+    deleted via mdw.delete_by_symbols, not just left alone by the upsert (2026-11-08)."""
+    universe_path = tmp_path / "universe.csv"
+    pd.DataFrame({"Symbol": ["RELIANCE", "TCS"]}).to_csv(universe_path, index=False)
+    live_prices_path = tmp_path / "turtle_live_prices.csv"
+
+    monkeypatch.setattr(tlp, "UNIVERSE_FILE", str(universe_path))
+    monkeypatch.setattr(tlp, "LIVE_PRICES_FILE", str(live_prices_path))
+    monkeypatch.setattr(
+        tlp, "fetch_batch_prices",
+        lambda symbols, downloader=None: {s: 100.0 for s in symbols},
+    )
+    monkeypatch.setattr(sys, "argv", ["generate_turtle_live_prices.py", "--pause", "0"])
+
+    class _FakeConn:
+        def close(self):
+            pass
+
+    # Re-override the module's own autouse "_no_live_db" block -- this test specifically
+    # exercises the Postgres write path, including the cache read (an orphan, "DELISTED1",
+    # existed in the DB before this run but isn't in the universe above).
+    def _fake_fetch_dataframe(conn, table):
+        if table == "turtle_live_prices":
+            return pd.DataFrame([
+                {"symbol": "RELIANCE", "live_price": 1300.0, "price_as_of": "2026-08-01T09:00:00+00:00"},
+                {"symbol": "DELISTED1", "live_price": 10.0, "price_as_of": "2026-08-01T09:00:00+00:00"},
+            ])
+        return pd.DataFrame()  # "nse_universe" -- empty, forces load_universe_symbols's CSV fallback
+
+    monkeypatch.setattr(tlp.mdw, "get_connection", lambda: _FakeConn())
+    monkeypatch.setattr(tlp.mdw, "fetch_dataframe", _fake_fetch_dataframe)
+    monkeypatch.setattr(tlp.mdw, "upsert_dataframe", lambda conn, table, df, conflict_columns: len(df))
+
+    deleted_calls = []
+    monkeypatch.setattr(
+        tlp.mdw, "delete_by_symbols",
+        lambda conn, table, syms: deleted_calls.append((table, list(syms))) or len(syms),
+    )
+
+    tlp.main()
+
+    assert deleted_calls == [("turtle_live_prices", ["DELISTED1"])]
 
 
 def test_main_respects_limit(tmp_path, monkeypatch):

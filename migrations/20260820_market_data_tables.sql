@@ -412,6 +412,13 @@ GRANT DELETE ON turtle_sector_pulse TO market_data_writer;
 -- rewritten fresh each week by the Sunday sequence's first slice, see the table's own comment.
 GRANT DELETE ON turtle_fundamentals_universe_snapshot TO market_data_writer;
 
+-- turtle_live_prices (2026-11-08): upserted (not replaced -- a symbol that fails one run's
+-- batch fetch keeps its last known-good price, see generate_turtle_live_prices.py's own
+-- docstring), but a symbol that's dropped out of nse_universe entirely (delisted, or removed
+-- by a later weekly screening run) must still be individually deletable, or its stale price
+-- lingers forever, uncounted as "missing" -- see that script's find_orphan_symbols().
+GRANT DELETE ON turtle_live_prices TO market_data_writer;
+
 GRANT USAGE, SELECT ON
     turtle_signals_history_id_seq
 TO market_data_writer;

@@ -77,6 +77,17 @@ def load_universe_symbols(universe_file: str = UNIVERSE_FILE) -> list:
     return sorted(s for s in symbols if s)
 
 
+def find_orphan_symbols(cached_symbols, universe_symbols) -> list:
+    """Symbols sitting in the live cache that are no longer in the current universe at all --
+    e.g. delisted, or removed by a later weekly screening run (2026-11-08, per explicit user
+    request). ``upsert_dataframe`` (main()'s write path) can only add/update rows present in
+    THIS run's fetch; it never removes a row that dropped out of the universe, so without this
+    a delisted stock's last-known price sits in turtle_live_prices forever, uncounted as
+    "missing" and indistinguishable from a real, current stock. Pure function (no I/O) so the
+    detection logic is testable without a live DB; the caller does the actual DELETE."""
+    return sorted(set(cached_symbols) - set(universe_symbols))
+
+
 def fetch_batch_prices(symbols: list, downloader=None) -> dict:
     """Batched ``yf.download`` for ``symbols`` -> ``{symbol: latest_close}``. Never raises."""
     if not symbols:
@@ -215,6 +226,12 @@ def main():
                 conflict_columns=["symbol"],
             )
             print(f"DB: turtle_live_prices upserted {n} rows")
+
+            orphans = find_orphan_symbols(updated_cache.keys(), symbols)
+            if orphans:
+                deleted = mdw.delete_by_symbols(conn, "turtle_live_prices", orphans)
+                print(f"DB: turtle_live_prices deleted {deleted} orphan rows "
+                      f"(no longer in nse_universe): {orphans}")
         finally:
             conn.close()
     except Exception as exc:
