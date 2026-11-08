@@ -216,6 +216,15 @@ def main():
     print(f"\nTurtle signals   : {len(signals):>4}  -> {os.path.basename(signals_path)}")
     print(f"  ADD={counts.get('ADD', 0)}  HOLD={counts.get('HOLD', 0)}  EXIT={counts.get('EXIT', 0)}")
     print(f"Rejections       : {len(out['rejections']):>4}")
+    # 2026-11-08 (per explicit user request): a reason breakdown, not just the total -- "397
+    # rejected" alone doesn't say whether that's mostly recently-listed stocks (<12mo history,
+    # insufficient_monthly_data), stocks with no usable price data at all (no_monthly_data), or
+    # transient network failures (fetch_error) -- each implies a different fix (or no fix at
+    # all, for recently-listed names that just need to age past the 12-month guard).
+    if not out["rejections"].empty and "reason" in out["rejections"].columns:
+        reason_buckets = out["rejections"]["reason"].str.split(":").str[0]  # fetch_error:<exc> -> fetch_error
+        for reason, count in reason_buckets.value_counts().items():
+            print(f"  {reason:<28}: {count:>4}")
 
     # 2026-09-23: a stock rejected specifically for insufficient_monthly_data (not yet 12
     # months of listed price history -- see MIN_MONTHLY_ROWS_FOR_ATH) must actually disappear
