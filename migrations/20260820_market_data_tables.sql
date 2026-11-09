@@ -66,6 +66,24 @@ CREATE TABLE IF NOT EXISTS turtle_fundamentals_universe_snapshot (
     snapshot_taken_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- turtle_fundamentals_slice_status (2026-11-09, per explicit user request): one row per
+-- turtle_fundamentals.yml Sunday slice (day_of_week 0..6), tracking whether THIS week's attempt
+-- at that slice is pending/running/succeeded/failed and how many attempts it's had -- what
+-- turtle_fundamentals_watchdog.py reads every hour to decide whether a slice is overdue and
+-- needs a workflow_dispatch retrigger. See modules/turtle/slice_status.py for the write/read
+-- helpers and the pure decide_slices_to_trigger() decision logic. Reset by real elapsed time
+-- (the row's own started_at vs. the current cycle's Saturday-00:00-UTC anchor), not a
+-- day-of-week label -- same lesson turtle_job_status's STALE_AFTER_DAYS fix already learned.
+CREATE TABLE IF NOT EXISTS turtle_fundamentals_slice_status (
+    day_of_week    INTEGER PRIMARY KEY,
+    status         TEXT NOT NULL DEFAULT 'pending',
+    attempt_count  INTEGER NOT NULL DEFAULT 0,
+    started_at     TIMESTAMPTZ,
+    finished_at    TIMESTAMPTZ,
+    ok_count       INTEGER,
+    fail_count     INTEGER
+);
+
 -- ---------------------------------------------------------------
 -- 2. Market trend analysis (was Master_company_market_trend_analysis.csv)
 --    -- rolling. Same shape as nse_universe minus the MA/price/passes
@@ -389,7 +407,8 @@ GRANT SELECT, INSERT, UPDATE ON
     turtlequant_signals_latest,
     v20_signals_latest,
     turtle_fundamentals_universe_snapshot,
-    turtle_job_status
+    turtle_job_status,
+    turtle_fundamentals_slice_status
 TO market_data_writer;
 
 -- v20_signals_latest alone also needs DELETE: it's written with REPLACE semantics (delete all

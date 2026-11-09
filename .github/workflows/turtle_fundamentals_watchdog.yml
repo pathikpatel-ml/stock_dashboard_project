@@ -1,0 +1,78 @@
+name: Turtle Fundamentals Watchdog (monitor + retrigger)
+
+on:
+  schedule:
+    # 2026-11-09 (per explicit user request): an independent, hourly safety net over the 7-slice
+    # Sunday turtle_fundamentals.yml run -- GitHub Actions' own schedule triggers are documented
+    # in this repo as occasionally landing hours late or skipping entirely (see
+    # weekly_stock_screening.yml's and turtle_fundamentals.yml's own schedule comments), so
+    # instead of trusting each of those 7 cron entries alone, this checks in every hour across
+    # the whole window those 7 slices occupy and retriggers (via workflow_dispatch) whichever
+    # slice is overdue, never started, stuck, or failed -- up to
+    # modules/turtle/slice_status.py::MAX_ATTEMPTS total attempts per slice per week. Never
+    # replaces the 7 native triggers below, only fills whatever gap they leave.
+    #
+    # Offset to :17 -- not :00/:30 (see the other workflows' own comments on GitHub Actions
+    # skipping exact round minutes outright), and not :37 either, so this doesn't compete with
+    # turtle_fundamentals.yml's own schedule for the same minute.
+    #
+    # Window: Sat 20:17 UTC through Sun 17:17 UTC -- starts ~20min after slice 0's own 19:37 UTC
+    # start (the same grace period slice_status.GRACE_MINUTES uses) and keeps checking for hours
+    # after slice 6's 13:37 UTC start, comfortably covering up to 2 full retry attempts (90min
+    # timeout each) for the last slice.
+    - cron: '17 20 * * 6'
+    - cron: '17 21 * * 6'
+    - cron: '17 22 * * 6'
+    - cron: '17 23 * * 6'
+    - cron: '17 0 * * 0'
+    - cron: '17 1 * * 0'
+    - cron: '17 2 * * 0'
+    - cron: '17 3 * * 0'
+    - cron: '17 4 * * 0'
+    - cron: '17 5 * * 0'
+    - cron: '17 6 * * 0'
+    - cron: '17 7 * * 0'
+    - cron: '17 8 * * 0'
+    - cron: '17 9 * * 0'
+    - cron: '17 10 * * 0'
+    - cron: '17 11 * * 0'
+    - cron: '17 12 * * 0'
+    - cron: '17 13 * * 0'
+    - cron: '17 14 * * 0'
+    - cron: '17 15 * * 0'
+    - cron: '17 16 * * 0'
+    - cron: '17 17 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Log decisions only, don't actually dispatch any retrigger"
+        type: boolean
+        default: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write   # needed to call workflow_dispatch on turtle_fundamentals.yml via the API
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas psycopg2-binary python-dotenv requests
+    - name: Check slice status and retrigger if needed
+      env:
+        MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ARGS=""
+        if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          ARGS="--dry-run"
+        fi
+        python -u turtle_fundamentals_watchdog.py $ARGS

@@ -69,6 +69,7 @@ from modules.breakout import data_feed
 from modules.turtle import job_status
 from modules.turtle import nse_shareholding as nse_sh
 from modules.turtle import quality_flags as qf
+from modules.turtle import slice_status
 from modules.turtle import standalone_fundamentals as sf
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -368,80 +369,100 @@ def main():
         symbols = load_universe_symbols_for_slicing(day_of_week)
         symbols = slice_for_day(symbols, day_of_week)
         print(f"{day_name}'s 1/7 slice: {len(symbols)} symbols (of the full universe).")
+        # 2026-11-09 (per explicit user request): lets turtle_fundamentals_watchdog.py see
+        # THIS slice's own started/finished/failed state this week, separate from
+        # turtle_job_status's week-wide accumulated total -- see modules/turtle/slice_status.py.
+        # Deliberately not done for --full-universe (day_of_week stays None): that's a manual,
+        # on-demand catch-up outside the normal weekly cycle, not one of the 7 tracked slices.
+        slice_status.mark_slice_running(day_of_week)
     if args.limit:
         symbols = symbols[: args.limit]
 
-    rows = []
-    if args.resume:
-        checkpoint = load_checkpoint()
-        if not checkpoint.empty:
-            done_symbols = set(checkpoint["Symbol"].astype(str).str.upper())
-            rows = checkpoint.to_dict("records")
-            symbols = [s for s in symbols if s not in done_symbols]
-            print(f"Resuming: {len(done_symbols)} symbols already done, {len(symbols)} remaining.")
-
-    print(f"Universe: {len(symbols)} symbols to fetch from screener.in (pause={args.pause}s).")
-    os.makedirs(os.path.dirname(CHECKPOINT_FILE), exist_ok=True)
-
-    session = sf.new_session()
-    nse_session = nse_sh.new_session()
-    ok_count = 0
-    fail_count = 0
-    start = time.time()
     try:
-        for i, symbol in enumerate(symbols, 1):
-            row = fetch_one(symbol, session, args.retries, args.pause, nse_session=nse_session)
-            rows.append(row)
-            if row["TTM_Net_Profit"] is not None or row["TTM_Net_Sales"] is not None:
-                ok_count += 1
-            else:
-                fail_count += 1
+        rows = []
+        if args.resume:
+            checkpoint = load_checkpoint()
+            if not checkpoint.empty:
+                done_symbols = set(checkpoint["Symbol"].astype(str).str.upper())
+                rows = checkpoint.to_dict("records")
+                symbols = [s for s in symbols if s not in done_symbols]
+                print(f"Resuming: {len(done_symbols)} symbols already done, {len(symbols)} remaining.")
 
-            if i % CHECKPOINT_EVERY == 0:
-                pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
+        print(f"Universe: {len(symbols)} symbols to fetch from screener.in (pause={args.pause}s).")
+        os.makedirs(os.path.dirname(CHECKPOINT_FILE), exist_ok=True)
 
-            if i % 100 == 0:
-                elapsed = time.time() - start
-                print(f"  fundamentals: fetched {i}/{len(symbols)}  "
-                      f"(ok={ok_count} fail={fail_count}, {elapsed:.0f}s elapsed)")
-    finally:
-        session.close()
-        nse_session.close()
-        pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
-
-    result_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS).drop_duplicates(subset=["Symbol"], keep="last")
-    result_df.to_csv(OUTPUT_FILE, index=False)
-
-    elapsed = time.time() - start
-    print(f"\nWrote {len(result_df)} rows -> {os.path.basename(OUTPUT_FILE)} ({elapsed:.0f}s)")
-    print(f"  ok={ok_count}  fail(no data)={fail_count}")
-
-    try:
-        conn = mdw.get_connection()
+        session = sf.new_session()
+        nse_session = nse_sh.new_session()
+        ok_count = 0
+        fail_count = 0
+        start = time.time()
         try:
-            n = mdw.upsert_dataframe(
-                conn, "turtle_fundamentals",
-                result_df.rename(columns=_FUNDAMENTALS_DB_COLUMNS),
-                conflict_columns=["symbol"],
-            )
-            print(f"DB: turtle_fundamentals upserted {n} rows")
-        finally:
-            conn.close()
+            for i, symbol in enumerate(symbols, 1):
+                row = fetch_one(symbol, session, args.retries, args.pause, nse_session=nse_session)
+                rows.append(row)
+                if row["TTM_Net_Profit"] is not None or row["TTM_Net_Sales"] is not None:
+                    ok_count += 1
+                else:
+                    fail_count += 1
 
-        # 2026-11-08 (per explicit user request): the dashboard's TTM Profit/Sales banner
-        # reads this for its "N of M stocks" + "left: reason breakdown" lines. Accumulates
-        # across the week's 7 slices -- reset=True forced for --full-universe (inherently a
-        # fresh, complete total on its own); reset=None otherwise, letting
-        # accumulate_job_status auto-detect a new week from the stored row's own age rather
-        # than assuming day_of_week 0 always runs first (see that function's docstring for the
-        # real incident this replaced -- a manual out-of-order catch-up run silently discarded
-        # an already-accumulated total).
-        job_status.accumulate_job_status(
-            "fundamentals", reset=(True if args.full_universe else None),
-            updated_count_delta=ok_count, reason_counts_delta={"no_ttm_data": fail_count},
-        )
-    except Exception as exc:
-        print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
+                if i % CHECKPOINT_EVERY == 0:
+                    pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
+
+                if i % 100 == 0:
+                    elapsed = time.time() - start
+                    print(f"  fundamentals: fetched {i}/{len(symbols)}  "
+                          f"(ok={ok_count} fail={fail_count}, {elapsed:.0f}s elapsed)")
+        finally:
+            session.close()
+            nse_session.close()
+            pd.DataFrame(rows, columns=OUTPUT_COLUMNS).to_csv(CHECKPOINT_FILE, index=False)
+
+        result_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS).drop_duplicates(subset=["Symbol"], keep="last")
+        result_df.to_csv(OUTPUT_FILE, index=False)
+
+        elapsed = time.time() - start
+        print(f"\nWrote {len(result_df)} rows -> {os.path.basename(OUTPUT_FILE)} ({elapsed:.0f}s)")
+        print(f"  ok={ok_count}  fail(no data)={fail_count}")
+
+        try:
+            conn = mdw.get_connection()
+            try:
+                n = mdw.upsert_dataframe(
+                    conn, "turtle_fundamentals",
+                    result_df.rename(columns=_FUNDAMENTALS_DB_COLUMNS),
+                    conflict_columns=["symbol"],
+                )
+                print(f"DB: turtle_fundamentals upserted {n} rows")
+            finally:
+                conn.close()
+
+            # 2026-11-08 (per explicit user request): the dashboard's TTM Profit/Sales banner
+            # reads this for its "N of M stocks" + "left: reason breakdown" lines. Accumulates
+            # across the week's 7 slices -- reset=True forced for --full-universe (inherently a
+            # fresh, complete total on its own); reset=None otherwise, letting
+            # accumulate_job_status auto-detect a new week from the stored row's own age rather
+            # than assuming day_of_week 0 always runs first (see that function's docstring for the
+            # real incident this replaced -- a manual out-of-order catch-up run silently discarded
+            # an already-accumulated total).
+            job_status.accumulate_job_status(
+                "fundamentals", reset=(True if args.full_universe else None),
+                updated_count_delta=ok_count, reason_counts_delta={"no_ttm_data": fail_count},
+            )
+        except Exception as exc:
+            print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
+    except Exception:
+        # A genuine crash (not just the inner Postgres-write try/except above, which already
+        # swallows its own failures) -- e.g. the fetch loop itself raising. Record this slice as
+        # failed so the watchdog can retrigger it, then re-raise so the GitHub Actions step still
+        # shows red, same as before this feature existed.
+        if day_of_week is not None:
+            slice_status.mark_slice_finished(day_of_week, success=False)
+        raise
+    else:
+        if day_of_week is not None:
+            slice_status.mark_slice_finished(
+                day_of_week, success=True, ok_count=ok_count, fail_count=fail_count,
+            )
 
 
 if __name__ == "__main__":
