@@ -168,6 +168,12 @@ _NIFTY_REF = {
 }
 
 
+_FAKE_MONTHLY = pd.DataFrame(
+    {"Close": [float(90 + i) for i in range(12)]},
+    index=pd.date_range("2025-01-31", periods=12, freq="ME"),
+)
+
+
 def test_compute_universe_drawdown_builds_one_row_per_symbol(monkeypatch):
     def fake_get_daily(symbol, period=None):
         return pd.DataFrame(
@@ -176,20 +182,26 @@ def test_compute_universe_drawdown_builds_one_row_per_symbol(monkeypatch):
         )
 
     monkeypatch.setattr(sc.data_feed, "get_daily", fake_get_daily)
+    monkeypatch.setattr(sc.data_feed, "get_monthly", lambda symbol, period=None: _FAKE_MONTHLY)
 
     result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, verbose=False)
 
-    assert list(result.columns) == ["Symbol"] + list(sc.bd.DRAWDOWN_FIELDS)
+    assert list(result.columns) == ["Symbol", sc.PRICE_ATH_FIELD] + list(sc.bd.DRAWDOWN_FIELDS)
     assert set(result["Symbol"]) == {"BUYSTOCK", "HOLDSTOCK"}
     row = result.set_index("Symbol").loc["BUYSTOCK"]
     assert row["stock_ath_return_pct"] == pytest.approx(-10.0)
+    # daily Close max=98, monthly Close max=101 -> historical_max=101; current=90 (last daily
+    # Close) is well below 101*0.95=95.95
+    assert bool(row[sc.PRICE_ATH_FIELD]) is False
 
 
 def test_compute_universe_drawdown_none_nifty_ref_gives_all_none_rows(monkeypatch):
     monkeypatch.setattr(sc.data_feed, "get_daily", lambda symbol, period=None: None)
+    monkeypatch.setattr(sc.data_feed, "get_monthly", lambda symbol, period=None: None)
     result = sc.compute_universe_drawdown(UNIVERSE, None, verbose=False)
     for field in sc.bd.DRAWDOWN_FIELDS:
         assert result[field].isna().all()
+    assert result[sc.PRICE_ATH_FIELD].isna().all()
 
 
 def test_compute_universe_drawdown_fetch_failure_degrades_to_none_not_dropped(monkeypatch):
@@ -197,13 +209,16 @@ def test_compute_universe_drawdown_fetch_failure_degrades_to_none_not_dropped(mo
         raise RuntimeError("yfinance hung")
 
     monkeypatch.setattr(sc.data_feed, "get_daily", boom)
+    monkeypatch.setattr(sc.data_feed, "get_monthly", boom)
     result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, verbose=False)
     assert len(result) == 2  # both symbols still present, just with None fields
     assert result["stock_ath_return_pct"].isna().all()
+    assert result[sc.PRICE_ATH_FIELD].isna().all()
 
 
 def test_compute_universe_drawdown_respects_limit(monkeypatch):
     monkeypatch.setattr(sc.data_feed, "get_daily", lambda symbol, period=None: None)
+    monkeypatch.setattr(sc.data_feed, "get_monthly", lambda symbol, period=None: None)
     result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, limit=1, verbose=False)
     assert len(result) == 1
 
@@ -211,4 +226,83 @@ def test_compute_universe_drawdown_respects_limit(monkeypatch):
 def test_compute_universe_drawdown_empty_universe_returns_empty_with_schema():
     result = sc.compute_universe_drawdown(pd.DataFrame(columns=["Symbol"]), _NIFTY_REF, verbose=False)
     assert result.empty
-    assert list(result.columns) == ["Symbol"] + list(sc.bd.DRAWDOWN_FIELDS)
+    assert list(result.columns) == ["Symbol", sc.PRICE_ATH_FIELD] + list(sc.bd.DRAWDOWN_FIELDS)
+
+
+# ---------------------------------------------------------------------------
+# _compute_ath_price_flag (2026-11-22) -- same formula/threshold as Turtle Strategy's own
+# ath_price_flag, fed by the stock's own daily+monthly Close history.
+# ---------------------------------------------------------------------------
+def test_compute_ath_price_flag_true_within_5_percent():
+    daily = pd.DataFrame({"Close": [95.0, 97.0, 100.0]}, index=pd.date_range("2026-11-01", periods=3))
+    assert sc._compute_ath_price_flag(daily, _FAKE_MONTHLY) is True  # monthly max 101, 100 >= 101*0.95
+
+
+def test_compute_ath_price_flag_false_far_from_ath():
+    daily = pd.DataFrame({"Close": [95.0, 97.0, 80.0]}, index=pd.date_range("2026-11-01", periods=3))
+    assert sc._compute_ath_price_flag(daily, _FAKE_MONTHLY) is False
+
+
+def test_compute_ath_price_flag_none_when_daily_missing():
+    assert sc._compute_ath_price_flag(None, _FAKE_MONTHLY) is None
+
+
+def test_compute_ath_price_flag_none_when_monthly_missing():
+    daily = pd.DataFrame({"Close": [100.0]}, index=pd.date_range("2026-11-01", periods=1))
+    assert sc._compute_ath_price_flag(daily, None) is None
+
+
+def test_compute_ath_price_flag_none_when_monthly_too_short():
+    daily = pd.DataFrame({"Close": [100.0]}, index=pd.date_range("2026-11-01", periods=1))
+    short_monthly = _FAKE_MONTHLY.iloc[:3]  # below C.MIN_MONTHLY_ROWS_FOR_ATH (12)
+    assert sc._compute_ath_price_flag(daily, short_monthly) is None
+
+
+# ---------------------------------------------------------------------------
+# compute_sector_pulse (2026-11-22, per explicit user request) -- pure aggregation over
+# already-computed per-stock columns, no network I/O.
+# ---------------------------------------------------------------------------
+_PULSE_SIGNALS = pd.DataFrame([
+    {"Symbol": "BANKA", "Sector": "Financial Services", "ATH_Price_Flag": True,
+     "RS_vs_Nifty_ATH": 5.0, "RS_vs_Nifty_52WkLow": -2.0},
+    {"Symbol": "BANKB", "Sector": "Financial Services", "ATH_Price_Flag": False,
+     "RS_vs_Nifty_ATH": -1.0, "RS_vs_Nifty_52WkLow": 3.0},
+    {"Symbol": "AUTOA", "Sector": "Consumer Discretionary", "ATH_Price_Flag": True,
+     "RS_vs_Nifty_ATH": 2.0, "RS_vs_Nifty_52WkLow": 2.0},
+])
+_PULSE_CATEGORIES = {"BANKA": "NIFTY 50,NIFTY BANK", "BANKB": "NIFTY BANK", "AUTOA": "NIFTY AUTO"}
+
+
+def test_compute_sector_pulse_counts_ath_price_stock():
+    pulse = sc.compute_sector_pulse(_PULSE_SIGNALS, _PULSE_CATEGORIES)
+    bank_row = pulse.set_index("Sector").loc["NIFTY BANK"]
+    assert bank_row["ATH_Price_Stock"] == 1  # only BANKA is True
+    assert bank_row["Stock_Count"] == 2
+
+
+def test_compute_sector_pulse_counts_outperformance():
+    pulse = sc.compute_sector_pulse(_PULSE_SIGNALS, _PULSE_CATEGORIES)
+    bank_row = pulse.set_index("Sector").loc["NIFTY BANK"]
+    assert bank_row["Nifty50_Outperform_ATH"] == 1  # only BANKA > 0
+    assert bank_row["Nifty50_Outperform_52WkLow"] == 1  # only BANKB > 0
+
+
+def test_compute_sector_pulse_includes_screener_sector_rows():
+    pulse = sc.compute_sector_pulse(_PULSE_SIGNALS, _PULSE_CATEGORIES)
+    fin_row = pulse.set_index("Sector").loc["Financial Services"]
+    assert fin_row["Stock_Count"] == 2
+    assert fin_row["ATH_Price_Stock"] == 1
+
+
+def test_compute_sector_pulse_includes_all_curated_index_tags_even_with_zero_members():
+    pulse = sc.compute_sector_pulse(_PULSE_SIGNALS, _PULSE_CATEGORIES)
+    assert "NIFTY FMCG" in set(pulse["Sector"])
+    fmcg_row = pulse.set_index("Sector").loc["NIFTY FMCG"]
+    assert fmcg_row["Stock_Count"] == 0
+    assert fmcg_row["ATH_Price_Stock"] == 0
+
+
+def test_compute_sector_pulse_empty_signals_returns_empty_with_schema():
+    result = sc.compute_sector_pulse(pd.DataFrame(), {})
+    assert result.empty
+    assert list(result.columns) == sc.SECTOR_PULSE_COLUMNS

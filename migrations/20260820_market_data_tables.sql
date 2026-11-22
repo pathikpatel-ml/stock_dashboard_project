@@ -315,6 +315,14 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     rs_vs_nifty_ath             DOUBLE PRECISION,  -- stock_ath_return_pct minus Nifty's own
                                                      -- ATH-to-today return (positive = outperformed)
     rs_vs_nifty_52wklow         DOUBLE PRECISION,  -- same, anchored to the 52-week-low date
+    -- ath_price_flag (2026-11-22, per explicit user request): True if this stock's OWN current
+    -- price is at/within 5% of its OWN historical max close -- same computation as Turtle
+    -- Strategy's own ath_price_flag (modules/turtle/compute.py::ath_price_flag), independently
+    -- fetched/computed here (not a cross-tab read of turtle_signals_latest) since it needs the
+    -- same monthly+daily price history generate_turtlequant_benchmark_drawdown.py already
+    -- fetches for the drawdown columns above. Feeds the Sector Pulse panel's "ATH Price Stock"
+    -- counts (modules/turtlequant/screener.py::compute_sector_pulse).
+    ath_price_flag       BOOLEAN,
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -378,6 +386,10 @@ CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (
 --       DROP COLUMN IF EXISTS pb_current, DROP COLUMN IF EXISTS pb_5y_avg, DROP COLUMN IF EXISTS pb_flag,
 --       DROP COLUMN IF EXISTS ps_current, DROP COLUMN IF EXISTS ps_5y_avg, DROP COLUMN IF EXISTS ps_flag,
 --       DROP COLUMN IF EXISTS pfcf_current, DROP COLUMN IF EXISTS pfcf_5y_avg, DROP COLUMN IF EXISTS pfcf_flag;
+
+-- Migration (2026-11-22, run once by hand via DATABASE_URL -- same reference-copy convention):
+--   ALTER TABLE turtlequant_signals_latest
+--       ADD COLUMN IF NOT EXISTS ath_price_flag BOOLEAN;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.

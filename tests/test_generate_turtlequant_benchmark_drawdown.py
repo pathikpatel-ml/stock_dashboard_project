@@ -49,10 +49,10 @@ def test_main_writes_benchmark_reference_and_drawdown_columns(monkeypatch):
     monkeypatch.setattr(gbd, "load_universe", lambda: _UNIVERSE)
 
     drawdown_df = pd.DataFrame([
-        {"Symbol": "AAA", "stock_ath_return_pct": -10.0, "stock_52wklow_return_pct": 5.0,
-         "rs_vs_nifty_ath": -5.0, "rs_vs_nifty_52wklow": 1.0},
-        {"Symbol": "BBB", "stock_ath_return_pct": None, "stock_52wklow_return_pct": None,
-         "rs_vs_nifty_ath": None, "rs_vs_nifty_52wklow": None},
+        {"Symbol": "AAA", "ath_price_flag": True, "stock_ath_return_pct": -10.0,
+         "stock_52wklow_return_pct": 5.0, "rs_vs_nifty_ath": -5.0, "rs_vs_nifty_52wklow": 1.0},
+        {"Symbol": "BBB", "ath_price_flag": None, "stock_ath_return_pct": None,
+         "stock_52wklow_return_pct": None, "rs_vs_nifty_ath": None, "rs_vs_nifty_52wklow": None},
     ])
     monkeypatch.setattr(gbd.tq_screener, "compute_universe_drawdown", lambda *a, **k: drawdown_df)
 
@@ -75,7 +75,7 @@ def test_main_writes_benchmark_reference_and_drawdown_columns(monkeypatch):
     assert "symbol" in signals_call["df"].columns
     assert "Symbol" not in signals_call["df"].columns  # renamed before the write
     assert signals_call["conflict_columns"] == ["symbol"]
-    assert set(signals_call["update_columns"]) == set(gbd.bd.DRAWDOWN_FIELDS)
+    assert set(signals_call["update_columns"]) == {gbd.tq_screener.PRICE_ATH_FIELD} | set(gbd.bd.DRAWDOWN_FIELDS)
 
 
 def test_main_skips_signals_write_when_drawdown_df_empty(monkeypatch):
@@ -83,7 +83,7 @@ def test_main_skips_signals_write_when_drawdown_df_empty(monkeypatch):
     monkeypatch.setattr(gbd, "load_universe", lambda: pd.DataFrame(columns=["Symbol"]))
     monkeypatch.setattr(
         gbd.tq_screener, "compute_universe_drawdown",
-        lambda *a, **k: pd.DataFrame(columns=["Symbol"] + list(gbd.bd.DRAWDOWN_FIELDS)),
+        lambda *a, **k: pd.DataFrame(columns=["Symbol", gbd.tq_screener.PRICE_ATH_FIELD] + list(gbd.bd.DRAWDOWN_FIELDS)),
     )
 
     calls = []
@@ -104,7 +104,7 @@ def test_main_postgres_failure_does_not_raise(monkeypatch):
     monkeypatch.setattr(gbd, "load_universe", lambda: _UNIVERSE)
     monkeypatch.setattr(
         gbd.tq_screener, "compute_universe_drawdown",
-        lambda *a, **k: pd.DataFrame(columns=["Symbol"] + list(gbd.bd.DRAWDOWN_FIELDS)),
+        lambda *a, **k: pd.DataFrame(columns=["Symbol", gbd.tq_screener.PRICE_ATH_FIELD] + list(gbd.bd.DRAWDOWN_FIELDS)),
     )
 
     def boom():

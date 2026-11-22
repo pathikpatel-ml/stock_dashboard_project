@@ -12,10 +12,12 @@ over the same span (modules/turtlequant/benchmark_drawdown.py has the actual for
 
 Writes:
   * turtlequant_nifty_benchmark -- the single shared Nifty 50 reference row.
-  * turtlequant_signals_latest  -- 4 columns per stock (stock_ath_return_pct,
+  * turtlequant_signals_latest  -- 5 columns per stock (ath_price_flag, stock_ath_return_pct,
     stock_52wklow_return_pct, rs_vs_nifty_ath, rs_vs_nifty_52wklow), upserted WITHOUT touching
     any of that table's other (fundamentals-screen) columns, which generate_turtlequant_signals.py
-    owns separately.
+    owns separately. ath_price_flag (2026-11-22, per explicit user request) feeds the Sector
+    Pulse panel's "ATH Price Stock" counts -- see modules/turtlequant/screener.py's
+    compute_sector_pulse.
 
 Usage
 -----
@@ -62,6 +64,10 @@ def main():
     computed = drawdown_df["stock_ath_return_pct"].notna().sum() if not drawdown_df.empty else 0
     print(f"Computed drawdown comparison for {computed}/{len(drawdown_df)} symbols "
           f"(the rest have insufficient price history reaching back to the reference dates).")
+    ath_price_count = (
+        (drawdown_df[tq_screener.PRICE_ATH_FIELD] == True).sum() if not drawdown_df.empty else 0  # noqa: E712
+    )
+    print(f"ATH Price Flag: {ath_price_count}/{len(drawdown_df)} symbols within 5% of their own all-time high.")
 
     try:
         conn = mdw.get_connection()
@@ -78,9 +84,10 @@ def main():
             if not drawdown_df.empty:
                 n = mdw.upsert_dataframe(
                     conn, "turtlequant_signals_latest", drawdown_df.rename(columns={"Symbol": "symbol"}),
-                    conflict_columns=["symbol"], update_columns=list(bd.DRAWDOWN_FIELDS),
+                    conflict_columns=["symbol"],
+                    update_columns=[tq_screener.PRICE_ATH_FIELD] + list(bd.DRAWDOWN_FIELDS),
                 )
-                print(f"DB: turtlequant_signals_latest updated {n} rows (drawdown columns only)")
+                print(f"DB: turtlequant_signals_latest updated {n} rows (drawdown + ATH price columns only)")
         finally:
             conn.close()
     except Exception as exc:

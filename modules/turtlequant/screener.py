@@ -167,18 +167,54 @@ def fetch_nifty50_reference(ticker: Optional[str] = None) -> Optional[Dict]:
     return bd.nifty_reference_from_ohlc(hist)
 
 
+# Per-stock price-ATH flag (2026-11-22, per explicit user request, for the Sector Pulse panel
+# below): True if a stock's OWN current price is at/within 5% of its OWN historical max close --
+# same computation and threshold as Turtle Strategy's own ath_price_flag (modules/turtle/
+# compute.py::ath_price_flag), reusing the exact same monthly+daily fetch/max-close convention
+# (modules/turtle/screener.py::run_pipeline lines ~468-496) so a genuine multi-year high is used,
+# not just the ~2y daily window alone. None (not False) when the monthly history is missing or
+# too short (< C.MIN_MONTHLY_ROWS_FOR_ATH) -- computing from daily-only data here would risk
+# reintroducing the exact degenerate-1-row-monthly-data corruption already fixed once for the
+# sectoral-index version of this flag (see constants.py's MIN_MONTHLY_ROWS_FOR_ATH note).
+PRICE_ATH_FIELD = "ath_price_flag"
+
+
+def _compute_ath_price_flag(daily: Optional[pd.DataFrame], monthly: Optional[pd.DataFrame]) -> Optional[bool]:
+    daily_close = None
+    if daily is not None and not daily.empty and "Close" in daily.columns:
+        daily_close = pd.to_numeric(daily["Close"], errors="coerce").dropna()
+        if daily_close.empty:
+            daily_close = None
+    if daily_close is None:
+        return None
+
+    monthly_close = None
+    if monthly is not None and not monthly.empty and "Close" in monthly.columns:
+        monthly_close = pd.to_numeric(monthly["Close"], errors="coerce").dropna()
+        if len(monthly_close) < C.MIN_MONTHLY_ROWS_FOR_ATH:
+            monthly_close = None
+    if monthly_close is None:
+        return None
+
+    historical_max_close = max(float(daily_close.max()), float(monthly_close.max()))
+    current_price = float(daily_close.iloc[-1])
+    return tt_compute.ath_price_flag(current_price, historical_max_close)
+
+
 def compute_universe_drawdown(
     universe_df: pd.DataFrame, nifty_ref: Optional[Dict],
     limit: Optional[int] = None, verbose: bool = True,
 ) -> pd.DataFrame:
     """For every symbol in ``universe_df``, fetch its own daily Close history and compute the 4
     drawdown-comparison fields (``benchmark_drawdown.DRAWDOWN_FIELDS``) anchored to
-    ``nifty_ref``'s dates. Returns a DataFrame with ``Symbol`` + those 4 fields -- a symbol
-    whose price history doesn't reach back far enough (or whose fetch fails outright) just gets
-    all 4 fields as None, same "degrade gracefully, never drop the row" convention
-    modules/turtle/screener.py::run_pipeline uses for its own per-symbol fetch failures.
+    ``nifty_ref``'s dates, PLUS (2026-11-22) its own price-ATH flag (``PRICE_ATH_FIELD``,
+    fetched monthly history too -- see ``_compute_ath_price_flag``). Returns a DataFrame with
+    ``Symbol`` + those 5 fields -- a symbol whose price history doesn't reach back far enough
+    (or whose fetch fails outright) just gets all 5 fields as None, same "degrade gracefully,
+    never drop the row" convention modules/turtle/screener.py::run_pipeline uses for its own
+    per-symbol fetch failures.
     """
-    columns = ["Symbol"] + list(bd.DRAWDOWN_FIELDS)
+    columns = ["Symbol", PRICE_ATH_FIELD] + list(bd.DRAWDOWN_FIELDS)
     rows_df = universe_df.head(limit) if limit else universe_df
 
     out = []
@@ -190,10 +226,76 @@ def compute_universe_drawdown(
             daily = data_feed.get_daily(symbol, period=C.DAILY_HISTORY_PERIOD)
         except Exception:
             daily = None
+        try:
+            monthly = data_feed.get_monthly(symbol, period=C.MONTHLY_HISTORY_PERIOD)
+        except Exception:
+            monthly = None
 
-        out.append({"Symbol": symbol, **bd.compute_stock_drawdown(daily, nifty_ref)})
+        out.append({
+            "Symbol": symbol,
+            PRICE_ATH_FIELD: _compute_ath_price_flag(daily, monthly),
+            **bd.compute_stock_drawdown(daily, nifty_ref),
+        })
 
         if verbose and i % 200 == 0:
             print(f"  turtlequant drawdown: {i}/{len(rows_df)} symbols")
 
     return pd.DataFrame(out, columns=columns) if out else pd.DataFrame(columns=columns)
+
+
+# Sector Pulse (2026-11-22, per explicit user request): mirrors Turtle Strategy's own Sector
+# Pulse panel in SHAPE (same 12 curated NSE sectoral index tags, from
+# modules/turtle/constants.py::SECTORAL_INDEX_TICKERS, concatenated with a screener.in Sector
+# breakdown into one combined list -- see modules/turtle/screener.py's
+# fetch_sector_pulse_table/compute_sector_breadth_pulse) but is a PURE aggregation here: every
+# member stock's own already-computed ATH_Price_Flag/RS_vs_Nifty_ATH/RS_vs_Nifty_52WkLow answers
+# "how many stocks..." directly, with zero extra network I/O (unlike Turtle Strategy's version,
+# which needs a separate index-level price/RS fetch) -- so this can run live, at render time,
+# straight off data_manager.turtlequant_signals_df.
+SECTOR_PULSE_COLUMNS = [
+    "Sector", "ATH_Price_Stock", "Nifty50_Outperform_ATH", "Nifty50_Outperform_52WkLow", "Stock_Count",
+]
+
+
+def _sector_pulse_row(name: str, group: pd.DataFrame) -> Dict:
+    ath_count = int((group["ATH_Price_Flag"] == True).sum()) if "ATH_Price_Flag" in group.columns else 0  # noqa: E712
+    out_ath = int((group["RS_vs_Nifty_ATH"] > 0).sum()) if "RS_vs_Nifty_ATH" in group.columns else 0
+    out_52wk = int((group["RS_vs_Nifty_52WkLow"] > 0).sum()) if "RS_vs_Nifty_52WkLow" in group.columns else 0
+    return {
+        "Sector": name,
+        "ATH_Price_Stock": ath_count,
+        "Nifty50_Outperform_ATH": out_ath,
+        "Nifty50_Outperform_52WkLow": out_52wk,
+        "Stock_Count": len(group),
+    }
+
+
+def compute_sector_pulse(
+    signals_df: pd.DataFrame, categories_map: Optional[Dict[str, str]] = None,
+) -> pd.DataFrame:
+    """One row per curated NSE sectoral index tag PLUS one row per screener.in ``Sector`` value
+    (see module-level comment above). ``categories_map`` (Symbol -> comma-joined NSE_Categories
+    string, e.g. from ``nse_categories_df``) drives curated-index membership only -- the Sector
+    rows use ``signals_df``'s own ``Sector`` column directly. Never raises; returns an empty
+    (correctly-columned) DataFrame for empty/missing input.
+    """
+    empty = pd.DataFrame(columns=SECTOR_PULSE_COLUMNS)
+    if signals_df is None or signals_df.empty or "Symbol" not in signals_df.columns:
+        return empty
+
+    df = signals_df.copy()
+    categories_map = categories_map or {}
+    df["_categories"] = df["Symbol"].map(categories_map)
+
+    rows = [
+        _sector_pulse_row(tag, df[df["_categories"].map(lambda v: tt_compute.filter_by_index(v, tag))])
+        for tag in C.SECTORAL_INDEX_TICKERS.keys()
+    ]
+
+    if "Sector" in df.columns:
+        sector_df = df.dropna(subset=["Sector"])
+        sector_df = sector_df[sector_df["Sector"].astype(str).str.strip() != ""]
+        for sector, group in sector_df.groupby("Sector"):
+            rows.append(_sector_pulse_row(str(sector), group))
+
+    return pd.DataFrame(rows, columns=SECTOR_PULSE_COLUMNS)

@@ -1,8 +1,9 @@
 """
 Dash callbacks for the Turtle Quant tab.
 
-Two callbacks: the main render (Indices/Sector/Stock filters -> a results table, plus a
-staleness banner), and a "My Holdings" add/remove callback that writes only to the logged-in
+Three callbacks: the main render (Indices/Sector/Stock filters -> a results table, plus a
+staleness banner), the Sector Pulse panel (2026-11-22, independent of those filters -- see
+render_sector_pulse), and a "My Holdings" add/remove callback that writes only to the logged-in
 user's own turtlequant_watchlist rows (via modules.auth.user_store) -- never touches
 market-data tables.
 """
@@ -19,6 +20,7 @@ import data_manager
 from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
 from modules.turtlequant import benchmark_drawdown as bd
+from modules.turtlequant import screener as tq_screener
 
 # 2026-10-02: the dashboard originally showed only 3 aggregate Yes/No columns -- Growth, Red
 # Flag, Value -- instead of the 21 individual metrics (still see modules/turtle/quality_flags.py
@@ -189,6 +191,67 @@ def _table(df):
     )
 
 
+def _sector_pulse_table(df):
+    """Sector Pulse (2026-11-22, per explicit user request): one row per curated NSE sectoral
+    index tag PLUS one row per screener.in Sector value (see
+    modules/turtlequant/screener.py::compute_sector_pulse) -- same combined-list, split-in-half
+    layout as Turtle Strategy's own Sector Pulse panel (modules/turtle/callbacks.py's
+    _sector_pulse_table), but each cell is a COUNT of stocks, not a Yes/No flag or an average RS:
+    "ATH Price Stock" = how many of that group's stocks are themselves within 5% of their own
+    all-time-high price; the two "Nifty50 Outperform" columns = how many outperformed Nifty 50
+    since Nifty's ATH date / 52-week-low date respectively.
+    """
+    if df is None or df.empty:
+        return None
+
+    display = df.copy()
+    if "Stock_Count" in display.columns:
+        display["Sector"] = display.apply(
+            lambda r: f"{r['Sector']} ({int(r['Stock_Count'])})" if pd.notna(r["Stock_Count"]) else r["Sector"],
+            axis=1,
+        )
+
+    half = (len(display) + 1) // 2
+    left = display.iloc[:half].reset_index(drop=True)
+    right = display.iloc[half:].reset_index(drop=True)
+    while len(right) < len(left):
+        right.loc[len(right)] = {
+            "Sector": "", "ATH_Price_Stock": None,
+            "Nifty50_Outperform_ATH": None, "Nifty50_Outperform_52WkLow": None,
+        }
+
+    combined = pd.DataFrame({
+        "Sector_1": left["Sector"], "ATH_1": left["ATH_Price_Stock"],
+        "OutATH_1": left["Nifty50_Outperform_ATH"], "Out52_1": left["Nifty50_Outperform_52WkLow"],
+        "Sector_2": right["Sector"], "ATH_2": right["ATH_Price_Stock"],
+        "OutATH_2": right["Nifty50_Outperform_ATH"], "Out52_2": right["Nifty50_Outperform_52WkLow"],
+    })
+
+    return html.Div([
+        html.H5("Sector Pulse", style={"margin": "16px 0 8px 0", "fontSize": "15px"}),
+        dash_table.DataTable(
+            id="tq-sector-pulse-table",
+            columns=[
+                {"name": "Sector Name", "id": "Sector_1"},
+                {"name": "ATH Price Stock", "id": "ATH_1"},
+                {"name": "Nifty50 Outperform No. of Stock (ATH)", "id": "OutATH_1"},
+                {"name": "Nifty50 Outperform No. of Stock (52wk Low)", "id": "Out52_1"},
+                {"name": "Sector Name", "id": "Sector_2"},
+                {"name": "ATH Price Stock", "id": "ATH_2"},
+                {"name": "Nifty50 Outperform No. of Stock (ATH)", "id": "OutATH_2"},
+                {"name": "Nifty50 Outperform No. of Stock (52wk Low)", "id": "Out52_2"},
+            ],
+            data=combined.to_dict("records"),
+            export_format="xlsx",
+            export_headers="display",
+            style_table={"overflowX": "auto"},
+            style_cell={"textAlign": "center", "fontSize": "13px", "padding": "8px",
+                        "fontFamily": "Inter, sans-serif"},
+            style_header={"backgroundColor": "#f1f5f9", "fontWeight": "600"},
+        ),
+    ])
+
+
 def _format_age(age: pd.Timedelta) -> str:
     total_minutes = age.total_seconds() / 60
     if total_minutes < 60:
@@ -278,6 +341,24 @@ def _current_user_id():
 
 def register_turtlequant_callbacks(app):
     """Register all Turtle Quant callbacks on the Dash ``app``."""
+
+    @app.callback(
+        Output("tq-sector-pulse-container", "children"),
+        Input("tq-auto-refresh-interval", "n_intervals"),
+        prevent_initial_call=False,
+    )
+    def render_sector_pulse(_n_intervals):
+        # Self-contained reload, independent of the Indices/Sector/Stock/Performance/
+        # Fundamentals filters -- same reasoning as modules/turtle/callbacks.py's own
+        # render_sector_pulse: this panel is a whole-universe breadth view, not a filtered one.
+        data_manager.load_turtlequant_data_on_startup()
+        categories_df = data_manager.nse_categories_df
+        categories_map = (
+            dict(zip(categories_df["Symbol"], categories_df["NSE_Categories"]))
+            if not categories_df.empty else {}
+        )
+        pulse_df = tq_screener.compute_sector_pulse(data_manager.turtlequant_signals_df, categories_map)
+        return _sector_pulse_table(pulse_df)
 
     @app.callback(
         Output("tq-holdings-tags", "children"),

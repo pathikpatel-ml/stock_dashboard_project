@@ -75,6 +75,10 @@ def create_turtlequant_layout():
 
         dcc.Interval(id="tq-auto-refresh-interval", interval=300000, n_intervals=0),  # 5 min
 
+        dcc.Loading(type="circle", children=[
+            html.Div(id="tq-sector-pulse-container")
+        ]),
+
         html.Div(className="control-bar", children=[
             html.Div(className="filter-group", children=[
                 html.Label("Indices:", style={"fontWeight": "500", "fontSize": "13px"}),

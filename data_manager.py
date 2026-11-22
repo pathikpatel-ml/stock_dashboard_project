@@ -125,6 +125,10 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     # modules/turtlequant/benchmark_drawdown.py for what these mean.
     "stock_ath_return_pct": "Stock_ATH_Return_Pct", "stock_52wklow_return_pct": "Stock_52WkLow_Return_Pct",
     "rs_vs_nifty_ath": "RS_vs_Nifty_ATH", "rs_vs_nifty_52wklow": "RS_vs_Nifty_52WkLow",
+    # Per-stock price-ATH flag (2026-11-22) -- feeds the Sector Pulse panel's "ATH Price Stock"
+    # counts (modules/turtlequant/screener.py::compute_sector_pulse), not shown on the main
+    # table itself.
+    "ath_price_flag": "ATH_Price_Flag",
 }
 _V20_FROM_DB = {
     "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
