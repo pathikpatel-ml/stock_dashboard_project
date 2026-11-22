@@ -152,7 +152,7 @@ _NIFTY_REF = {
 def test_compute_universe_drawdown_builds_one_row_per_symbol(monkeypatch):
     def fake_get_daily(symbol, period=None):
         return pd.DataFrame(
-            {"Close": [100.0, 80.0, 90.0]},
+            {"High": [100.0, 85.0, 92.0], "Low": [95.0, 80.0, 88.0], "Close": [98.0, 82.0, 90.0]},
             index=pd.DatetimeIndex(["2026-01-05", "2026-10-08", "2026-11-20"]),
         )
 

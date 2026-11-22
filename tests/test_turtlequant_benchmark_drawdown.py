@@ -124,6 +124,42 @@ def test_nifty_reference_all_nan_rows_returns_none():
     assert bd.nifty_reference_from_ohlc(ohlc) is None
 
 
+def test_nifty_reference_picks_up_a_new_later_ath_automatically():
+    # 2026-11-22, per explicit user request: confirms there's no caching/hardcoding of the
+    # reference date -- re-running nifty_reference_from_ohlc on a LATER day's data (e.g. Nifty
+    # just made a fresh all-time high) must find the NEW ATH date/price, not the old one. This
+    # is the same pure function the daily batch job calls fresh every run, so "does it pick up
+    # a changed ATH/52wk-low" reduces to "does this function see the new max/min" -- it does,
+    # since it always recomputes from whatever OHLC it's given, never from a stored value.
+    old_ath = _ohlc([
+        ("2026-01-05", 105, 97, 97.5),  # the OLD all-time-high
+        ("2026-06-01", 102, 95, 100),
+    ])
+    assert bd.nifty_reference_from_ohlc(old_ath, window_weeks=1)["ath_price"] == 105
+
+    new_ath = _ohlc([
+        ("2026-01-05", 105, 97, 97.5),   # yesterday's ATH
+        ("2026-06-01", 102, 95, 100),
+        ("2026-11-22", 130, 120, 128),   # today -- a BRAND NEW, higher all-time-high
+    ])
+    ref = bd.nifty_reference_from_ohlc(new_ath, window_weeks=1)
+    assert ref["ath_price"] == 130
+    assert ref["ath_date"] == date(2026, 11, 22)
+
+
+def test_nifty_reference_52wk_low_rolls_forward_as_the_window_moves():
+    # Similarly: as "today" advances, an old low that's now OUTSIDE the trailing 52-week
+    # window must stop being picked, even though it's still the lowest Low in the full series.
+    ohlc = _ohlc([
+        ("2025-01-01", 110, 50, 105),    # the lowest Low ever, but will fall out of the window
+        ("2026-01-01", 110, 90, 105),
+        ("2026-11-22", 113, 100, 110),   # "today" -- window now starts ~52 weeks before this
+    ])
+    ref = bd.nifty_reference_from_ohlc(ohlc, window_weeks=52)
+    assert ref["low_52wk_price"] == 90  # not 50 -- the 2025 row aged out of the window
+    assert ref["low_52wk_date"] == date(2026, 1, 1)
+
+
 def test_nifty_reference_trailing_window_falls_back_to_full_series_if_empty():
     # window_weeks absurdly small relative to the data's own spacing shouldn't matter here --
     # this covers the defensive "trailing window ended up empty" fallback path directly.
@@ -182,9 +218,14 @@ _NIFTY_REF = {
 
 
 def test_compute_stock_drawdown_full_example_matches_hand_calculation():
-    # Stock: 100 on ATH date, 80 on 52wk-low date, 90 today.
-    close = _close([("2026-01-05", 100), ("2026-10-08", 80), ("2026-11-20", 90)])
-    result = bd.compute_stock_drawdown(close, _NIFTY_REF)
+    # Stock: High=100 on ATH date, Low=80 on 52wk-low date, Close=90 today -- same price-type
+    # convention as Nifty's own reference (High for ATH, Low for the 52wk-low, Close for today).
+    stock_ohlc = _ohlc([
+        ("2026-01-05", 100, 95, 98),
+        ("2026-10-08", 85, 80, 82),
+        ("2026-11-20", 92, 88, 90),
+    ])
+    result = bd.compute_stock_drawdown(stock_ohlc, _NIFTY_REF)
 
     # Nifty ATH->today: (190/200-1)*100 = -5.0; stock: (90/100-1)*100 = -10.0
     assert result["stock_ath_return_pct"] == -10.0
@@ -204,31 +245,35 @@ def test_compute_stock_drawdown_outperform_example_from_user_illustration():
         "low_52wk_price": 100.0, "low_52wk_date": date(2026, 10, 8),
         "today_price": 70.0, "today_date": date(2026, 11, 20),  # Nifty -30% from ATH
     }
-    close = _close([("2026-01-05", 100), ("2026-10-08", 100), ("2026-11-20", 80)])  # stock -20%
-    result = bd.compute_stock_drawdown(close, nifty_ref)
+    stock_ohlc = _ohlc([
+        ("2026-01-05", 100, 90, 95),
+        ("2026-10-08", 105, 100, 98),
+        ("2026-11-20", 85, 78, 80),   # Close=80 -> stock -20%
+    ])
+    result = bd.compute_stock_drawdown(stock_ohlc, nifty_ref)
     assert result["stock_ath_return_pct"] == -20.0
     assert result["rs_vs_nifty_ath"] == pytest.approx(10.0)  # -20 - (-30) = +10, outperform
     assert result["rs_vs_nifty_ath"] > 0
 
 
 def test_compute_stock_drawdown_none_nifty_ref_returns_all_none():
-    close = _close([("2026-01-05", 100)])
-    result = bd.compute_stock_drawdown(close, None)
+    stock_ohlc = _ohlc([("2026-01-05", 100, 95, 98)])
+    result = bd.compute_stock_drawdown(stock_ohlc, None)
     assert all(v is None for v in result.values())
     assert set(result) == set(bd.DRAWDOWN_FIELDS)
 
 
 def test_compute_stock_drawdown_stock_missing_history_returns_all_none():
     # Stock listed after all 3 reference dates -- no usable anchor price at all.
-    close = _close([("2026-12-01", 100)])
-    result = bd.compute_stock_drawdown(close, _NIFTY_REF)
+    stock_ohlc = _ohlc([("2026-12-01", 105, 95, 100)])
+    result = bd.compute_stock_drawdown(stock_ohlc, _NIFTY_REF)
     assert result["stock_ath_return_pct"] is None
     assert result["rs_vs_nifty_ath"] is None
     assert result["stock_52wklow_return_pct"] is None
     assert result["rs_vs_nifty_52wklow"] is None
 
 
-def test_compute_stock_drawdown_none_close_series_returns_all_none():
+def test_compute_stock_drawdown_none_ohlc_returns_all_none():
     result = bd.compute_stock_drawdown(None, _NIFTY_REF)
     assert all(v is None for v in result.values())
 
@@ -236,9 +281,20 @@ def test_compute_stock_drawdown_none_close_series_returns_all_none():
 def test_compute_stock_drawdown_partial_history_only_one_reference_reachable():
     # Stock has data back to the 52wk-low date but NOT back to the (earlier) ATH date --
     # ATH-anchored fields are None, 52wk-low-anchored fields are still computed.
-    close = _close([("2026-10-08", 80), ("2026-11-20", 90)])
-    result = bd.compute_stock_drawdown(close, _NIFTY_REF)
+    stock_ohlc = _ohlc([("2026-10-08", 85, 80, 82), ("2026-11-20", 92, 88, 90)])
+    result = bd.compute_stock_drawdown(stock_ohlc, _NIFTY_REF)
     assert result["stock_ath_return_pct"] is None
     assert result["rs_vs_nifty_ath"] is None
     assert result["stock_52wklow_return_pct"] == 12.5
     assert result["rs_vs_nifty_52wklow"] is not None
+
+
+def test_compute_stock_drawdown_missing_ohlc_column_treated_as_unavailable():
+    # A frame with only Close (e.g. an upstream shape change) -- High/Low-anchored fields must
+    # degrade to None, not raise, since _column_or_none can't find those columns.
+    stock_close_only = pd.DataFrame(
+        {"Close": [98.0, 90.0]}, index=pd.DatetimeIndex(["2026-01-05", "2026-11-20"]),
+    )
+    result = bd.compute_stock_drawdown(stock_close_only, _NIFTY_REF)
+    assert result["stock_ath_return_pct"] is None  # needs High, which isn't there
+    assert result["rs_vs_nifty_ath"] is None

@@ -88,15 +88,15 @@ def nifty_reference_from_ohlc(ohlc: pd.DataFrame, window_weeks: int = 52) -> Opt
     }
 
 
-def price_on_or_before(close_series: Optional[pd.Series], target_date) -> Optional[float]:
-    """The closing price on ``target_date``, or the nearest trading day BEFORE it if that exact
-    date has no row (holiday, or the series doesn't cover it) -- e.g. a stock-specific holiday
-    Nifty itself traded through. None (never raises) if there's no data at or before
-    ``target_date`` at all (the series doesn't reach back that far -- e.g. a stock listed after
-    Nifty's reference date)."""
-    if close_series is None or len(close_series) == 0:
+def price_on_or_before(price_series: Optional[pd.Series], target_date) -> Optional[float]:
+    """The price on ``target_date`` (whichever column the caller passed in -- High, Low, or
+    Close), or the nearest trading day BEFORE it if that exact date has no row (holiday, or the
+    series doesn't cover it) -- e.g. a stock-specific holiday Nifty itself traded through. None
+    (never raises) if there's no data at or before ``target_date`` at all (the series doesn't
+    reach back that far -- e.g. a stock listed after Nifty's reference date)."""
+    if price_series is None or len(price_series) == 0:
         return None
-    series = close_series.dropna()
+    series = price_series.dropna()
     if series.empty:
         return None
     target = pd.Timestamp(target_date)
@@ -106,21 +106,35 @@ def price_on_or_before(close_series: Optional[pd.Series], target_date) -> Option
     return float(eligible.iloc[-1])
 
 
-def compute_stock_drawdown(stock_close: Optional[pd.Series], nifty_ref: Optional[Dict]) -> Dict:
+def _column_or_none(frame: Optional[pd.DataFrame], column: str) -> Optional[pd.Series]:
+    if frame is None or column not in frame.columns:
+        return None
+    return frame[column]
+
+
+def compute_stock_drawdown(stock_ohlc: Optional[pd.DataFrame], nifty_ref: Optional[Dict]) -> Dict:
     """The 4 per-stock fields (see ``DRAWDOWN_FIELDS``): the stock's own return from its price
     on Nifty's ATH/52-week-low date to today, and how that compares to Nifty's own return over
     the same span (stock's return minus Nifty's -- positive means the stock outperformed Nifty
     since that reference point, same percentage-point-delta convention as RS_vs_Sector/
-    RS_vs_Benchmark elsewhere in this app). Every field is None (never raises) if ``nifty_ref``
-    is unavailable or the stock's own price history doesn't reach back to a given reference
-    date (e.g. a recently-listed stock)."""
+    RS_vs_Benchmark elsewhere in this app).
+
+    ``stock_ohlc`` needs ``High``/``Low``/``Close`` columns (a plain daily OHLC frame) -- the
+    stock's own price on each reference date uses the SAME price type Nifty's own reference
+    value does, confirmed 2026-11-22 per explicit user request: its ``High`` on Nifty's ATH
+    date (mirroring Nifty's own High-based ATH), its ``Low`` on Nifty's 52-week-low date
+    (mirroring Nifty's own Low-based low), and its ``Close`` on Nifty's today date (mirroring
+    Nifty's own Close-based "today"). Every field is None (never raises) if ``nifty_ref`` is
+    unavailable or the stock's own price history doesn't reach back to a given reference date
+    (e.g. a recently-listed stock).
+    """
     empty = {field: None for field in DRAWDOWN_FIELDS}
     if nifty_ref is None:
         return empty
 
-    price_on_ath_date = price_on_or_before(stock_close, nifty_ref["ath_date"])
-    price_on_low_date = price_on_or_before(stock_close, nifty_ref["low_52wk_date"])
-    price_today = price_on_or_before(stock_close, nifty_ref["today_date"])
+    price_on_ath_date = price_on_or_before(_column_or_none(stock_ohlc, "High"), nifty_ref["ath_date"])
+    price_on_low_date = price_on_or_before(_column_or_none(stock_ohlc, "Low"), nifty_ref["low_52wk_date"])
+    price_today = price_on_or_before(_column_or_none(stock_ohlc, "Close"), nifty_ref["today_date"])
 
     stock_ath_return = pct_return(price_on_ath_date, price_today)
     stock_low_return = pct_return(price_on_low_date, price_today)

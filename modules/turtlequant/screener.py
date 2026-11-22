@@ -188,9 +188,8 @@ def compute_universe_drawdown(
             daily = data_feed.get_daily(symbol, period=C.DAILY_HISTORY_PERIOD)
         except Exception:
             daily = None
-        close = daily["Close"] if daily is not None and not daily.empty and "Close" in daily.columns else None
 
-        out.append({"Symbol": symbol, **bd.compute_stock_drawdown(close, nifty_ref)})
+        out.append({"Symbol": symbol, **bd.compute_stock_drawdown(daily, nifty_ref)})
 
         if verbose and i % 200 == 0:
             print(f"  turtlequant drawdown: {i}/{len(rows_df)} symbols")
