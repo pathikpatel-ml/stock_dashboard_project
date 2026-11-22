@@ -119,6 +119,16 @@ def create_turtlequant_layout():
                     inputStyle={"marginRight": "4px", "marginLeft": "10px"},
                 ),
             ]),
+            html.Div(className="filter-group", children=[
+                html.Label("Fundamentals:", style={"fontWeight": "500", "fontSize": "13px"}),
+                dcc.Checklist(
+                    id="tq-fundamental-filter",
+                    options=callbacks.FUNDAMENTAL_FILTER_OPTIONS,
+                    value=[],
+                    inline=True,
+                    inputStyle={"marginRight": "4px", "marginLeft": "10px"},
+                ),
+            ]),
         ]),
 
         html.Div(className="control-bar", style={"alignItems": "center"}, children=[

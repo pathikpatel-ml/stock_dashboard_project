@@ -71,6 +71,14 @@ PERFORMANCE_FILTER_OPTIONS = [
     {"label": " 52wk Low Performance", "value": "low52wk_performance"},
 ]
 
+# 2026-11-22, per explicit user request: two more checkboxes -- tick "TTM Profit Flag" to keep
+# only stocks where ATH_Profit_Flag is True, tick "TTM Sales Flag" for ATH_Sales_Flag == True.
+# Both ticked is an AND filter, same convention as PERFORMANCE_FILTER_OPTIONS above.
+FUNDAMENTAL_FILTER_OPTIONS = [
+    {"label": " TTM Profit Flag", "value": "ttm_profit_flag"},
+    {"label": " TTM Sales Flag", "value": "ttm_sales_flag"},
+]
+
 _COLUMN_TOOLTIPS = {
     "Symbol": "NSE trading symbol.",
     "Indices": "NSE index/sectoral membership (Nifty 50/100/200, sectoral indices, etc.).",
@@ -309,12 +317,13 @@ def register_turtlequant_callbacks(app):
          Input("tq-sector-filter", "value"),
          Input("tq-stock-filter", "value"),
          Input("tq-performance-filter", "value"),
+         Input("tq-fundamental-filter", "value"),
          Input("tq-auto-refresh-interval", "n_intervals"),
          Input("tq-holdings-tags", "children")],  # re-render immediately on add/remove
         prevent_initial_call=False,
     )
     def render_turtlequant(indices_value, sector_value, stock_value, performance_filter_values,
-                            _n_intervals, _holdings_tags):
+                            fundamental_filter_values, _n_intervals, _holdings_tags):
         # Re-sync on every render, not just at process boot -- same reasoning as
         # modules/turtle/callbacks.py::render_turtle.
         data_manager.load_turtlequant_data_on_startup()
@@ -360,6 +369,15 @@ def register_turtlequant_callbacks(app):
             df = df[df["RS_vs_Nifty_ATH"] > 0]
         if "low52wk_performance" in performance_filter_values and "RS_vs_Nifty_52WkLow" in df.columns:
             df = df[df["RS_vs_Nifty_52WkLow"] > 0]
+
+        # 2026-11-22, per explicit user request: "TTM Profit Flag"/"TTM Sales Flag" checkboxes
+        # keep only stocks where that flag is True. Missing values (None/NaN) are excluded by a
+        # ticked filter, same "missing data doesn't pass" convention used above.
+        fundamental_filter_values = fundamental_filter_values or []
+        if "ttm_profit_flag" in fundamental_filter_values and "ATH_Profit_Flag" in df.columns:
+            df = df[df["ATH_Profit_Flag"] == True]  # noqa: E712 (explicit True, not truthy, to exclude NaN)
+        if "ttm_sales_flag" in fundamental_filter_values and "ATH_Sales_Flag" in df.columns:
+            df = df[df["ATH_Sales_Flag"] == True]  # noqa: E712
 
         if indices_value == "My Holdings":
             user_id = _current_user_id()
