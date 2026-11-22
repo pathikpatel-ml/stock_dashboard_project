@@ -129,9 +129,10 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",
     "ps_current": "PS_Current", "ps_5y_avg": "PS_5Y_Avg", "ps_flag": "PS_Flag",
     "pfcf_current": "PFCF_Current", "pfcf_5y_avg": "PFCF_5Y_Avg", "pfcf_flag": "PFCF_Flag",
-    # 2026-10-02: the 3 category-aggregate flags the dashboard actually displays.
-    "growth_category_flag": "Growth_Category_Flag", "red_flag_category_flag": "Red_Flag_Category_Flag",
-    "value_category_flag": "Value_Category_Flag",
+    # 2026-11-22 (per explicit user request): the 3 category-aggregate flags (Growth/Red Flag/
+    # Value) this dashboard used to display were removed entirely, along with Buy/Sell and their
+    # checkbox filters -- see modules/turtlequant/callbacks.py's module docstring. The columns
+    # no longer exist in turtlequant_signals_latest at all, so there's nothing to map here now.
     # Nifty-50-anchored drawdown comparison (2026-11-22) -- see
     # modules/turtlequant/benchmark_drawdown.py for what these mean.
     "stock_ath_return_pct": "Stock_ATH_Return_Pct", "stock_52wklow_return_pct": "Stock_52WkLow_Return_Pct",

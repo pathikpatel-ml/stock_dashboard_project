@@ -62,16 +62,13 @@ def create_turtlequant_layout():
     holdings_add_options = _stock_dropdown_options(df, extra_first=None)
 
     return html.Div(className="section-container", children=[
-        html.H3("⚡ Turtle Quant — Fundamental Quality Screen"),
+        html.H3("⚡ Turtle Quant — Nifty 50 Drawdown Comparison"),
         html.P(
-            "Buy/Sell = Buy only if Growth, Red Flag, and Value are ALL Yes, else Sell. "
-            "Growth = Yes only if Book Value/EPS/Sales 10-year CAGR each clear 15%, ROCE clears "
-            "15% EVERY year (ROE clears 10% every year for banks/NBFCs), and promoter holding "
-            "hasn't declined. Red Flag = "
-            "Yes only if Quality of Turnover < 10% and Interest Coverage > 5 -- always Yes for "
-            "lending-model businesses (banks, NBFCs, HFCs, financial institutions, "
-            "microfinance), where these checks don't apply. Value = Yes only if current P/B, "
-            "P/S, and P/FCF are all cheaper than their own 5-year average.",
+            "Compares every stock's own price move to Nifty 50's, anchored to the SAME calendar "
+            "dates as Nifty's own all-time-high and 52-week-low (not a rolling window) -- "
+            "\"NiftyATH vs Stock\"/\"Nifty52wkLow vs Stock\" are the stock's return minus Nifty's "
+            "own return since that date; positive means the stock has outperformed Nifty since "
+            "that reference point.",
             className="module-help",
         ),
         html.Div(id="tq-staleness-banner"),
@@ -113,10 +110,10 @@ def create_turtlequant_layout():
                 ),
             ]),
             html.Div(className="filter-group", children=[
-                html.Label("Filter by flag:", style={"fontWeight": "500", "fontSize": "13px"}),
+                html.Label("Performance:", style={"fontWeight": "500", "fontSize": "13px"}),
                 dcc.Checklist(
-                    id="tq-flag-filter",
-                    options=callbacks.FLAG_FILTER_OPTIONS,
+                    id="tq-performance-filter",
+                    options=callbacks.PERFORMANCE_FILTER_OPTIONS,
                     value=[],
                     inline=True,
                     inputStyle={"marginRight": "4px", "marginLeft": "10px"},

@@ -30,10 +30,17 @@ from modules.turtle import quality_flags as qf
 from modules.turtle import screener as tt_screener
 from . import benchmark_drawdown as bd
 
-# CamelCase CSV/display names for the 9 fundamental quality/valuation flags (2026-10-01) --
-# same values generate_turtle_fundamentals.py already computed and wrote to turtle_fundamentals
-# (via modules/turtle/quality_flags.py), just threaded through here into Turtle Quant's own
-# signal rows. Order matches quality_flags.QUALITY_FIELD_NAMES (snake_case) 1:1.
+# CamelCase CSV/display names for Turtle Quant's own 21 individual quality/valuation metrics
+# (2026-10-01) -- same values generate_turtle_fundamentals.py already computed and wrote to
+# turtle_fundamentals (via modules/turtle/quality_flags.py), just threaded through here into
+# Turtle Quant's own signal rows. Order matches the FIRST 21 entries of
+# quality_flags.QUALITY_FIELD_NAMES (snake_case) 1:1 -- zip() in generate_turtlequant_signals.py
+# stops at this (shorter) list, so quality_flags.py's 3 TRAILING category-aggregate fields
+# (growth_category_flag/red_flag_category_flag/value_category_flag) are deliberately excluded
+# here. 2026-11-22 (per explicit user request): those 3, plus the Buy/Sell/Growth/Red Flag/
+# Value columns and checkboxes they fed on the dashboard, were removed entirely from Turtle
+# Quant (both the display and turtlequant_signals_latest) -- Turtle Strategy/turtle_fundamentals
+# still computes and stores them, untouched; this tab just no longer reads or shows them.
 QUALITY_COLUMNS = [
     "Book_Value_CAGR_10Y", "Book_Value_Growth_Flag", "EPS_CAGR_10Y", "EPS_Growth_Flag",
     "ROCE_Avg_10Y", "ROCE_Flag", "Sales_CAGR_10Y", "Sales_Growth_Flag",
@@ -43,7 +50,6 @@ QUALITY_COLUMNS = [
     "PB_Current", "PB_5Y_Avg", "PB_Flag",
     "PS_Current", "PS_5Y_Avg", "PS_Flag",
     "PFCF_Current", "PFCF_5Y_Avg", "PFCF_Flag",
-    "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
 ]
 
 SIGNAL_COLUMNS = [

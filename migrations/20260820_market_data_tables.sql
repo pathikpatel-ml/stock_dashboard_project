@@ -317,9 +317,10 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     pfcf_current                DOUBLE PRECISION,
     pfcf_5y_avg                 DOUBLE PRECISION,
     pfcf_flag                   BOOLEAN,
-    growth_category_flag        BOOLEAN,
-    red_flag_category_flag      BOOLEAN,
-    value_category_flag         BOOLEAN,
+    -- growth_category_flag/red_flag_category_flag/value_category_flag (and the dashboard-only
+    -- Buy_Sell_Flag derived from them) were REMOVED 2026-11-22 per explicit user request, along
+    -- with their checkbox filters -- see modules/turtlequant/callbacks.py's module docstring
+    -- and the reference migration note below.
     -- Nifty-50-anchored drawdown comparison (2026-11-22, per explicit user request) -- written
     -- by generate_turtlequant_benchmark_drawdown.py, separately from the fundamentals columns
     -- above (generate_turtlequant_signals.py). See modules/turtlequant/benchmark_drawdown.py
@@ -371,6 +372,12 @@ CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (
 --       ADD COLUMN IF NOT EXISTS rs_vs_nifty_52wklow DOUBLE PRECISION;
 --   CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (... see below ...);
 --   GRANT SELECT, INSERT, UPDATE ON turtlequant_nifty_benchmark TO market_data_writer;
+
+-- Migration (2026-11-22, run once by hand via DATABASE_URL -- same reference-copy convention):
+--   ALTER TABLE turtlequant_signals_latest
+--       DROP COLUMN IF EXISTS growth_category_flag,
+--       DROP COLUMN IF EXISTS red_flag_category_flag,
+--       DROP COLUMN IF EXISTS value_category_flag;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.
