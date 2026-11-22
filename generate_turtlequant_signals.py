@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """
-Generate Turtle Quant signals (fundamental quality/valuation screen).
+Generate Turtle Quant signals.
 
 2026-10-02: the original weekly RS/SuperTrend/ADX/RSI technical-signal system was removed per
-explicit user request. This script now just projects the shared NSE universe + the quality/
-valuation flags already computed by generate_turtle_fundamentals.py (turtle_fundamentals) into
-one dated CSV + Postgres table the dashboard loads:
+explicit user request. 2026-11-22 (per explicit user request): the quality/valuation flags that
+briefly lived here afterward were also removed. This script now just projects the shared NSE
+universe + Sector/Industry/TTM Net Profit/Sales (ATH flags) already computed by
+generate_turtle_fundamentals.py (turtle_fundamentals) into one dated CSV + Postgres table the
+dashboard loads:
 
     turtlequant_signals_<YYYYMMDD>.csv
 
@@ -29,7 +31,6 @@ except ImportError:
     pass
 
 from database import market_data_writer as mdw
-from modules.turtle import quality_flags as qf
 from modules.turtlequant import screener as sc
 
 REPO_BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -46,9 +47,8 @@ _SIGNALS_DB_COLUMNS = {
     # turtle_fundamentals-derived computation Turtle Strategy's own table uses.
     "TTM_Net_Profit": "ttm_net_profit", "ATH_Profit_Flag": "ath_profit_flag",
     "TTM_Net_Sales": "ttm_net_sales", "ATH_Sales_Flag": "ath_sales_flag",
-    # 2026-10-01: the 9 fundamental quality/valuation flags (CamelCase -> snake_case, same
-    # pairing as modules/turtlequant/screener.py's QUALITY_COLUMNS <-> quality_flags.QUALITY_FIELD_NAMES).
-    **dict(zip(sc.QUALITY_COLUMNS, qf.QUALITY_FIELD_NAMES)),
+    # 2026-11-22 (per explicit user request): the 9 fundamental quality/valuation flags that
+    # used to be mapped here were removed entirely from Turtle Quant.
 }
 
 # turtle_fundamentals is the SAME shared table generate_turtle_fundamentals.py (Turtle Strategy)
@@ -61,7 +61,6 @@ _FUNDAMENTALS_FROM_DB = {
     "max_annual_net_sales": "Max_Annual_Net_Sales",
     "broad_sector": "Broad_Sector", "sector": "Sector",
     "broad_industry": "Broad_Industry", "industry": "Industry",
-    **dict(zip(qf.QUALITY_FIELD_NAMES, sc.QUALITY_COLUMNS)),
 }
 
 # Postgres column name -> CSV column name -- reverse of the universe read, same reasoning as
@@ -131,7 +130,7 @@ def main():
     signals.to_csv(signals_path, index=False)
 
     print(f"\nTurtle Quant signals : {len(signals):>4}  -> {os.path.basename(signals_path)}")
-    for flag_col in [c for c in sc.QUALITY_COLUMNS if c.endswith("_Flag")]:
+    for flag_col in ("ATH_Profit_Flag", "ATH_Sales_Flag"):
         true_count = int((signals[flag_col] == True).sum()) if flag_col in signals.columns else 0  # noqa: E712
         print(f"  {flag_col}: {true_count} True")
 

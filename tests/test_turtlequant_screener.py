@@ -75,35 +75,10 @@ def test_run_pipeline_falls_back_per_symbol_when_screener_has_only_some():
 
 
 # ---------------------------------------------------------------------------
-# Fundamental quality/valuation flags (2026-10-01) threaded through from fundamentals_df
-# ---------------------------------------------------------------------------
-def test_run_pipeline_threads_quality_flags_through_to_signal_row():
-    fundamentals = pd.DataFrame([{
-        "Symbol": "BUYSTOCK",
-        "Book_Value_CAGR_10Y": 14.59, "Book_Value_Growth_Flag": True,
-        "ROCE_Avg_10Y": 9.9, "ROCE_Flag": False,
-        "PB_Current": 2.1, "PB_5Y_Avg": 2.45, "PB_Flag": True,
-    }])
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
-    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
-    assert row["Book_Value_CAGR_10Y"] == pytest.approx(14.59)
-    assert row["Book_Value_Growth_Flag"] == True  # noqa: E712
-    assert row["ROCE_Avg_10Y"] == pytest.approx(9.9)
-    assert row["ROCE_Flag"] == False  # noqa: E712
-    assert row["PB_Flag"] == True  # noqa: E712
-
-
-def test_run_pipeline_quality_flags_none_when_no_fundamentals():
-    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False)
-    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
-    for col in sc.QUALITY_COLUMNS:
-        assert pd.isna(row[col]) or row[col] is None
-
-
-def test_signal_columns_includes_all_quality_columns():
-    assert set(sc.QUALITY_COLUMNS) <= set(sc.SIGNAL_COLUMNS)
-
-
+# 2026-11-22 (per explicit user request): the 11 fundamental quality/valuation metrics (22
+# columns) that used to be threaded through here were removed entirely from Turtle Quant --
+# never displayed on this tab's dashboard table anyway. Turtle Strategy/turtle_fundamentals
+# still computes and stores them, untouched; their own tests cover that path.
 # ---------------------------------------------------------------------------
 # ATH Profit/Sales (2026-11-22, per explicit user request) -- same shared
 # turtle_fundamentals-derived computation Turtle Strategy's own table uses

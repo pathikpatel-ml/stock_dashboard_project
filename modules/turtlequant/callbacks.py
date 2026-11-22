@@ -24,11 +24,12 @@ from modules.turtlequant import benchmark_drawdown as bd
 # Flag, Value -- instead of the 21 individual metrics (still see modules/turtle/quality_flags.py
 # for every formula). 2026-10-05 added a derived Buy_Sell_Flag on top of those 3. 2026-11-22
 # (per explicit user request): Buy/Sell + the 3 category columns, and their checkbox filters,
-# were REMOVED ENTIRELY from both this dashboard and turtlequant_signals_latest -- this tab is
-# now solely the Nifty-50-anchored drawdown comparison below. The 21 individual quality/
-# valuation metrics are untouched in turtle_fundamentals/Turtle Strategy; only Turtle Quant's
-# own 3 derived category columns were dropped (modules/turtlequant/screener.py's QUALITY_COLUMNS
-# no longer includes them).
+# were REMOVED ENTIRELY from both this dashboard and turtlequant_signals_latest. A second,
+# separate 2026-11-22 request then removed the 11 individual quality/valuation metrics (22
+# columns) themselves too -- never displayed on this tab's table anyway. Both removals are
+# Turtle-Quant-only; turtle_fundamentals/Turtle Strategy still computes and stores everything,
+# untouched. This tab is now solely the Nifty-50-anchored drawdown comparison + ATH Profit/
+# Sales flags below.
 #
 # 6 columns for the Nifty-50-anchored ATH/52-week-low drawdown comparison (added 2026-11-22) --
 # see modules/turtlequant/benchmark_drawdown.py for the formulas. Nifty_ATH_Return_Pct/

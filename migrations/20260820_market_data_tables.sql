@@ -294,41 +294,15 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     ath_profit_flag      BOOLEAN,
     ttm_net_sales        DOUBLE PRECISION,
     ath_sales_flag       BOOLEAN,
-    -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- see
-    -- turtle_fundamentals' own column comment above for the full explanation; same values,
-    -- threaded through by modules/turtlequant/screener.py the same way Broad_Sector/Sector are.
-    book_value_cagr_10y        DOUBLE PRECISION,
-    book_value_growth_flag     BOOLEAN,
-    eps_cagr_10y                DOUBLE PRECISION,
-    eps_growth_flag             BOOLEAN,
-    -- ROCE (screener.in's own "Ratios" row, 2026-10-18) -- see
-    -- modules/turtle/quality_flags.py's module docstring for why this is NULL for every
-    -- bank/NBFC (screener.in's free tier only has ROCE for non-financial companies).
-    roce_avg_10y                DOUBLE PRECISION,
-    roce_flag                   BOOLEAN,
-    sales_cagr_10y              DOUBLE PRECISION,
-    sales_growth_flag           BOOLEAN,
-    promoter_holding_change_3y  DOUBLE PRECISION,
-    promoter_holding_flag       BOOLEAN,
-    interest_coverage           DOUBLE PRECISION,
-    interest_coverage_flag      BOOLEAN,
-    -- 2026-10-02: Quality of Turnover + the 3 category-aggregate flags the dashboard actually
-    -- displays (Growth/Red Flag/Value) -- see turtle_fundamentals' own column comment above.
-    quality_of_turnover_pct     DOUBLE PRECISION,
-    quality_of_turnover_flag    BOOLEAN,
-    pb_current                  DOUBLE PRECISION,
-    pb_5y_avg                   DOUBLE PRECISION,
-    pb_flag                     BOOLEAN,
-    ps_current                  DOUBLE PRECISION,
-    ps_5y_avg                   DOUBLE PRECISION,
-    ps_flag                     BOOLEAN,
-    pfcf_current                DOUBLE PRECISION,
-    pfcf_5y_avg                 DOUBLE PRECISION,
-    pfcf_flag                   BOOLEAN,
     -- growth_category_flag/red_flag_category_flag/value_category_flag (and the dashboard-only
     -- Buy_Sell_Flag derived from them) were REMOVED 2026-11-22 per explicit user request, along
     -- with their checkbox filters -- see modules/turtlequant/callbacks.py's module docstring
-    -- and the reference migration note below.
+    -- and the reference migration note below. The 11 fundamental quality/valuation metrics (22
+    -- columns: Book Value/EPS/Sales CAGR, ROCE, Promoter Holding, Interest Coverage, Quality of
+    -- Turnover, PB/PS/PFCF vs their own 5Y averages, plus each one's flag) were REMOVED
+    -- 2026-11-22 per a second, separate explicit user request -- never displayed on this tab's
+    -- dashboard table anyway. Turtle Strategy/turtle_fundamentals still computes and stores all
+    -- of these, untouched -- see the reference migration note below for the exact DROP COLUMNs.
     -- Nifty-50-anchored drawdown comparison (2026-11-22, per explicit user request) -- written
     -- by generate_turtlequant_benchmark_drawdown.py, separately from the fundamentals columns
     -- above (generate_turtlequant_signals.py). See modules/turtlequant/benchmark_drawdown.py
@@ -391,6 +365,19 @@ CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (
 --       ADD COLUMN IF NOT EXISTS ath_profit_flag BOOLEAN,
 --       ADD COLUMN IF NOT EXISTS ttm_net_sales DOUBLE PRECISION,
 --       ADD COLUMN IF NOT EXISTS ath_sales_flag BOOLEAN;
+
+-- Migration (2026-11-22, run once by hand via DATABASE_URL -- same reference-copy convention):
+--   ALTER TABLE turtlequant_signals_latest
+--       DROP COLUMN IF EXISTS book_value_cagr_10y, DROP COLUMN IF EXISTS book_value_growth_flag,
+--       DROP COLUMN IF EXISTS eps_cagr_10y, DROP COLUMN IF EXISTS eps_growth_flag,
+--       DROP COLUMN IF EXISTS roce_avg_10y, DROP COLUMN IF EXISTS roce_flag,
+--       DROP COLUMN IF EXISTS sales_cagr_10y, DROP COLUMN IF EXISTS sales_growth_flag,
+--       DROP COLUMN IF EXISTS promoter_holding_change_3y, DROP COLUMN IF EXISTS promoter_holding_flag,
+--       DROP COLUMN IF EXISTS interest_coverage, DROP COLUMN IF EXISTS interest_coverage_flag,
+--       DROP COLUMN IF EXISTS quality_of_turnover_pct, DROP COLUMN IF EXISTS quality_of_turnover_flag,
+--       DROP COLUMN IF EXISTS pb_current, DROP COLUMN IF EXISTS pb_5y_avg, DROP COLUMN IF EXISTS pb_flag,
+--       DROP COLUMN IF EXISTS ps_current, DROP COLUMN IF EXISTS ps_5y_avg, DROP COLUMN IF EXISTS ps_flag,
+--       DROP COLUMN IF EXISTS pfcf_current, DROP COLUMN IF EXISTS pfcf_5y_avg, DROP COLUMN IF EXISTS pfcf_flag;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.

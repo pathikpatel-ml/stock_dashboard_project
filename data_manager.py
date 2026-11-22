@@ -116,26 +116,11 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     # ATH Profit/Sales (2026-11-22) -- same shared computation as Turtle Strategy's own table.
     "ttm_net_profit": "TTM_Net_Profit", "ath_profit_flag": "ATH_Profit_Flag",
     "ttm_net_sales": "TTM_Net_Sales", "ath_sales_flag": "ATH_Sales_Flag",
-    # Fundamental quality/valuation flags (2026-10-01) -- snake_case DB columns -> the CamelCase
-    # names modules/turtlequant/screener.py::QUALITY_COLUMNS and callbacks.py's _DISPLAY_COLUMNS
-    # expect. BUG FIX 2026-10-02: these were missing from this map entirely, so the flags sat in
-    # Postgres correctly computed but never actually rendered in the live table (silently
-    # dropped by _table()'s "only columns present in df" filter) -- caught while removing the
-    # unrelated technical-signal columns below.
-    "book_value_cagr_10y": "Book_Value_CAGR_10Y", "book_value_growth_flag": "Book_Value_Growth_Flag",
-    "eps_cagr_10y": "EPS_CAGR_10Y", "eps_growth_flag": "EPS_Growth_Flag",
-    "roce_avg_10y": "ROCE_Avg_10Y", "roce_flag": "ROCE_Flag",
-    "sales_cagr_10y": "Sales_CAGR_10Y", "sales_growth_flag": "Sales_Growth_Flag",
-    "promoter_holding_change_3y": "Promoter_Holding_Change_3Y", "promoter_holding_flag": "Promoter_Holding_Flag",
-    "interest_coverage": "Interest_Coverage", "interest_coverage_flag": "Interest_Coverage_Flag",
-    "quality_of_turnover_pct": "Quality_Of_Turnover_Pct", "quality_of_turnover_flag": "Quality_Of_Turnover_Flag",
-    "pb_current": "PB_Current", "pb_5y_avg": "PB_5Y_Avg", "pb_flag": "PB_Flag",
-    "ps_current": "PS_Current", "ps_5y_avg": "PS_5Y_Avg", "ps_flag": "PS_Flag",
-    "pfcf_current": "PFCF_Current", "pfcf_5y_avg": "PFCF_5Y_Avg", "pfcf_flag": "PFCF_Flag",
-    # 2026-11-22 (per explicit user request): the 3 category-aggregate flags (Growth/Red Flag/
-    # Value) this dashboard used to display were removed entirely, along with Buy/Sell and their
-    # checkbox filters -- see modules/turtlequant/callbacks.py's module docstring. The columns
-    # no longer exist in turtlequant_signals_latest at all, so there's nothing to map here now.
+    # 2026-11-22 (per explicit user request): the 11 fundamental quality/valuation metrics (22
+    # columns) that used to be mapped here, and the 3 category-aggregate flags (Growth/Red
+    # Flag/Value) before them, were removed entirely from Turtle Quant, along with Buy/Sell and
+    # their checkbox filters -- see modules/turtlequant/callbacks.py's module docstring. None of
+    # those columns exist in turtlequant_signals_latest anymore, so there's nothing to map here.
     # Nifty-50-anchored drawdown comparison (2026-11-22) -- see
     # modules/turtlequant/benchmark_drawdown.py for what these mean.
     "stock_ath_return_pct": "Stock_ATH_Return_Pct", "stock_52wklow_return_pct": "Stock_52WkLow_Return_Pct",
