@@ -53,7 +53,7 @@ import argparse
 import calendar
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -436,18 +436,12 @@ def main():
             finally:
                 conn.close()
 
-            # 2026-11-08 (per explicit user request): the dashboard's TTM Profit/Sales banner
-            # reads this for its "N of M stocks" + "left: reason breakdown" lines. Accumulates
-            # across the week's 7 slices -- reset=True forced for --full-universe (inherently a
-            # fresh, complete total on its own); reset=None otherwise, letting
-            # accumulate_job_status auto-detect a new week from the stored row's own age rather
-            # than assuming day_of_week 0 always runs first (see that function's docstring for the
-            # real incident this replaced -- a manual out-of-order catch-up run silently discarded
-            # an already-accumulated total).
-            job_status.accumulate_job_status(
-                "fundamentals", reset=(True if args.full_universe else None),
-                updated_count_delta=ok_count, reason_counts_delta={"no_ttm_data": fail_count},
-            )
+            if args.full_universe:
+                # A standalone, complete run on its own (not one of the 7 tracked slices) --
+                # the dashboard's TTM Profit/Sales banner just gets this run's own total.
+                job_status.write_job_status("fundamentals", ok_count, {"no_ttm_data": fail_count})
+            # The per-slice total is written below instead (outer `else`, after
+            # mark_slice_finished) -- see that block's comment for why.
         except Exception as exc:
             print(f"WARNING: Postgres write failed, CSV above is still the source of truth for now: {exc}")
     except Exception:
@@ -463,6 +457,16 @@ def main():
             slice_status.mark_slice_finished(
                 day_of_week, success=True, ok_count=ok_count, fail_count=fail_count,
             )
+            # 2026-11-22 (confirmed live, per explicit user request): derive the dashboard's
+            # "N of M stocks" total fresh from every slice's own latest row instead of adding
+            # this run's delta onto a running counter -- see
+            # slice_status.compute_week_totals's docstring for the live incident this fixes
+            # (the watchdog retriggering a slow-but-not-actually-failed slice made it run
+            # twice, and the old accumulate-based write counted its delta twice).
+            total_ok, total_fail = slice_status.compute_week_totals(
+                datetime.now(timezone.utc), slice_status.read_all_slice_status(),
+            )
+            job_status.write_job_status("fundamentals", total_ok, {"no_ttm_data": total_fail})
 
 
 if __name__ == "__main__":

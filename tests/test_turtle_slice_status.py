@@ -311,3 +311,56 @@ def test_attempt_count_missing_or_none_treated_as_zero():
     row = {"status": "failed", "attempt_count": None, "started_at": now - timedelta(minutes=30)}
     rows = {0: _already_succeeded(now), 1: row}
     assert ss.decide_slices_to_trigger(now, rows) == [1]
+
+
+# ---------------------------------------------------------------------------
+# compute_week_totals -- 2026-11-22, confirmed live: a slice retriggered by the watchdog and
+# successfully rerun must only count once in the dashboard's "N of M stocks" total, which is
+# why this sums each slice's own latest row instead of accumulating a per-run delta.
+# ---------------------------------------------------------------------------
+def test_compute_week_totals_sums_only_rows_from_this_cycle():
+    now = _NOW
+    rows = {
+        0: {"status": "success", "attempt_count": 1, "started_at": now - timedelta(hours=10),
+            "ok_count": 363, "fail_count": 18},
+        1: {"status": "success", "attempt_count": 2, "started_at": now - timedelta(hours=7),
+            "ok_count": 363, "fail_count": 18},
+        5: {"status": "success", "attempt_count": 2, "started_at": now - timedelta(days=7),
+            "ok_count": 357, "fail_count": 23},  # last week's leftover -- must be excluded
+    }
+    assert ss.compute_week_totals(now, rows) == (726, 36)
+
+
+def test_compute_week_totals_a_slice_retried_twice_still_counts_once():
+    """The exact live incident this replaced: slice 1 ran twice this week (original attempt +
+    one watchdog retry) -- its row holds only the LATEST attempt's counts, so it must only
+    contribute once to the total, not twice."""
+    now = _NOW
+    rows = {
+        0: {"status": "success", "attempt_count": 1, "started_at": now - timedelta(hours=10),
+            "ok_count": 363, "fail_count": 18},
+        1: {"status": "success", "attempt_count": 2, "started_at": now - timedelta(hours=7),
+            "ok_count": 364, "fail_count": 17},
+    }
+    assert ss.compute_week_totals(now, rows) == (363 + 364, 18 + 17)
+
+
+def test_compute_week_totals_failed_slice_contributes_zero():
+    now = _NOW
+    rows = {
+        0: {"status": "success", "attempt_count": 1, "started_at": now - timedelta(hours=10),
+            "ok_count": 363, "fail_count": 18},
+        2: {"status": "failed", "attempt_count": 3, "started_at": now - timedelta(hours=5),
+            "ok_count": 0, "fail_count": 0},
+    }
+    assert ss.compute_week_totals(now, rows) == (363, 18)
+
+
+def test_compute_week_totals_empty_rows_returns_zero():
+    assert ss.compute_week_totals(_NOW, {}) == (0, 0)
+
+
+def test_compute_week_totals_missing_ok_fail_counts_treated_as_zero():
+    now = _NOW
+    rows = {0: {"status": "running", "attempt_count": 1, "started_at": now - timedelta(minutes=5)}}
+    assert ss.compute_week_totals(now, rows) == (0, 0)

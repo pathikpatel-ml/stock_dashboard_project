@@ -196,6 +196,33 @@ def decide_slices_to_trigger(now: datetime, status_rows: Dict[int, dict]) -> Lis
     return to_trigger
 
 
+def compute_week_totals(now: datetime, status_rows: Dict[int, dict]) -> "tuple[int, int]":
+    """Sum ok_count/fail_count across every slice's row that belongs to the current cycle
+    (now's own week; see week_anchor_utc) -- rows from a previous, already-finished cycle are
+    skipped, same staleness test decide_slices_to_trigger uses.
+
+    2026-11-22 (confirmed live, per explicit user request): generate_turtle_fundamentals.py
+    used to feed the dashboard's "N of M stocks" total via job_status.accumulate_job_status,
+    adding each RUN's own delta onto a running counter. That's correct only if every slice
+    runs exactly once a week -- the watchdog retriggering a slice (whether its first attempt
+    was merely slow or genuinely failed) can make the SAME slice run, and succeed, more than
+    once, and each success added its own delta again, double-counting it (confirmed live: two
+    retried slices' deltas landed twice, inflating the total from a real 1,815 to a displayed
+    2,542). Summing fresh from each slice's own latest row instead makes a slice's contribution
+    idempotent no matter how many attempts it took -- re-running it just overwrites its one row.
+    """
+    anchor = week_anchor_utc(now)
+    total_ok = 0
+    total_fail = 0
+    for row in status_rows.values():
+        started_at = _parse_ts(row.get("started_at"))
+        if started_at is None or started_at < anchor:
+            continue  # last week's leftover row, not part of this cycle's total
+        total_ok += int(row.get("ok_count") or 0)
+        total_fail += int(row.get("fail_count") or 0)
+    return total_ok, total_fail
+
+
 def _parse_ts(value) -> Optional[datetime]:
     if value is None:
         return None
