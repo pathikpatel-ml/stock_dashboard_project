@@ -1,0 +1,32 @@
+name: Generate Turtle Quant Nifty-50 Drawdown Comparison
+
+on:
+  schedule:
+    # 14:37 UTC daily (~8:07 PM IST) -- after turtle_signals.yml's own daily 12:37 UTC run, so
+    # this doesn't compete for yfinance capacity at the exact same minute. Offset off the round
+    # :00/:30 minute for the same reason every other cron in this repo is (see
+    # daily_gtt_trigger.yml's schedule comment) -- and off turtle_signals.yml's own :37 slot by
+    # 2 hours so the two don't start in the same minute either.
+    - cron: '37 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate-turtlequant-benchmark-drawdown:
+    runs-on: ubuntu-latest
+    # Same per-symbol daily-OHLC fetch pattern/cost as turtle_signals.yml's full-universe run
+    # (measured there at well under 90min for ~2,600 symbols).
+    timeout-minutes: 90
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with: { python-version: '3.13' }
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance requests psycopg2-binary python-dotenv
+    - name: Generate Turtle Quant Nifty-50 drawdown comparison
+      env:
+        MARKET_DATA_DB_URL: ${{ secrets.MARKET_DATA_DB_URL }}
+      run: python -u generate_turtlequant_benchmark_drawdown.py

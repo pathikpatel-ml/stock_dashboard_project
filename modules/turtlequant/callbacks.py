@@ -18,6 +18,7 @@ from dash import ALL, Input, Output, State, dash_table, html
 import data_manager
 from modules.auth import user_store
 from modules.turtle.compute import filter_by_index
+from modules.turtlequant import benchmark_drawdown as bd
 
 # 2026-10-02 redesign (per explicit user request): the dashboard shows only 3 aggregate
 # Yes/No columns -- Growth, Red Flag, Value -- instead of the 21 individual metrics. The
@@ -30,11 +31,22 @@ from modules.turtle.compute import filter_by_index
 # nothing to gain by persisting it) -- "Buy" only if all 3 category flags are Yes, else "Sell".
 # Placed immediately before Growth per explicit request, so it reads as the headline verdict
 # with the 3 underlying flags right after it for the "why".
+# 2026-11-22 (per explicit user request): 6 columns for the Nifty-50-anchored ATH/52-week-low
+# drawdown comparison -- see modules/turtlequant/benchmark_drawdown.py for the formulas.
+# Nifty_ATH_Return_Pct/Nifty_52WkLow_Return_Pct are broadcast onto every row from the single
+# shared turtlequant_nifty_benchmark reference (same value for every stock); the other 4 are
+# genuinely per-stock, read straight from turtlequant_signals_latest.
+_DRAWDOWN_DISPLAY_COLUMNS = [
+    "RS_vs_Nifty_ATH", "RS_vs_Nifty_52WkLow",
+    "Nifty_ATH_Return_Pct", "Nifty_52WkLow_Return_Pct",
+    "Stock_ATH_Return_Pct", "Stock_52WkLow_Return_Pct",
+]
+
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price",
     "Buy_Sell_Flag",
     "Growth_Category_Flag", "Red_Flag_Category_Flag", "Value_Category_Flag",
-]
+] + _DRAWDOWN_DISPLAY_COLUMNS
 
 # The 3 category columns get short display names/ids on the table itself (the underlying
 # dataframe column stays the full name everywhere else in the pipeline).
@@ -46,7 +58,15 @@ _CATEGORY_DISPLAY_NAMES = {
 
 # Buy_Sell_Flag is already a "Buy"/"Sell" string (not a bool), so it's renamed separately from
 # the True/False -> Yes/No columns above.
-_EXTRA_DISPLAY_NAMES = {"Buy_Sell_Flag": "Buy/Sell"}
+_EXTRA_DISPLAY_NAMES = {
+    "Buy_Sell_Flag": "Buy/Sell",
+    "RS_vs_Nifty_ATH": "NiftyATH vs Stock",
+    "RS_vs_Nifty_52WkLow": "RS52wkLow vs Stock",
+    "Nifty_ATH_Return_Pct": "Nifty ATH Return%",
+    "Nifty_52WkLow_Return_Pct": "Nifty 52wkLow Return%",
+    "Stock_ATH_Return_Pct": "Stock ATH Return%",
+    "Stock_52WkLow_Return_Pct": "Stock 52wkLow Return%",
+}
 
 # Checkbox filter options (2026-10-05): lets the user tick any combination of the 3 category
 # flags to narrow the table to only stocks where EVERY ticked flag is Yes -- an AND filter,
@@ -96,6 +116,30 @@ _COLUMN_TOOLTIPS = {
         "Cash-Flow are each cheaper than their own 5-year average -- i.e. the stock is cheap relative to "
         "its own recent valuation history on all three measures."
     ),
+    "NiftyATH vs Stock": (
+        "Stock ATH Return% minus Nifty ATH Return% (percentage points). Positive = this stock "
+        "has outperformed Nifty 50 since Nifty's all-time-high date; negative = underperformed."
+    ),
+    "RS52wkLow vs Stock": (
+        "Stock 52wkLow Return% minus Nifty 52wkLow Return% (percentage points). Positive = this "
+        "stock has outperformed Nifty 50 since Nifty's 52-week-low date; negative = underperformed."
+    ),
+    "Nifty ATH Return%": (
+        "Nifty 50's own % change from its all-time-high (intraday High) to today's close -- "
+        "same value on every row, shown here for direct comparison with Stock ATH Return%."
+    ),
+    "Nifty 52wkLow Return%": (
+        "Nifty 50's own % change from its 52-week low (intraday Low) to today's close -- "
+        "same value on every row, shown here for direct comparison with Stock 52wkLow Return%."
+    ),
+    "Stock ATH Return%": (
+        "This stock's own % change from its closing price ON THE SAME DATE as Nifty 50's "
+        "all-time-high, to today's close."
+    ),
+    "Stock 52wkLow Return%": (
+        "This stock's own % change from its closing price ON THE SAME DATE as Nifty 50's "
+        "52-week low, to today's close."
+    ),
 }
 
 
@@ -117,6 +161,9 @@ def _table(df):
     for cat_col in _CATEGORY_DISPLAY_NAMES:
         if cat_col in display_df.columns:
             display_df[cat_col] = display_df[cat_col].map({True: "Yes", False: "No"}).fillna("No")
+    for drawdown_col in _DRAWDOWN_DISPLAY_COLUMNS:
+        if drawdown_col in display_df.columns:
+            display_df[drawdown_col] = pd.to_numeric(display_df[drawdown_col], errors="coerce").round(2)
     all_display_names = {**_CATEGORY_DISPLAY_NAMES, **_EXTRA_DISPLAY_NAMES}
     display_df = display_df.rename(columns=all_display_names)
     cols = [all_display_names.get(c, c) for c in cols]
@@ -156,6 +203,16 @@ def _table(df):
              "backgroundColor": "#28a745", "color": "white", "fontWeight": "600"},
             {"if": {"filter_query": '{Buy/Sell} = "Sell"', "column_id": "Buy/Sell"},
              "backgroundColor": "#dc3545", "color": "white", "fontWeight": "600"},
+        ] + [
+            # NiftyATH vs Stock / RS52wkLow vs Stock (2026-11-22): positive = this stock has
+            # outperformed Nifty 50 since that reference date, negative = underperformed.
+            {"if": {"filter_query": f"{{{col}}} > 0", "column_id": col},
+             "color": "#155724", "fontWeight": "600"}
+            for col in ("NiftyATH vs Stock", "RS52wkLow vs Stock")
+        ] + [
+            {"if": {"filter_query": f"{{{col}}} < 0", "column_id": col},
+             "color": "#721c24", "fontWeight": "600"}
+            for col in ("NiftyATH vs Stock", "RS52wkLow vs Stock")
         ],
     )
 
@@ -209,6 +266,34 @@ def _staleness_banner(loaded_date, updated_at=None):
                                                "border": "1px solid #ffe69c", "margin": "8px 0"},
         )
     return None
+
+
+def _nifty_reference_caption(nifty_ref: dict):
+    """2026-11-22: a small info line showing the shared Nifty 50 ATH/52-week-low/today
+    reference every row's drawdown-comparison columns are anchored to -- without this, the
+    dates/prices behind "NiftyATH vs Stock" etc. would be invisible on the dashboard itself.
+    None if the reference hasn't been computed yet (table not migrated, or the batch job
+    hasn't run)."""
+    if not nifty_ref or nifty_ref.get("ath_price") is None:
+        return None
+    ath_return = bd.pct_return(nifty_ref.get("ath_price"), nifty_ref.get("today_price"))
+    low_return = bd.pct_return(nifty_ref.get("low_52wk_price"), nifty_ref.get("today_price"))
+    return html.Div(
+        f"📍 Nifty 50 reference — ATH: {nifty_ref['ath_price']:,.2f} on {nifty_ref['ath_date']} "
+        f"({ath_return:+.2f}% to today) · 52wk Low: {nifty_ref['low_52wk_price']:,.2f} on "
+        f"{nifty_ref['low_52wk_date']} ({low_return:+.2f}% to today) · "
+        f"Today: {nifty_ref['today_price']:,.2f} on {nifty_ref['today_date']}",
+        className="status-message",
+        style={"backgroundColor": "#eef2ff", "color": "#3730a3", "border": "1px solid #c7d2fe", "margin": "8px 0"},
+    )
+
+
+def _banner(loaded_date, updated_at, nifty_ref):
+    """Combines the existing staleness banner with the new Nifty 50 reference caption into one
+    children list for the "tq-staleness-banner" Output -- either piece may be None (e.g. no
+    data loaded yet) without breaking the other."""
+    pieces = [p for p in (_staleness_banner(loaded_date, updated_at), _nifty_reference_caption(nifty_ref)) if p]
+    return pieces or None
 
 
 def _current_user_id():
@@ -272,6 +357,7 @@ def register_turtlequant_callbacks(app):
         df = data_manager.turtlequant_signals_df.copy()
         loaded_date = data_manager.LOADED_TURTLEQUANT_FILE_DATE
         updated_at = data_manager.LOADED_TURTLEQUANT_UPDATED_AT
+        nifty_ref = data_manager.turtlequant_nifty_benchmark
 
         if df.empty:
             return (
@@ -279,8 +365,17 @@ def register_turtlequant_callbacks(app):
                     "No Turtle Quant signals available.",
                     "Run generate_turtlequant_signals.py to populate turtlequant_signals_<date>.csv.",
                 ),
-                _staleness_banner(loaded_date, updated_at),
+                _banner(loaded_date, updated_at, nifty_ref),
             )
+
+        # Nifty_ATH_Return_Pct/Nifty_52WkLow_Return_Pct (2026-11-22): the SAME value on every
+        # row (Nifty 50's own return, not a per-stock figure) -- broadcast from the single
+        # shared reference rather than stored per symbol. None on every row if the reference
+        # hasn't been computed yet.
+        nifty_ath_return = bd.pct_return(nifty_ref.get("ath_price"), nifty_ref.get("today_price")) if nifty_ref else None
+        nifty_low_return = bd.pct_return(nifty_ref.get("low_52wk_price"), nifty_ref.get("today_price")) if nifty_ref else None
+        df["Nifty_ATH_Return_Pct"] = round(nifty_ath_return, 2) if nifty_ath_return is not None else None
+        df["Nifty_52WkLow_Return_Pct"] = round(nifty_low_return, 2) if nifty_low_return is not None else None
 
         # Buy only if Growth, Red Flag, and Value are ALL Yes -- missing/None treated as not
         # fulfilled, same "missing data = No" convention as _all_true() in quality_flags.py.
@@ -328,6 +423,6 @@ def register_turtlequant_callbacks(app):
             df = df[df["Symbol"] == stock_value]
 
         if df.empty:
-            return _empty_state("No stocks match the current filters."), _staleness_banner(loaded_date, updated_at)
+            return _empty_state("No stocks match the current filters."), _banner(loaded_date, updated_at, nifty_ref)
 
-        return _table(df), _staleness_banner(loaded_date, updated_at)
+        return _table(df), _banner(loaded_date, updated_at, nifty_ref)

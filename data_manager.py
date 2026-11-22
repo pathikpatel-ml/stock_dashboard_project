@@ -83,6 +83,10 @@ turtlequant_signals_df = pd.DataFrame()
 LOADED_TURTLEQUANT_FILE_DATE = None
 LOADED_TURTLEQUANT_SOURCE = None
 LOADED_TURTLEQUANT_UPDATED_AT = None
+# The single shared Nifty 50 ATH/52-week-low/today reference row (2026-11-22, per explicit
+# user request) every stock's drawdown-comparison columns in turtlequant_signals_df are
+# anchored to -- {} when unavailable (table not migrated yet, or the batch job hasn't run).
+turtlequant_nifty_benchmark = {}
 
 # Postgres column name -> the app's own CamelCase/Title-Case column names (the exact reverse
 # of the rename each generate_*.py script applies before writing -- see e.g.
@@ -128,6 +132,10 @@ _TURTLEQUANT_SIGNALS_FROM_DB = {
     # 2026-10-02: the 3 category-aggregate flags the dashboard actually displays.
     "growth_category_flag": "Growth_Category_Flag", "red_flag_category_flag": "Red_Flag_Category_Flag",
     "value_category_flag": "Value_Category_Flag",
+    # Nifty-50-anchored drawdown comparison (2026-11-22) -- see
+    # modules/turtlequant/benchmark_drawdown.py for what these mean.
+    "stock_ath_return_pct": "Stock_ATH_Return_Pct", "stock_52wklow_return_pct": "Stock_52WkLow_Return_Pct",
+    "rs_vs_nifty_ath": "RS_vs_Nifty_ATH", "rs_vs_nifty_52wklow": "RS_vs_Nifty_52WkLow",
 }
 _V20_FROM_DB = {
     "symbol": "Symbol", "buy_date": "Buy_Date", "buy_price_low": "Buy_Price_Low",
@@ -567,6 +575,7 @@ def load_turtlequant_data_on_startup():
     """
     global turtlequant_signals_df
     global LOADED_TURTLEQUANT_FILE_DATE, LOADED_TURTLEQUANT_SOURCE, LOADED_TURTLEQUANT_UPDATED_AT
+    global turtlequant_nifty_benchmark
 
     today_str = datetime.now().strftime("%Y%m%d")
 
@@ -587,6 +596,13 @@ def load_turtlequant_data_on_startup():
         )
         LOADED_TURTLEQUANT_FILE_DATE = _extract_date_from_name(loaded_name or "", r"(\d{8})")
         LOADED_TURTLEQUANT_UPDATED_AT = None
+
+    # Nifty 50's shared ATH/52-week-low/today reference row (2026-11-22) -- CSV-only/local-dev
+    # runs just get {} (no local-file fallback for this one; it's a single small Postgres row,
+    # not worth a CSV mirror), same as every other Postgres-only reference table in this app.
+    from database import market_data_reader as mdr
+    benchmark_df = mdr.fetch_table("turtlequant_nifty_benchmark")
+    turtlequant_nifty_benchmark = benchmark_df.iloc[0].to_dict() if not benchmark_df.empty else {}
 
     print(f"STARTUP: Turtle Quant — {len(turtlequant_signals_df)} signals (source={LOADED_TURTLEQUANT_SOURCE}).")
 

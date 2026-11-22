@@ -102,3 +102,94 @@ def test_run_pipeline_quality_flags_none_when_no_fundamentals():
 
 def test_signal_columns_includes_all_quality_columns():
     assert set(sc.QUALITY_COLUMNS) <= set(sc.SIGNAL_COLUMNS)
+
+
+# ---------------------------------------------------------------------------
+# fetch_nifty50_reference / compute_universe_drawdown (2026-11-22) -- the Nifty-50-anchored
+# drawdown comparison. yfinance/data_feed are both stubbed -- no live network.
+# ---------------------------------------------------------------------------
+class _FakeHistory:
+    def __init__(self, df):
+        self._df = df
+
+    def history(self, period=None, interval=None, auto_adjust=None, timeout=None):
+        return self._df
+
+
+def test_fetch_nifty50_reference_derives_from_live_ohlc(monkeypatch):
+    ohlc = pd.DataFrame(
+        {"High": [100, 105, 103], "Low": [90, 95, 98], "Close": [95, 97, 101]},
+        index=pd.DatetimeIndex(["2026-01-01", "2026-01-05", "2026-11-20"]),
+    )
+    monkeypatch.setattr(sc.yf, "Ticker", lambda ticker: _FakeHistory(ohlc))
+
+    ref = sc.fetch_nifty50_reference()
+
+    assert ref["ath_price"] == 105
+    assert ref["today_price"] == 101
+
+
+def test_fetch_nifty50_reference_returns_none_on_fetch_exception(monkeypatch):
+    def boom(ticker):
+        raise RuntimeError("yfinance down")
+
+    monkeypatch.setattr(sc.yf, "Ticker", boom)
+    assert sc.fetch_nifty50_reference() is None
+
+
+def test_fetch_nifty50_reference_returns_none_on_empty_history(monkeypatch):
+    monkeypatch.setattr(sc.yf, "Ticker", lambda ticker: _FakeHistory(pd.DataFrame()))
+    assert sc.fetch_nifty50_reference() is None
+
+
+_NIFTY_REF = {
+    "ath_price": 200.0, "ath_date": pd.Timestamp("2026-01-05").date(),
+    "low_52wk_price": 150.0, "low_52wk_date": pd.Timestamp("2026-10-08").date(),
+    "today_price": 190.0, "today_date": pd.Timestamp("2026-11-20").date(),
+}
+
+
+def test_compute_universe_drawdown_builds_one_row_per_symbol(monkeypatch):
+    def fake_get_daily(symbol, period=None):
+        return pd.DataFrame(
+            {"Close": [100.0, 80.0, 90.0]},
+            index=pd.DatetimeIndex(["2026-01-05", "2026-10-08", "2026-11-20"]),
+        )
+
+    monkeypatch.setattr(sc.data_feed, "get_daily", fake_get_daily)
+
+    result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, verbose=False)
+
+    assert list(result.columns) == ["Symbol"] + list(sc.bd.DRAWDOWN_FIELDS)
+    assert set(result["Symbol"]) == {"BUYSTOCK", "HOLDSTOCK"}
+    row = result.set_index("Symbol").loc["BUYSTOCK"]
+    assert row["stock_ath_return_pct"] == pytest.approx(-10.0)
+
+
+def test_compute_universe_drawdown_none_nifty_ref_gives_all_none_rows(monkeypatch):
+    monkeypatch.setattr(sc.data_feed, "get_daily", lambda symbol, period=None: None)
+    result = sc.compute_universe_drawdown(UNIVERSE, None, verbose=False)
+    for field in sc.bd.DRAWDOWN_FIELDS:
+        assert result[field].isna().all()
+
+
+def test_compute_universe_drawdown_fetch_failure_degrades_to_none_not_dropped(monkeypatch):
+    def boom(symbol, period=None):
+        raise RuntimeError("yfinance hung")
+
+    monkeypatch.setattr(sc.data_feed, "get_daily", boom)
+    result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, verbose=False)
+    assert len(result) == 2  # both symbols still present, just with None fields
+    assert result["stock_ath_return_pct"].isna().all()
+
+
+def test_compute_universe_drawdown_respects_limit(monkeypatch):
+    monkeypatch.setattr(sc.data_feed, "get_daily", lambda symbol, period=None: None)
+    result = sc.compute_universe_drawdown(UNIVERSE, _NIFTY_REF, limit=1, verbose=False)
+    assert len(result) == 1
+
+
+def test_compute_universe_drawdown_empty_universe_returns_empty_with_schema():
+    result = sc.compute_universe_drawdown(pd.DataFrame(columns=["Symbol"]), _NIFTY_REF, verbose=False)
+    assert result.empty
+    assert list(result.columns) == ["Symbol"] + list(sc.bd.DRAWDOWN_FIELDS)

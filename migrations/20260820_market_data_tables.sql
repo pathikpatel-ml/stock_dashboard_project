@@ -320,7 +320,35 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     growth_category_flag        BOOLEAN,
     red_flag_category_flag      BOOLEAN,
     value_category_flag         BOOLEAN,
+    -- Nifty-50-anchored drawdown comparison (2026-11-22, per explicit user request) -- written
+    -- by generate_turtlequant_benchmark_drawdown.py, separately from the fundamentals columns
+    -- above (generate_turtlequant_signals.py). See modules/turtlequant/benchmark_drawdown.py
+    -- for the formulas and turtlequant_nifty_benchmark below for the shared Nifty 50 reference
+    -- (ATH/52-week-low/today price+date) these 4 are anchored to -- that reference is the SAME
+    -- for every stock, so it's one shared row, not duplicated into every one of these rows.
+    stock_ath_return_pct        DOUBLE PRECISION,  -- stock's own % return, its price on Nifty's
+                                                     -- ATH date -> its price on Nifty's today date
+    stock_52wklow_return_pct    DOUBLE PRECISION,  -- same, anchored to Nifty's 52-week-low date
+    rs_vs_nifty_ath             DOUBLE PRECISION,  -- stock_ath_return_pct minus Nifty's own
+                                                     -- ATH-to-today return (positive = outperformed)
+    rs_vs_nifty_52wklow         DOUBLE PRECISION,  -- same, anchored to the 52-week-low date
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- turtlequant_nifty_benchmark (2026-11-22): the single shared Nifty 50 reference point every
+-- stock's drawdown comparison above is anchored to -- one row (benchmark='NIFTY50'), truncated
+-- and rewritten each run by generate_turtlequant_benchmark_drawdown.py. ath_date/low_52wk_date
+-- can each move to a new date on a later run (a fresh all-time high, or the 52-week window
+-- rolling forward) -- always overwritten wholesale, never accumulated.
+CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (
+    benchmark        TEXT PRIMARY KEY DEFAULT 'NIFTY50',
+    ath_price        DOUBLE PRECISION,
+    ath_date         DATE,
+    low_52wk_price   DOUBLE PRECISION,
+    low_52wk_date    DATE,
+    today_price      DOUBLE PRECISION,
+    today_date       DATE,
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Migration (2026-10-02, run once by hand via DATABASE_URL -- this file is a reference copy,
@@ -334,6 +362,15 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
 --       DROP COLUMN IF EXISTS signal;
 --   DROP TABLE IF EXISTS turtlequant_signals_history;
 --   DROP TABLE IF EXISTS turtlequant_signal_transitions;
+
+-- Migration (2026-11-22, run once by hand via DATABASE_URL -- same reference-copy convention):
+--   ALTER TABLE turtlequant_signals_latest
+--       ADD COLUMN IF NOT EXISTS stock_ath_return_pct DOUBLE PRECISION,
+--       ADD COLUMN IF NOT EXISTS stock_52wklow_return_pct DOUBLE PRECISION,
+--       ADD COLUMN IF NOT EXISTS rs_vs_nifty_ath DOUBLE PRECISION,
+--       ADD COLUMN IF NOT EXISTS rs_vs_nifty_52wklow DOUBLE PRECISION;
+--   CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (... see below ...);
+--   GRANT SELECT, INSERT, UPDATE ON turtlequant_nifty_benchmark TO market_data_writer;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.
@@ -408,7 +445,8 @@ GRANT SELECT, INSERT, UPDATE ON
     v20_signals_latest,
     turtle_fundamentals_universe_snapshot,
     turtle_job_status,
-    turtle_fundamentals_slice_status
+    turtle_fundamentals_slice_status,
+    turtlequant_nifty_benchmark
 TO market_data_writer;
 
 -- v20_signals_latest alone also needs DELETE: it's written with REPLACE semantics (delete all
