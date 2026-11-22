@@ -105,6 +105,50 @@ def test_signal_columns_includes_all_quality_columns():
 
 
 # ---------------------------------------------------------------------------
+# ATH Profit/Sales (2026-11-22, per explicit user request) -- same shared
+# turtle_fundamentals-derived computation Turtle Strategy's own table uses
+# (modules/turtle/compute.py::ath_profit_flag/ath_sales_flag), not a cross-tab dependency on
+# Turtle Strategy's own output table.
+# ---------------------------------------------------------------------------
+def test_run_pipeline_computes_ath_profit_and_sales_flags_true():
+    fundamentals = pd.DataFrame([{
+        "Symbol": "BUYSTOCK",
+        "TTM_Net_Profit": 120.0, "Max_Annual_Net_Profit": 100.0,   # TTM >= max annual -> True
+        "TTM_Net_Sales": 500.0, "Max_Annual_Net_Sales": 500.0,     # equal -> True
+    }])
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert row["TTM_Net_Profit"] == pytest.approx(120.0)
+    assert bool(row["ATH_Profit_Flag"]) is True
+    assert row["TTM_Net_Sales"] == pytest.approx(500.0)
+    assert bool(row["ATH_Sales_Flag"]) is True
+
+
+def test_run_pipeline_computes_ath_profit_and_sales_flags_false():
+    fundamentals = pd.DataFrame([{
+        "Symbol": "BUYSTOCK",
+        "TTM_Net_Profit": 80.0, "Max_Annual_Net_Profit": 100.0,   # below max -> False
+        "TTM_Net_Sales": 400.0, "Max_Annual_Net_Sales": 500.0,
+    }])
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=fundamentals, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert bool(row["ATH_Profit_Flag"]) is False
+    assert bool(row["ATH_Sales_Flag"]) is False
+
+
+def test_run_pipeline_ath_flags_false_when_no_fundamentals():
+    out = sc.run_pipeline(UNIVERSE, fundamentals_df=None, verbose=False)
+    row = out["signals"].set_index("Symbol").loc["BUYSTOCK"]
+    assert pd.isna(row["TTM_Net_Profit"])
+    assert bool(row["ATH_Profit_Flag"]) is False  # missing data -> False, same as compute.py's own convention
+    assert bool(row["ATH_Sales_Flag"]) is False
+
+
+def test_signal_columns_includes_ath_profit_and_sales():
+    assert {"TTM_Net_Profit", "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales_Flag"} <= set(sc.SIGNAL_COLUMNS)
+
+
+# ---------------------------------------------------------------------------
 # fetch_nifty50_reference / compute_universe_drawdown (2026-11-22) -- the Nifty-50-anchored
 # drawdown comparison. yfinance/data_feed are both stubbed -- no live network.
 # ---------------------------------------------------------------------------

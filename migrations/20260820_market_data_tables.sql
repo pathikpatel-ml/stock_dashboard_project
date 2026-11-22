@@ -286,6 +286,14 @@ CREATE TABLE IF NOT EXISTS turtlequant_signals_latest (
     sector               TEXT,
     industry             TEXT,
     current_price        DOUBLE PRECISION,
+    -- ATH Profit/Sales (2026-11-22, per explicit user request) -- same computation as Turtle
+    -- Strategy's own turtle_signals_latest.ath_profit_flag/ath_sales_flag (modules/turtle/
+    -- compute.py::ath_profit_flag/ath_sales_flag), from the SAME shared turtle_fundamentals
+    -- data, not a cross-tab read of Turtle Strategy's own output table.
+    ttm_net_profit       DOUBLE PRECISION,
+    ath_profit_flag      BOOLEAN,
+    ttm_net_sales        DOUBLE PRECISION,
+    ath_sales_flag       BOOLEAN,
     -- Turtle Quant's 9 fundamental quality/valuation flags (2026-10-01) -- see
     -- turtle_fundamentals' own column comment above for the full explanation; same values,
     -- threaded through by modules/turtlequant/screener.py the same way Broad_Sector/Sector are.
@@ -378,6 +386,11 @@ CREATE TABLE IF NOT EXISTS turtlequant_nifty_benchmark (
 --       DROP COLUMN IF EXISTS growth_category_flag,
 --       DROP COLUMN IF EXISTS red_flag_category_flag,
 --       DROP COLUMN IF EXISTS value_category_flag;
+--   ALTER TABLE turtlequant_signals_latest
+--       ADD COLUMN IF NOT EXISTS ttm_net_profit DOUBLE PRECISION,
+--       ADD COLUMN IF NOT EXISTS ath_profit_flag BOOLEAN,
+--       ADD COLUMN IF NOT EXISTS ttm_net_sales DOUBLE PRECISION,
+--       ADD COLUMN IF NOT EXISTS ath_sales_flag BOOLEAN;
 
 -- ---------------------------------------------------------------
 -- 8. V20 signals -- "latest" only, NOT the same hybrid shape as Turtle.

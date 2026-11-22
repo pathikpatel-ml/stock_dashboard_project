@@ -42,6 +42,10 @@ SIGNALS_TEMPLATE = "turtlequant_signals_{date_str}.csv"
 _SIGNALS_DB_COLUMNS = {
     "Symbol": "symbol", "Company": "company", "Broad_Sector": "broad_sector",
     "Sector": "sector", "Industry": "industry", "Current_Price": "current_price",
+    # 2026-11-22 (per explicit user request): ATH Profit/Sales flags, same shared
+    # turtle_fundamentals-derived computation Turtle Strategy's own table uses.
+    "TTM_Net_Profit": "ttm_net_profit", "ATH_Profit_Flag": "ath_profit_flag",
+    "TTM_Net_Sales": "ttm_net_sales", "ATH_Sales_Flag": "ath_sales_flag",
     # 2026-10-01: the 9 fundamental quality/valuation flags (CamelCase -> snake_case, same
     # pairing as modules/turtlequant/screener.py's QUALITY_COLUMNS <-> quality_flags.QUALITY_FIELD_NAMES).
     **dict(zip(sc.QUALITY_COLUMNS, qf.QUALITY_FIELD_NAMES)),

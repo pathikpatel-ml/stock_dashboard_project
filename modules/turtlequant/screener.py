@@ -25,6 +25,7 @@ import pandas as pd
 import yfinance as yf
 
 from modules.breakout import data_feed
+from modules.turtle import compute as tt_compute
 from modules.turtle import constants as C
 from modules.turtle import quality_flags as qf
 from modules.turtle import screener as tt_screener
@@ -52,9 +53,17 @@ QUALITY_COLUMNS = [
     "PFCF_Current", "PFCF_5Y_Avg", "PFCF_Flag",
 ]
 
+# TTM Profit/Sales + their ATH flags (2026-11-22, per explicit user request): "ATH" here means
+# the SAME thing it does on the Turtle Strategy tab -- consolidated TTM Net Profit/Net Sales
+# (screener.in) at/above the max annual figure on record, computed via the exact same pure
+# functions (modules/turtle/compute.py::ath_profit_flag/ath_sales_flag) from the exact same
+# shared turtle_fundamentals data both tabs already read -- not a separate computation, and not
+# a cross-tab dependency on Turtle Strategy's own output table (turtle_signals_latest).
+_ATH_COLUMNS = ["TTM_Net_Profit", "ATH_Profit_Flag", "TTM_Net_Sales", "ATH_Sales_Flag"]
+
 SIGNAL_COLUMNS = [
     "Symbol", "Company", "Broad_Sector", "Sector", "Industry", "Current_Price",
-] + QUALITY_COLUMNS
+] + _ATH_COLUMNS + QUALITY_COLUMNS
 
 
 def _is_valid_str(value) -> bool:
@@ -76,6 +85,10 @@ def screen_symbol(
     current_price,
     broad_sector=None,
     quality: Optional[dict] = None,
+    ttm_net_profit=None,
+    max_annual_net_profit=None,
+    ttm_net_sales=None,
+    max_annual_net_sales=None,
 ) -> Dict:
     """Build one symbol's Turtle Quant row -- pure, no I/O, never raises."""
     quality = quality or {}
@@ -89,6 +102,10 @@ def screen_symbol(
         "Sector": sector,
         "Industry": industry,
         "Current_Price": current_price,
+        "TTM_Net_Profit": ttm_net_profit,
+        "ATH_Profit_Flag": tt_compute.ath_profit_flag(ttm_net_profit, max_annual_net_profit),
+        "TTM_Net_Sales": ttm_net_sales,
+        "ATH_Sales_Flag": tt_compute.ath_sales_flag(ttm_net_sales, max_annual_net_sales),
         **quality_row,
     }
 
@@ -137,6 +154,10 @@ def run_pipeline(
             urow.get("Current_Price"),
             broad_sector=broad_sector,
             quality=quality,
+            ttm_net_profit=fundamentals.get("ttm_net_profit"),
+            max_annual_net_profit=fundamentals.get("max_annual_net_profit"),
+            ttm_net_sales=fundamentals.get("ttm_net_sales"),
+            max_annual_net_sales=fundamentals.get("max_annual_net_sales"),
         ))
 
     if verbose:

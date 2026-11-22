@@ -41,9 +41,16 @@ _DRAWDOWN_DISPLAY_COLUMNS = [
     "Stock_ATH_Return_Pct", "Stock_52WkLow_Return_Pct",
 ]
 
+# 2026-11-22 (per explicit user request): ATH Profit/Sales -- same computation Turtle Strategy's
+# own table uses (modules/turtle/compute.py::ath_profit_flag/ath_sales_flag), from the SAME
+# shared turtle_fundamentals data both tabs read; TTM_Net_Profit/TTM_Net_Sales are computed too
+# but deliberately not displayed (table-width reduction), same choice Turtle Strategy's own
+# dashboard already made for these exact two figures.
+_ATH_DISPLAY_COLUMNS = ["ATH_Profit_Flag", "ATH_Sales_Flag"]
+
 _DISPLAY_COLUMNS = [
     "Symbol", "Indices", "Broad_Sector", "Sector", "Industry", "Current_Price",
-] + _DRAWDOWN_DISPLAY_COLUMNS
+] + _ATH_DISPLAY_COLUMNS + _DRAWDOWN_DISPLAY_COLUMNS
 
 _EXTRA_DISPLAY_NAMES = {
     "RS_vs_Nifty_ATH": "NiftyATH vs Stock",
@@ -78,6 +85,17 @@ _COLUMN_TOOLTIPS = {
     ),
     "Industry": "More specific industry classification within the sector (Yahoo Finance).",
     "Current_Price": "Latest daily close price.",
+    "ATH_Profit_Flag": (
+        "True if consolidated TTM Net Profit is at/above the highest annual Net Profit on "
+        "record (any year, including the latest) -- same computation as the Turtle Strategy "
+        "tab's own ATH_Profit_Flag, from the same shared turtle_fundamentals data.\n\n"
+        "`ATH_Profit_Flag = TTM_Net_Profit ≥ max(all annual Net Profit years)`"
+    ),
+    "ATH_Sales_Flag": (
+        "True if consolidated TTM Net Sales is at/above the highest annual sales on record "
+        "(any year, including the latest) -- same shape as ATH_Profit_Flag.\n\n"
+        "`ATH_Sales_Flag = TTM_Net_Sales ≥ max(all annual Net Sales years)`"
+    ),
     "NiftyATH vs Stock": (
         "Stock ATH Return% minus Nifty ATH Return% (percentage points). Positive = this stock "
         "has outperformed Nifty 50 since Nifty's all-time-high date; negative = underperformed."

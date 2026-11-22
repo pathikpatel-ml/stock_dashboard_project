@@ -113,6 +113,9 @@ _CATEGORIES_FROM_DB = {"symbol": "Symbol", "nse_categories": "NSE_Categories"}
 _TURTLEQUANT_SIGNALS_FROM_DB = {
     "symbol": "Symbol", "company": "Company", "broad_sector": "Broad_Sector",
     "sector": "Sector", "industry": "Industry", "current_price": "Current_Price",
+    # ATH Profit/Sales (2026-11-22) -- same shared computation as Turtle Strategy's own table.
+    "ttm_net_profit": "TTM_Net_Profit", "ath_profit_flag": "ATH_Profit_Flag",
+    "ttm_net_sales": "TTM_Net_Sales", "ath_sales_flag": "ATH_Sales_Flag",
     # Fundamental quality/valuation flags (2026-10-01) -- snake_case DB columns -> the CamelCase
     # names modules/turtlequant/screener.py::QUALITY_COLUMNS and callbacks.py's _DISPLAY_COLUMNS
     # expect. BUG FIX 2026-10-02: these were missing from this map entirely, so the flags sat in
