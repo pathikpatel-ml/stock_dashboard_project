@@ -2,15 +2,25 @@ name: Generate Turtle Quant Signals
 
 on:
   schedule:
-    # 02:37 UTC Sunday -- after turtle_fundamentals.yml's weekly screener.in scrape (2026-10-13:
-    # that workflow's own schedule moved to Saturday 19:30 UTC per the user's explicit request,
-    # so this is now a ~7hr gap rather than ~30min -- intentionally generous buffer, since that
-    # job has been observed taking anywhere from ~70min to its full 360min timeout). 2026-10-02:
-    # the original weekly-candle technical signal system that motivated this exact timing was
-    # removed; kept the same slot since it still serves the (now sole) purpose of propagating
-    # turtle_fundamentals -> this table. 2026-10-07: moved off the round :30 minute -- see
-    # daily_gtt_trigger.yml's schedule comment for why.
-    - cron: '37 2 * * 0'
+    # 17:47 UTC Sunday (2026-11-22, per explicit user request -- fixing a staleness gap this
+    # schedule had quietly developed): turtle_fundamentals.yml was redesigned mid-session into
+    # 7 slices spread across Sat 19:37 UTC -> Sun 13:37 UTC, with turtle_fundamentals_watchdog.yml
+    # able to retrigger a straggler as late as ~17:17 UTC Sunday (see that workflow's own schedule
+    # comment). The OLD 02:37 UTC slot below predates both of those changes -- it assumed
+    # turtle_fundamentals.yml was a single run finishing within a few hours of its old Saturday
+    # 19:30 UTC start, so 02:37 UTC was safely "after" it. Once the 7-slice/watchdog redesign
+    # landed, this job kept firing at 02:37 UTC regardless, meaning only 1-2 of the week's 7
+    # slices were ever fresh by the time this ran -- the other 5-6/7 of turtle_fundamentals was
+    # still the PREVIOUS week's data. 17:47 UTC gives the full cycle (all 7 slices + any
+    # watchdog retries) 30min of slack to finish before this reads it.
+    #
+    # Prior history: originally 02:37 UTC, after turtle_fundamentals.yml's old single-run
+    # Saturday 19:30 UTC schedule (2026-10-13, ~7hr gap, generous buffer for a job observed
+    # taking 70-360min). 2026-10-02: the weekly-candle technical signal system that motivated
+    # this exact timing was removed; kept the same slot since it still served the (now sole)
+    # purpose of propagating turtle_fundamentals -> this table. 2026-10-07: moved off the round
+    # :30 minute -- see daily_gtt_trigger.yml's schedule comment for why.
+    - cron: '47 17 * * 0'
   workflow_dispatch:
 
 jobs:
